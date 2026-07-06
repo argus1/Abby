@@ -93,6 +93,9 @@ export function PredictionPage() {
             {stubPrediction.plannedOutputs.exports.map((item) => (
               <li key={item}>{item}</li>
             ))}
+            {stubPrediction.plannedOutputs.exportNotes?.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
           </ul>
           <div className="inline-actions">
             <button className="button">Download contact list (stub)</button>
@@ -113,6 +116,26 @@ export function PredictionPage() {
           <p className="muted">Model bundle: {prediction.provenance.model_bundle_version}</p>
           <p className="muted">Preprocess version: {prediction.provenance.preprocess_version}</p>
           <p className="muted">Descriptor hash: {prediction.provenance.descriptor_hash}</p>
+          <p className="muted">
+            Contact cutoff: {prediction.provenance.contact_distance_cutoff_angstrom.toFixed(2)} Å
+          </p>
+        </section>
+      )}
+
+      {prediction?.provenance && (
+        <section className="card">
+          <h3>Export bundle notes</h3>
+          <p className="muted">
+            Downloaded CSV/JSON and descriptor bundle exports retain the configured contact cutoff
+            so results can be audited without opening raw JSON.
+          </p>
+          <ul className="bullet-list compact">
+            <li>
+              Contact cutoff used: {prediction.provenance.contact_distance_cutoff_angstrom.toFixed(2)} Å
+            </li>
+            <li>Descriptor hash: {prediction.provenance.descriptor_hash}</li>
+            <li>Model bundle: {prediction.provenance.model_bundle_version}</li>
+          </ul>
         </section>
       )}
     </div>

@@ -13,11 +13,13 @@ from abby_api.repositories.memory import (
     set_structure_summary,
     set_validation,
 )
+from abby_api.schemas.common import PredictionMode
 from abby_api.schemas.structures import (
     ChainMapping,
     StructureDetail,
     StructureInput,
     StructureSummary,
+    StructureValidationIssue,
     StructureValidationRequest,
     StructureValidationResult,
 )
@@ -35,7 +37,7 @@ def _normalize_format(filename: str) -> str:
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported structure format.")
 
 
-async def upload_structure(file: UploadFile, mode: str) -> StructureInput:
+async def upload_structure(file: UploadFile, mode: PredictionMode) -> StructureInput:
     payload = await file.read()
     format_name = _normalize_format(file.filename or "")
     structure_id = uuid4()
@@ -71,17 +73,45 @@ def normalize_chain_groups(chains: ChainMapping) -> ChainMapping:
     return ChainMapping(partner_1=partner_1, partner_2=partner_2)
 
 
-def validate_partner_mapping(summary: StructureSummary, chains: ChainMapping) -> tuple[list[str], list[str], dict[str, int]]:
+def validate_partner_mapping(
+    summary: StructureSummary,
+    chains: ChainMapping,
+) -> tuple[
+    list[str],
+    list[str],
+    dict[str, int],
+    list[StructureValidationIssue],
+    list[StructureValidationIssue],
+]:
     warnings = list(summary.warnings)
+    warning_details = list(summary.warning_details)
     errors: list[str] = []
+    error_details: list[StructureValidationIssue] = []
     normalized = normalize_chain_groups(chains)
 
     if not normalized.partner_1 or not normalized.partner_2:
         errors.append("EMPTY_PARTNER_SELECTION")
+        error_details.append(
+            StructureValidationIssue(
+                code="EMPTY_PARTNER_SELECTION",
+                message="Both partner groups must contain at least one chain.",
+                details={
+                    "partner_1_count": len(normalized.partner_1),
+                    "partner_2_count": len(normalized.partner_2),
+                },
+            )
+        )
 
     overlap = set(normalized.partner_1) & set(normalized.partner_2)
     if overlap:
         errors.append("CHAIN_GROUP_OVERLAP")
+        error_details.append(
+            StructureValidationIssue(
+                code="CHAIN_GROUP_OVERLAP",
+                message="A chain cannot belong to both partner groups.",
+                details={"overlap": sorted(overlap)},
+            )
+        )
 
     missing = [
         chain
@@ -90,12 +120,22 @@ def validate_partner_mapping(summary: StructureSummary, chains: ChainMapping) ->
     ]
     if missing:
         errors.append("UNKNOWN_CHAIN_SELECTION")
+        error_details.append(
+            StructureValidationIssue(
+                code="UNKNOWN_CHAIN_SELECTION",
+                message="One or more selected chains are not present in the parsed structure.",
+                details={
+                    "missing_chains": sorted(set(missing)),
+                    "available_chains": summary.available_chains,
+                },
+            )
+        )
 
     partner_residue_counts = {
         "partner_1": sum(summary.residue_counts.get(chain, 0) for chain in normalized.partner_1),
         "partner_2": sum(summary.residue_counts.get(chain, 0) for chain in normalized.partner_2),
     }
-    return warnings, errors, partner_residue_counts
+    return warnings, errors, partner_residue_counts, warning_details, error_details
 
 
 def summarize_structure_detail(structure_id: UUID) -> StructureSummary:
@@ -120,7 +160,10 @@ def validate_structure(request: StructureValidationRequest) -> StructureValidati
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Unable to summarize structure.")
 
     normalized_groups = normalize_chain_groups(request.chains)
-    warnings, errors, partner_residue_counts = validate_partner_mapping(detail.summary, normalized_groups)
+    warnings, errors, partner_residue_counts, warning_details, error_details = validate_partner_mapping(
+        detail.summary,
+        normalized_groups,
+    )
     normalized = "mmcif" if detail.format in {"mmcif", "cif"} else "pdb"
     result = StructureValidationResult(
         valid=not errors,
@@ -131,7 +174,9 @@ def validate_structure(request: StructureValidationRequest) -> StructureValidati
         chain_groups=normalized_groups,
         partner_residue_counts=partner_residue_counts,
         warnings=warnings,
+        warning_details=warning_details,
         errors=errors,
+        error_details=error_details,
     )
     set_validation(request.structure_id, result)
     detail.chains = normalized_groups

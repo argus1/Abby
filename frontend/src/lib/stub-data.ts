@@ -65,5 +65,6 @@ export const stubPrediction = {
     surface: ['relative solvent accessibility', 'surface composition buckets'],
     baseline: ['ΔG baseline', 'log(K) baseline', 'Kd derivation'],
     exports: ['contact list CSV', 'PyMOL script', 'JSON descriptor bundle'],
+    exportNotes: ['Exports preserve contact cutoff provenance for auditability'],
   },
 };

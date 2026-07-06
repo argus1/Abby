@@ -105,6 +105,7 @@ export interface PredictionResult {
     model_bundle_version: string;
     preprocess_version: string;
     descriptor_hash: string;
+    contact_distance_cutoff_angstrom: number;
     created_at: string;
   } | null;
 }

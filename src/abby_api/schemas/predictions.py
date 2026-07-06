@@ -21,6 +21,7 @@ class PredictionOptions(AbbyBaseModel):
     return_all_models: bool = False
     include_explainability: bool = True
     temperature_kelvin: float = 298.15
+    contact_distance_cutoff_angstrom: float = Field(default=5.5, gt=0.0, le=20.0)
 
 
 class PredictionRequest(AbbyBaseModel):

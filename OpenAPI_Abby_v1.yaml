@@ -211,6 +211,8 @@ paths:
                     properties:
                       validation:
                         $ref: '#/components/schemas/StructureValidationResult'
+                      summary:
+                        $ref: '#/components/schemas/StructureSummary'
         '404':
           $ref: '#/components/responses/NotFound'
   /predictions:
@@ -509,6 +511,53 @@ components:
         chains:
           $ref: '#/components/schemas/ChainMapping'
       required: [structure_id, mode, chains]
+    StructureValidationIssue:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+      required: [code, message, details]
+    StructureSummary:
+      type: object
+      properties:
+        parser_name:
+          type: string
+        model_count:
+          type: integer
+        available_chains:
+          type: array
+          items:
+            type: string
+        residue_counts:
+          type: object
+          additionalProperties:
+            type: integer
+        warnings:
+          type: array
+          items:
+            type: string
+        warning_details:
+          type: array
+          items:
+            $ref: '#/components/schemas/StructureValidationIssue'
+        metadata:
+          type: object
+          additionalProperties: true
+      required:
+        [
+          parser_name,
+          model_count,
+          available_chains,
+          residue_counts,
+          warnings,
+          warning_details,
+          metadata,
+        ]
     StructureValidationResult:
       type: object
       properties:
@@ -521,15 +570,47 @@ components:
           type: object
           additionalProperties:
             type: string
+        available_chains:
+          type: array
+          items:
+            type: string
+        model_count:
+          type: integer
+        chain_groups:
+          $ref: '#/components/schemas/ChainMapping'
+        partner_residue_counts:
+          type: object
+          additionalProperties:
+            type: integer
         warnings:
           type: array
           items:
             type: string
+        warning_details:
+          type: array
+          items:
+            $ref: '#/components/schemas/StructureValidationIssue'
         errors:
           type: array
           items:
             type: string
-      required: [valid, normalized_format, warnings, errors]
+        error_details:
+          type: array
+          items:
+            $ref: '#/components/schemas/StructureValidationIssue'
+      required:
+        [
+          valid,
+          normalized_format,
+          inferred_roles,
+          available_chains,
+          model_count,
+          partner_residue_counts,
+          warnings,
+          warning_details,
+          errors,
+          error_details,
+        ]
     PredictionOptions:
       type: object
       properties:
@@ -542,6 +623,11 @@ components:
         temperature_kelvin:
           type: number
           default: 298.15
+        contact_distance_cutoff_angstrom:
+          type: number
+          default: 5.5
+          minimum: 0.000001
+          maximum: 20.0
       additionalProperties: false
     PredictionRequest:
       type: object
@@ -606,10 +692,13 @@ components:
           type: string
         descriptor_hash:
           type: string
+        contact_distance_cutoff_angstrom:
+          type: number
         created_at:
           type: string
           format: date-time
-      required: [model_bundle_version, preprocess_version, descriptor_hash, created_at]
+      required:
+        [model_bundle_version, preprocess_version, descriptor_hash, contact_distance_cutoff_angstrom, created_at]
     PredictionResult:
       type: object
       properties:

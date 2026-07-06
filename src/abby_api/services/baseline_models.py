@@ -28,11 +28,21 @@ def _feature(descriptors: dict[str, float], name: str, default: float = 0.0) -> 
 
 
 def score_ic_nis_baseline(descriptors: dict[str, float]) -> BaselineScore:
+    apolar_fraction = _feature(
+        descriptors,
+        "sasa_apolar_fraction",
+        default=_feature(descriptors, "global_apolar_fraction"),
+    )
+    charged_fraction = _feature(
+        descriptors,
+        "sasa_charged_fraction",
+        default=_feature(descriptors, "global_charged_fraction"),
+    )
     log_k = (
         -5.85
         - (0.18 * _feature(descriptors, "interface_contact_proxy"))
-        - (0.90 * _feature(descriptors, "global_apolar_fraction"))
-        + (0.35 * _feature(descriptors, "global_charged_fraction"))
+        - (0.90 * apolar_fraction)
+        + (0.35 * charged_fraction)
         - (0.25 * _feature(descriptors, "partner_size_ratio"))
         - (0.20 * _feature(descriptors, "antibody_mode_flag"))
     )
@@ -40,12 +50,27 @@ def score_ic_nis_baseline(descriptors: dict[str, float]) -> BaselineScore:
 
 
 def score_surface_balance_baseline(descriptors: dict[str, float]) -> BaselineScore:
+    aromatic_fraction = _feature(
+        descriptors,
+        "sasa_aromatic_fraction",
+        default=_feature(descriptors, "global_aromatic_fraction"),
+    )
+    apolar_fraction = _feature(
+        descriptors,
+        "sasa_apolar_fraction",
+        default=_feature(descriptors, "global_apolar_fraction"),
+    )
+    polar_fraction = _feature(
+        descriptors,
+        "sasa_polar_fraction",
+        default=_feature(descriptors, "global_polar_fraction"),
+    )
     log_k = (
         -5.10
         - (0.55 * _feature(descriptors, "interface_density_proxy"))
-        - (0.70 * _feature(descriptors, "global_aromatic_fraction"))
-        - (0.45 * _feature(descriptors, "global_apolar_fraction"))
-        + (0.25 * _feature(descriptors, "global_polar_fraction"))
+        - (0.70 * aromatic_fraction)
+        - (0.45 * apolar_fraction)
+        + (0.25 * polar_fraction)
         - (0.10 * _feature(descriptors, "multi_model_flag"))
     )
     return BaselineScore(model_id="surface_balance_v1", log_k=round(log_k, 2), r_validation=0.73)

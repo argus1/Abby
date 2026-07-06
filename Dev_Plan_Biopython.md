@@ -63,6 +63,16 @@ To feed your MD trajectories into a machine learning model, you can use BioPytho
 
 **Critical Gap:** While BioPython is excellent for structure manipulation, it does not natively handle the large trajectory files (`.xtc` or `.dcd`) produced by GROMACS. You should pair BioPython with **MDAnalysis** to loop through MD frames and extract the averaged structural coordinates for your final ML affinity prediction.
 
+### **5. GROMACS Integration Boundary**
+
+GROMACS should be treated as an **optional simulation backend** rather than a mandatory part of Abby's core v1 upload-and-predict path.
+
+* **v1 scope:** support MD-ready preprocessing, topology handoff metadata, and import of externally generated GROMACS outputs.
+* **v1.1 scope:** add an async worker path that can launch GROMACS jobs, capture run provenance, and store derived trajectory summaries.
+* **Implementation detail:** keep BioPython responsible for parsing, chain normalization, and connectivity preservation; keep GROMACS responsible for minimization/simulation; keep MDAnalysis responsible for trajectory traversal and aggregation.
+* **Provenance requirements:** record force field, water model, ion settings, equilibration protocol, and random seed alongside any MD-derived features.
+* **Artifact contract:** persist the normalized structure, topology references, trajectory summary, and feature snapshot separately so downstream ML can re-use them without rerunning simulation.
+
 ## Relationship to product scope
 
 For Abby v1, this document should be treated as the implementation path for the ingestion, preprocessing, and feature-engineering layers described in [`V1_Product_Spec_Abby.md`](./V1_Product_Spec_Abby.md). In particular, it supports:

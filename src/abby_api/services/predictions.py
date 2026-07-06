@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 
 from abby_api.core.config import get_settings
 from abby_api.repositories.memory import (
+    get_structure_file,
     get_structure,
     save_feature_summary_artifact,
     save_prediction,
@@ -25,9 +26,12 @@ from abby_api.services.baseline_models import (
 )
 from abby_api.services.feature_extraction import (
     build_descriptor_bundle,
+    calculate_inter_partner_contacts,
+    calculate_solvent_accessibility,
     make_explainability_summary,
     make_feature_summary,
 )
+from abby_api.services.structure_parsing import parse_structure_file
 from abby_api.storage.object_store import ObjectStore
 
 
@@ -46,6 +50,7 @@ def _persist_feature_summary_artifact(
         "structure_id": str(request.structure_id),
         "mode": request.mode,
         "descriptor_hash": descriptor_hash,
+        "contact_distance_cutoff_angstrom": request.options.contact_distance_cutoff_angstrom,
         "feature_summary": feature_summary_payload,
     }
     object_store.put_json(artifact_key, artifact_payload)
@@ -76,7 +81,36 @@ def create_prediction(request: PredictionRequest) -> PredictionQueuedResponse:
             detail="Structure summary is required before prediction.",
         )
 
-    bundle = build_descriptor_bundle(structure.summary, structure.validation, request.mode)
+    contact_observation = None
+    solvent_accessibility = None
+    structure_file = get_structure_file(request.structure_id)
+    if structure_file is not None:
+        try:
+            parsed_structure, _ = parse_structure_file(
+                structure_file,
+                "mmcif" if structure.format in {"mmcif", "cif"} else "pdb",
+            )
+            contact_observation = calculate_inter_partner_contacts(
+                parsed_structure,
+                structure.validation,
+                distance_cutoff=request.options.contact_distance_cutoff_angstrom,
+            )
+            solvent_accessibility = calculate_solvent_accessibility(
+                parsed_structure,
+                structure.validation,
+            )
+        except Exception:
+            contact_observation = None
+            solvent_accessibility = None
+
+    bundle = build_descriptor_bundle(
+        structure.summary,
+        structure.validation,
+        request.mode,
+        contact_observation=contact_observation,
+        solvent_accessibility=solvent_accessibility,
+        contact_distance_cutoff=request.options.contact_distance_cutoff_angstrom,
+    )
     scoring = run_baseline_affinity_models(bundle.descriptors)
     log_k = scoring.consensus_log_k
     delta_g = derive_delta_g_kcal_mol(log_k, request.options.temperature_kelvin)
@@ -131,6 +165,7 @@ def create_prediction(request: PredictionRequest) -> PredictionQueuedResponse:
             model_bundle_version=settings.model_bundle_version,
             preprocess_version=settings.preprocess_version,
             descriptor_hash=bundle.descriptor_hash,
+            contact_distance_cutoff_angstrom=request.options.contact_distance_cutoff_angstrom,
             created_at=datetime.now(timezone.utc),
         ),
     )

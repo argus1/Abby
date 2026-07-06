@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 from json import dumps
+from typing import Any
 
 from abby_api.schemas.common import DescriptorContribution, Explainability, PredictionMode
 from abby_api.schemas.predictions import FeatureSummary
@@ -48,6 +49,23 @@ class DescriptorBundle:
     descriptor_hash: str
 
 
+@dataclass(frozen=True)
+class ContactObservation:
+    total_contacts: int
+    contact_bins: dict[str, int]
+    interface_residue_counts: dict[str, int]
+    notes: list[str]
+
+
+@dataclass(frozen=True)
+class SolventAccessibilityObservation:
+    total_sasa: float
+    partner_sasa: dict[str, float]
+    class_sasa_fractions: dict[str, float]
+    accessible_residue_count: int
+    notes: list[str]
+
+
 def _partner_chain_class_counts(
     summary: StructureSummary,
     chains: list[str],
@@ -71,10 +89,248 @@ def _build_descriptor_hash(payload: dict[str, object]) -> str:
     return sha256(serialized.encode("utf-8")).hexdigest()
 
 
+def _residue_name(residue: Any) -> str:
+    value = residue.get_resname() if hasattr(residue, "get_resname") else getattr(residue, "resname", "UNK")
+    return str(value).strip().upper()
+
+
+def _residue_atom_coords(residue: Any) -> list[tuple[float, float, float]]:
+    if hasattr(residue, "get_atoms"):
+        coords: list[tuple[float, float, float]] = []
+        for atom in residue.get_atoms():
+            if hasattr(atom, "get_coord"):
+                coord = atom.get_coord()
+                coords.append((float(coord[0]), float(coord[1]), float(coord[2])))
+            elif isinstance(atom, tuple) and len(atom) == 3:
+                coords.append((float(atom[0]), float(atom[1]), float(atom[2])))
+        return coords
+    return []
+
+
+def _iter_residues_by_chain(model: Any) -> dict[str, list[Any]]:
+    residues_by_chain: dict[str, list[Any]] = {}
+    for chain in model.get_chains():
+        chain_id = str(getattr(chain, "id", "")).strip()
+        if not chain_id:
+            continue
+        residues: list[Any] = []
+        for residue in chain.get_residues():
+            residue_id = getattr(residue, "id", None)
+            if isinstance(residue_id, tuple) and residue_id and residue_id[0] != " ":
+                continue
+            residues.append(residue)
+        residues_by_chain[chain_id] = residues
+    return residues_by_chain
+
+
+def _to_contact_letter(residue_class: str) -> str:
+    if residue_class == "charged":
+        return "C"
+    if residue_class == "polar":
+        return "P"
+    if residue_class in {"apolar", "aromatic"}:
+        return "A"
+    return "P"
+
+
+def calculate_inter_partner_contacts(
+    structure: Any,
+    validation: StructureValidationResult,
+    distance_cutoff: float = 5.5,
+) -> ContactObservation:
+    if validation.chain_groups is None:
+        return ContactObservation(
+            total_contacts=0,
+            contact_bins={"AA": 0, "PP": 0, "CC": 0, "AP": 0, "CP": 0, "AC": 0},
+            interface_residue_counts={"partner_1": 0, "partner_2": 0},
+            notes=["MISSING_CHAIN_GROUPS_FOR_CONTACTS"],
+        )
+
+    models = list(structure.get_models()) if hasattr(structure, "get_models") else []
+    if not models:
+        return ContactObservation(
+            total_contacts=0,
+            contact_bins={"AA": 0, "PP": 0, "CC": 0, "AP": 0, "CP": 0, "AC": 0},
+            interface_residue_counts={"partner_1": 0, "partner_2": 0},
+            notes=["NO_MODELS_AVAILABLE_FOR_CONTACTS"],
+        )
+
+    model = models[0]
+    residues_by_chain = _iter_residues_by_chain(model)
+
+    partner_1_residues = [
+        residue
+        for chain_id in validation.chain_groups.partner_1
+        for residue in residues_by_chain.get(chain_id, [])
+    ]
+    partner_2_residues = [
+        residue
+        for chain_id in validation.chain_groups.partner_2
+        for residue in residues_by_chain.get(chain_id, [])
+    ]
+
+    contact_bins: dict[str, int] = {"AA": 0, "PP": 0, "CC": 0, "AP": 0, "CP": 0, "AC": 0}
+    interface_partner_1: set[tuple[Any, ...]] = set()
+    interface_partner_2: set[tuple[Any, ...]] = set()
+
+    d2_cutoff = float(distance_cutoff) ** 2
+
+    for residue_1 in partner_1_residues:
+        atoms_1 = _residue_atom_coords(residue_1)
+        if not atoms_1:
+            continue
+        for residue_2 in partner_2_residues:
+            atoms_2 = _residue_atom_coords(residue_2)
+            if not atoms_2:
+                continue
+
+            has_contact = False
+            for atom_1 in atoms_1:
+                for atom_2 in atoms_2:
+                    dx = atom_1[0] - atom_2[0]
+                    dy = atom_1[1] - atom_2[1]
+                    dz = atom_1[2] - atom_2[2]
+                    if (dx * dx) + (dy * dy) + (dz * dz) <= d2_cutoff:
+                        has_contact = True
+                        break
+                if has_contact:
+                    break
+
+            if not has_contact:
+                continue
+
+            class_1 = _to_contact_letter(classify_residue(_residue_name(residue_1)))
+            class_2 = _to_contact_letter(classify_residue(_residue_name(residue_2)))
+            contact_key = "".join(sorted((class_1, class_2)))
+            if contact_key in contact_bins:
+                contact_bins[contact_key] += 1
+
+            residue_1_id = getattr(residue_1, "id", (id(residue_1),))
+            residue_2_id = getattr(residue_2, "id", (id(residue_2),))
+            interface_partner_1.add(tuple(residue_1_id) if isinstance(residue_1_id, tuple) else (residue_1_id,))
+            interface_partner_2.add(tuple(residue_2_id) if isinstance(residue_2_id, tuple) else (residue_2_id,))
+
+    total_contacts = sum(contact_bins.values())
+    notes: list[str] = []
+    if total_contacts == 0:
+        notes.append("NO_INTER_PARTNER_CONTACTS")
+
+    return ContactObservation(
+        total_contacts=total_contacts,
+        contact_bins=contact_bins,
+        interface_residue_counts={
+            "partner_1": len(interface_partner_1),
+            "partner_2": len(interface_partner_2),
+        },
+        notes=notes,
+    )
+
+
+def calculate_solvent_accessibility(
+    structure: Any,
+    validation: StructureValidationResult,
+) -> SolventAccessibilityObservation:
+    empty_fractions = {
+        "charged": 0.0,
+        "polar": 0.0,
+        "apolar": 0.0,
+        "aromatic": 0.0,
+        "other": 0.0,
+    }
+    if validation.chain_groups is None:
+        return SolventAccessibilityObservation(
+            total_sasa=0.0,
+            partner_sasa={"partner_1": 0.0, "partner_2": 0.0},
+            class_sasa_fractions=empty_fractions,
+            accessible_residue_count=0,
+            notes=["MISSING_CHAIN_GROUPS_FOR_SASA"],
+        )
+
+    models = list(structure.get_models()) if hasattr(structure, "get_models") else []
+    if not models:
+        return SolventAccessibilityObservation(
+            total_sasa=0.0,
+            partner_sasa={"partner_1": 0.0, "partner_2": 0.0},
+            class_sasa_fractions=empty_fractions,
+            accessible_residue_count=0,
+            notes=["NO_MODELS_AVAILABLE_FOR_SASA"],
+        )
+
+    model = models[0]
+    if not hasattr(model, "get_atoms"):
+        return SolventAccessibilityObservation(
+            total_sasa=0.0,
+            partner_sasa={"partner_1": 0.0, "partner_2": 0.0},
+            class_sasa_fractions=empty_fractions,
+            accessible_residue_count=0,
+            notes=["SASA_UNAVAILABLE_FOR_FALLBACK_PARSER"],
+        )
+
+    try:
+        from Bio.PDB.SASA import ShrakeRupley
+    except ModuleNotFoundError:
+        return SolventAccessibilityObservation(
+            total_sasa=0.0,
+            partner_sasa={"partner_1": 0.0, "partner_2": 0.0},
+            class_sasa_fractions=empty_fractions,
+            accessible_residue_count=0,
+            notes=["SASA_UNAVAILABLE_NO_BIOPYTHON"],
+        )
+
+    try:
+        ShrakeRupley().compute(model, level="R")
+    except Exception:
+        return SolventAccessibilityObservation(
+            total_sasa=0.0,
+            partner_sasa={"partner_1": 0.0, "partner_2": 0.0},
+            class_sasa_fractions=empty_fractions,
+            accessible_residue_count=0,
+            notes=["SASA_COMPUTE_FAILED"],
+        )
+
+    residues_by_chain = _iter_residues_by_chain(model)
+    class_sasa = {"charged": 0.0, "polar": 0.0, "apolar": 0.0, "aromatic": 0.0, "other": 0.0}
+    partner_sasa = {"partner_1": 0.0, "partner_2": 0.0}
+    accessible_residue_count = 0
+
+    def _accumulate(chain_ids: list[str], partner_name: str) -> None:
+        nonlocal accessible_residue_count
+        for chain_id in chain_ids:
+            for residue in residues_by_chain.get(chain_id, []):
+                sasa = float(getattr(residue, "sasa", 0.0) or 0.0)
+                if sasa <= 0.0:
+                    continue
+                accessible_residue_count += 1
+                partner_sasa[partner_name] += sasa
+                residue_class = classify_residue(_residue_name(residue))
+                class_sasa[residue_class] += sasa
+
+    _accumulate(validation.chain_groups.partner_1, "partner_1")
+    _accumulate(validation.chain_groups.partner_2, "partner_2")
+
+    total_sasa = sum(class_sasa.values())
+    denominator = max(total_sasa, 1e-12)
+    class_sasa_fractions = {k: round(v / denominator, 4) for k, v in class_sasa.items()}
+
+    return SolventAccessibilityObservation(
+        total_sasa=round(total_sasa, 4),
+        partner_sasa={
+            "partner_1": round(partner_sasa["partner_1"], 4),
+            "partner_2": round(partner_sasa["partner_2"], 4),
+        },
+        class_sasa_fractions=class_sasa_fractions,
+        accessible_residue_count=accessible_residue_count,
+        notes=[],
+    )
+
+
 def build_descriptor_bundle(
     summary: StructureSummary,
     validation: StructureValidationResult,
     mode: PredictionMode,
+    contact_observation: ContactObservation | None = None,
+    solvent_accessibility: SolventAccessibilityObservation | None = None,
+    contact_distance_cutoff: float = 5.5,
 ) -> DescriptorBundle:
     partner_1_chains = validation.chain_groups.partner_1 if validation.chain_groups else []
     partner_2_chains = validation.chain_groups.partner_2 if validation.chain_groups else []
@@ -95,24 +351,87 @@ def build_descriptor_bundle(
     }
     residue_class_fractions = _fractions(global_counts, total_residues)
 
-    paired_apolar = min(partner_1_class_counts["apolar"], partner_2_class_counts["apolar"])
-    paired_charged = min(partner_1_class_counts["charged"], partner_2_class_counts["charged"])
-    paired_polar = min(partner_1_class_counts["polar"], partner_2_class_counts["polar"])
-    interface_contact_proxy = round(
-        min(smaller_partner * 1.5, paired_apolar + paired_charged + paired_polar + 1),
+    fallback_paired_apolar = min(partner_1_class_counts["apolar"], partner_2_class_counts["apolar"])
+    fallback_paired_charged = min(partner_1_class_counts["charged"], partner_2_class_counts["charged"])
+    fallback_paired_polar = min(partner_1_class_counts["polar"], partner_2_class_counts["polar"])
+    fallback_contact_proxy = round(
+        min(smaller_partner * 1.5, fallback_paired_apolar + fallback_paired_charged + fallback_paired_polar + 1),
         4,
     )
 
+    if contact_observation is None:
+        interface_contact_proxy = fallback_contact_proxy
+        paired_apolar = float(fallback_paired_apolar)
+        paired_charged = float(fallback_paired_charged)
+        paired_polar = float(fallback_paired_polar)
+        interface_residue_count = float(min(partner_residues.values()))
+        contact_bins = {"AA": 0.0, "PP": 0.0, "CC": 0.0, "AP": 0.0, "CP": 0.0, "AC": 0.0}
+        contact_notes: list[str] = ["CONTACTS_FROM_SUMMARY_PROXY"]
+    else:
+        interface_contact_proxy = float(contact_observation.total_contacts)
+        paired_apolar = float(contact_observation.contact_bins.get("AA", 0))
+        paired_charged = float(contact_observation.contact_bins.get("CC", 0))
+        paired_polar = float(contact_observation.contact_bins.get("PP", 0))
+        interface_residue_count = float(
+            contact_observation.interface_residue_counts.get("partner_1", 0)
+            + contact_observation.interface_residue_counts.get("partner_2", 0)
+        )
+        contact_bins = {
+            key: float(value)
+            for key, value in contact_observation.contact_bins.items()
+        }
+        contact_notes = list(contact_observation.notes)
+
+    if solvent_accessibility is None:
+        sasa_total = 0.0
+        sasa_partner_1 = 0.0
+        sasa_partner_2 = 0.0
+        sasa_apolar_fraction = 0.0
+        sasa_charged_fraction = 0.0
+        sasa_polar_fraction = 0.0
+        sasa_aromatic_fraction = 0.0
+        accessible_residue_count = 0.0
+        sasa_notes = ["SASA_NOT_COMPUTED"]
+    else:
+        sasa_total = float(solvent_accessibility.total_sasa)
+        sasa_partner_1 = float(solvent_accessibility.partner_sasa.get("partner_1", 0.0))
+        sasa_partner_2 = float(solvent_accessibility.partner_sasa.get("partner_2", 0.0))
+        sasa_apolar_fraction = float(solvent_accessibility.class_sasa_fractions.get("apolar", 0.0))
+        sasa_charged_fraction = float(solvent_accessibility.class_sasa_fractions.get("charged", 0.0))
+        sasa_polar_fraction = float(solvent_accessibility.class_sasa_fractions.get("polar", 0.0))
+        sasa_aromatic_fraction = float(solvent_accessibility.class_sasa_fractions.get("aromatic", 0.0))
+        accessible_residue_count = float(solvent_accessibility.accessible_residue_count)
+        sasa_notes = list(solvent_accessibility.notes)
+        if sasa_total > 0.0:
+            residue_class_fractions = dict(solvent_accessibility.class_sasa_fractions)
+
     descriptors = {
         "total_residues": float(total_residues),
+        "contact_distance_cutoff_angstrom": round(float(contact_distance_cutoff), 3),
         "partner_1_residue_fraction": round(partner_residues["partner_1"] / total_residues, 4),
         "partner_2_residue_fraction": round(partner_residues["partner_2"] / total_residues, 4),
         "partner_size_ratio": round(smaller_partner / max(larger_partner, 1), 4),
         "interface_contact_proxy": interface_contact_proxy,
         "interface_density_proxy": round(interface_contact_proxy / total_residues, 4),
+        "interface_residue_count": interface_residue_count,
         "paired_apolar_proxy": float(paired_apolar),
         "paired_charged_proxy": float(paired_charged),
         "paired_polar_proxy": float(paired_polar),
+        "contact_bin_cc": contact_bins["CC"],
+        "contact_bin_cp": contact_bins["CP"],
+        "contact_bin_ac": contact_bins["AC"],
+        "contact_bin_pp": contact_bins["PP"],
+        "contact_bin_ap": contact_bins["AP"],
+        "contact_bin_aa": contact_bins["AA"],
+        "sasa_total": sasa_total,
+        "sasa_partner_1": sasa_partner_1,
+        "sasa_partner_2": sasa_partner_2,
+        "sasa_partner_ratio": round(min(sasa_partner_1, sasa_partner_2) / max(max(sasa_partner_1, sasa_partner_2), 1.0), 4),
+        "sasa_apolar_fraction": sasa_apolar_fraction,
+        "sasa_charged_fraction": sasa_charged_fraction,
+        "sasa_polar_fraction": sasa_polar_fraction,
+        "sasa_aromatic_fraction": sasa_aromatic_fraction,
+        "accessible_residue_count": accessible_residue_count,
         "global_apolar_fraction": residue_class_fractions.get("apolar", 0.0),
         "global_charged_fraction": residue_class_fractions.get("charged", 0.0),
         "global_polar_fraction": residue_class_fractions.get("polar", 0.0),
@@ -123,6 +442,9 @@ def build_descriptor_bundle(
     notes = list(summary.warnings)
     if validation.warnings:
         notes.extend(validation.warnings)
+    notes.extend(contact_notes)
+    notes.extend(sasa_notes)
+    notes.append(f"CONTACT_DISTANCE_CUTOFF_{round(float(contact_distance_cutoff), 3)}A")
     notes = sorted(set(notes))
 
     hash_payload = {

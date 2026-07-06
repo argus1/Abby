@@ -30,12 +30,19 @@ class StructureValidationRequest(AbbyBaseModel):
     chains: ChainMapping
 
 
+class StructureValidationIssue(AbbyBaseModel):
+    code: str
+    message: str
+    details: dict[str, Any] = Field(default_factory=dict)
+
+
 class StructureSummary(AbbyBaseModel):
     parser_name: str
     model_count: int
     available_chains: list[str] = Field(default_factory=list)
     residue_counts: dict[str, int] = Field(default_factory=dict)
     warnings: list[str] = Field(default_factory=list)
+    warning_details: list[StructureValidationIssue] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -48,7 +55,9 @@ class StructureValidationResult(AbbyBaseModel):
     chain_groups: ChainMapping | None = None
     partner_residue_counts: dict[str, int] = Field(default_factory=dict)
     warnings: list[str] = Field(default_factory=list)
+    warning_details: list[StructureValidationIssue] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
+    error_details: list[StructureValidationIssue] = Field(default_factory=list)
 
 
 class StructureDetail(StructureInput):

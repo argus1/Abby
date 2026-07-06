@@ -33,6 +33,15 @@ Static structures are insufficient for affinity prediction because binding is a 
   * **Radius of Gyration ($R\_g$):** To monitor structural expansion or distortion.  
   * **Binding Kinetics:** These simulations help refine the structural model before the final quantitative prediction.
 
+### **2A. Phased GROMACS Adoption**
+
+To keep Abby aligned with the v1 product scope, GROMACS should be introduced in stages rather than as a hard dependency of the core upload/predict workflow.
+
+* **Phase 1:** make the backend MD-ready by preserving connectivity, chain mapping, and provenance metadata during structure normalization.
+* **Phase 2:** support optional async MD workers that can run GROMACS jobs for users who explicitly request simulation-backed descriptors.
+* **Phase 3:** feed trajectory-derived summaries into the existing feature bundle and model orchestration layer, with clear versioning of the simulation protocol.
+* **Out-of-scope for v1:** full end-to-end simulation orchestration from the primary user flow should remain optional until the product spec is updated.
+
 ### **3\. AI/ML Quantitative Affinity Prediction**
 
 The final stage uses the sampled structural data to predict the quantitative binding affinity (e.g., $K\_D$).

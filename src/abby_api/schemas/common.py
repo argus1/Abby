@@ -45,4 +45,5 @@ class Provenance(AbbyBaseModel):
     model_bundle_version: str
     preprocess_version: str
     descriptor_hash: str
+    contact_distance_cutoff_angstrom: float
     created_at: datetime
