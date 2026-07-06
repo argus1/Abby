@@ -1,0 +1,66 @@
+# Abby System Development Plan
+
+This document is the high-level system planning companion to [`V1_Product_Spec_Abby.md`](./V1_Product_Spec_Abby.md) and [`Dev_Plan_Biopython.md`](./Dev_Plan_Biopython.md). It focuses on the end-to-end architecture of Abby across structure generation, molecular simulation, and affinity prediction.
+
+To develop a robust antibody affinity prediction tool that integrates sequence analysis, structural folding, molecular dynamics (MD), and machine learning (ML), you must establish a seamless data pipeline that prioritizes chemical detail and structural accuracy.
+
+## Relationship to the Abby document set
+
+Use the Abby core planning and design documents together:
+
+* [`V1_Product_Spec_Abby.md`](./V1_Product_Spec_Abby.md) defines product scope, API-facing behavior, and user workflows.
+* [`Dev_Plan.md`](./Dev_Plan.md) defines the end-to-end technical system strategy.
+* [`Dev_Plan_Biopython.md`](./Dev_Plan_Biopython.md) defines the structure parsing, normalization, and feature-extraction implementation path.
+* [`OpenAPI_Abby_v1.yaml`](./OpenAPI_Abby_v1.yaml) defines the external API contract.
+* [`Backend_Architecture_Abby.md`](./Backend_Architecture_Abby.md) defines backend service boundaries and deployment design.
+
+### **1\. Sequential Structural Folding & All-Atom Modeling**
+
+The foundation of your tool must be a high-fidelity folding algorithm that can handle the specific complexities of antibody-antigen complexes, such as disulfide bonds and non-standard modifications.
+
+* **AlphaFold 3 / Boltz-1:** Leverage these modern predictors to generate initial 3D coordinates from the antibody sequence. Unlike older models, these can treat ligands and covalent linkages as native elements, which is critical for modeling the antibody-antigen interface accurately.  
+* **Rosetta (RosettaLigand/CM):** Use Rosetta for physical modeling to predict structural stability changes ($\\Delta\\Delta G$) and identify potential steric clashes within the binding pocket.  
+* **Format Integrity:** You must use the **PDBx/mmCIF** format throughout this stage. Legacy PDB files strip away explicit connectivity data (like \_struct\_conn), which would cause subsequent MD and ML steps to fail in recognizing critical covalent bonds and branched structures like glycosylation.
+
+### **2\. Molecular Dynamics (MD) for Thermodynamic Sampling**
+
+Static structures are insufficient for affinity prediction because binding is a dynamic process influenced by solvent interactions and conformational flexibility.
+
+* **GROMACS / AMBER:** Use these engines to perform energy minimizations and explicit-solvent simulations.  
+* **Parameterization:** Utilize tools like Antechamber or LigParGen to generate customized force field parameters for any non-standard residues or linkers.  
+* **Key Metrics:** From the MD trajectories, extract:  
+  * **SASA (Solvent Accessible Surface Area):** To track changes in hydrophobic exposure.  
+  * **Radius of Gyration ($R\_g$):** To monitor structural expansion or distortion.  
+  * **Binding Kinetics:** These simulations help refine the structural model before the final quantitative prediction.
+
+### **3\. AI/ML Quantitative Affinity Prediction**
+
+The final stage uses the sampled structural data to predict the quantitative binding affinity (e.g., $K\_D$).
+
+* **Graph Neural Networks (GNNs):** Implement frameworks like **DeepFRI** or **ProteinMPNN** that can read 3D coordinate files (in PDBx/mmCIF format). These models can recalculate binding affinity changes based on the precise structural nodes provided by your MD results.  
+* **Surface Property Analysis:** Tools like **PlayMolecule** can be integrated to analyze surface pKa and electrostatic potentials, which are major drivers of antibody-antigen interaction.
+
+### **Critical Pipeline Considerations**
+
+* **Steric Hindrance:** Ensure your model specifically monitors the Complementarity-Determining Regions (CDRs). Any structural distortion or bulky modification near these regions significantly drops affinity.  
+* **Validation Data:** While modern therapeutic antibodies nearly always have Surface Plasmon Resonance (SPR) data available for training, research antibodies often lack this. Your ML model should ideally be trained on SPR-validated datasets to ensure it predicts true kinetic constants ($k\_{on}, k\_{off}$) rather than just qualitative binding.  
+* **Scale Immunity:** Using PDBx/mmCIF ensures your tool can handle large antibody-antigen complexes without the atom-numbering overflows or parsing crashes common with legacy PDB files.
+
+## Relationship to implementation and API design
+
+This document should inform the service decomposition and workflow design in Abby's backend architecture and API definitions. In particular, it drives:
+
+* structure-processing service boundaries
+* model orchestration and asynchronous job execution
+* storage needs for structures, descriptors, predictions, and provenance
+* future integration with simulation and assay-planning workflows
+
+Sources:
+
+* [Abby v1 Product Specification](./V1_Product_Spec_Abby.md)  
+* [Abby Technical Implementation Plan (BioPython)](./Dev_Plan_Biopython.md)  
+* [Are there software tools that allow prediction of physical properties of bioconjugated proteins?](./prediction_properties_bioconjugated_proteins.md)  
+* [does PDB or PDBx/mmCIF support disulfide bonds and sidechain glycosylation?](./PDB_PDBx_mmCIF_disulfide_bonds_%26_sidechain_glycosylation.md)  
+* [does drug conjugation change an antibody's binding affinity?](./ADC_binding_affinity.md)  
+* [Surface plasmon resonance antibody characterization notes](./antibodies_SPR.md)  
+* [how does schema and failure modes compare between PDB and PDBx/mmCIF?](./schema_%26_failure_modes_PDB_vs_PDBx_mmCIF_.md)  

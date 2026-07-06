@@ -1,0 +1,731 @@
+openapi: 3.1.0
+info:
+  title: Abby API
+  version: 1.0.0
+  summary: API for Abby affinity prediction workflows
+  description: |
+    Abby is an independent platform for predicting protein-protein and antibody-antigen
+    binding affinity from 3D structures. This API supports structure ingestion, validation,
+    single predictions, batch jobs, explainability, and reproducibility metadata.
+servers:
+  - url: https://api.abby.local/api/v1
+    description: Example development server
+security:
+  - ApiKeyAuth: []
+tags:
+  - name: Projects
+  - name: Structures
+  - name: Predictions
+  - name: Batch Jobs
+  - name: System
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Health check
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: Service health
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+                  version:
+                    type: string
+                    example: 1.0.0
+                required: [status, timestamp, version]
+  /version:
+    get:
+      tags: [System]
+      summary: API and processing versions
+      operationId: getVersion
+      responses:
+        '200':
+          description: Version metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  api_version:
+                    type: string
+                    example: 1.0.0
+                  model_bundle_version:
+                    type: string
+                    example: 2026.07.v1
+                  preprocess_version:
+                    type: string
+                    example: 2.1.0
+                required: [api_version, model_bundle_version, preprocess_version]
+  /models:
+    get:
+      tags: [System]
+      summary: List available model bundles and validation metrics
+      operationId: listModels
+      responses:
+        '200':
+          description: Model bundle list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  models:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ModelBundle'
+                required: [models]
+  /projects:
+    post:
+      tags: [Projects]
+      summary: Create a project
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreateRequest'
+      responses:
+        '201':
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /projects/{project_id}:
+    get:
+      tags: [Projects]
+      summary: Get project metadata
+      operationId: getProject
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: Project metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /projects/{project_id}/jobs:
+    get:
+      tags: [Projects]
+      summary: List prediction jobs for a project
+      operationId: listProjectJobs
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: Project jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BatchJob'
+                required: [jobs]
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /structures:upload:
+    post:
+      tags: [Structures]
+      summary: Upload a structure file
+      operationId: uploadStructure
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                mode:
+                  $ref: '#/components/schemas/PredictionMode'
+                project_id:
+                  type: string
+                  format: uuid
+              required: [file, mode]
+      responses:
+        '201':
+          description: Structure uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StructureInput'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /structures:validate:
+    post:
+      tags: [Structures]
+      summary: Validate structure and proposed chain mapping
+      operationId: validateStructure
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StructureValidationRequest'
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StructureValidationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /structures/{structure_id}:
+    get:
+      tags: [Structures]
+      summary: Get structure metadata and validation report
+      operationId: getStructure
+      parameters:
+        - $ref: '#/components/parameters/StructureId'
+      responses:
+        '200':
+          description: Structure metadata
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/StructureInput'
+                  - type: object
+                    properties:
+                      validation:
+                        $ref: '#/components/schemas/StructureValidationResult'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /predictions:
+    post:
+      tags: [Predictions]
+      summary: Submit a single prediction request
+      operationId: createPrediction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PredictionRequest'
+      responses:
+        '202':
+          description: Prediction queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  prediction_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [queued]
+                required: [prediction_id, status]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /predictions/{prediction_id}:
+    get:
+      tags: [Predictions]
+      summary: Get prediction status or result
+      operationId: getPrediction
+      parameters:
+        - $ref: '#/components/parameters/PredictionId'
+      responses:
+        '200':
+          description: Prediction result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredictionResult'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /predictions/{prediction_id}/explainability:
+    get:
+      tags: [Predictions]
+      summary: Get detailed explainability payload
+      operationId: getPredictionExplainability
+      parameters:
+        - $ref: '#/components/parameters/PredictionId'
+      responses:
+        '200':
+          description: Explainability details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Explainability'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /batch-jobs:
+    post:
+      tags: [Batch Jobs]
+      summary: Submit a batch prediction job
+      operationId: createBatchJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchJobRequest'
+      responses:
+        '202':
+          description: Batch job queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [queued]
+                required: [job_id, status]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /batch-jobs/{job_id}:
+    get:
+      tags: [Batch Jobs]
+      summary: Get batch job status
+      operationId: getBatchJob
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: Batch job state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchJob'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /batch-jobs/{job_id}/results:
+    get:
+      tags: [Batch Jobs]
+      summary: Get paginated batch results
+      operationId: listBatchJobResults
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: page_size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        '200':
+          description: Paginated results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page:
+                    type: integer
+                  page_size:
+                    type: integer
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PredictionResult'
+                required: [page, page_size, total, items]
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /batch-jobs/{job_id}/export:
+    get:
+      tags: [Batch Jobs]
+      summary: Export batch results
+      operationId: exportBatchJobResults
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - in: query
+          name: format
+          required: true
+          schema:
+            type: string
+            enum: [csv, json]
+      responses:
+        '200':
+          description: Export file or signed URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  format:
+                    type: string
+                    enum: [csv, json]
+                  download_url:
+                    type: string
+                    format: uri
+                required: [format, download_url]
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  parameters:
+    ProjectId:
+      in: path
+      name: project_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    StructureId:
+      in: path
+      name: structure_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PredictionId:
+      in: path
+      name: prediction_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    JobId:
+      in: path
+      name: job_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    PredictionMode:
+      type: string
+      enum: [ppi_general, antibody_antigen]
+    ConfidenceClass:
+      type: string
+      enum: [high, medium, low]
+    ProjectCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+      required: [name]
+    Project:
+      type: object
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        owner:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required: [project_id, name, owner, created_at]
+    ChainMapping:
+      type: object
+      properties:
+        partner_1:
+          type: array
+          items:
+            type: string
+        partner_2:
+          type: array
+          items:
+            type: string
+      required: [partner_1, partner_2]
+    StructureInput:
+      type: object
+      properties:
+        structure_id:
+          type: string
+          format: uuid
+        format:
+          type: string
+          enum: [pdb, cif, mmcif]
+        source:
+          type: string
+          enum: [upload, pdb_id, derived]
+        filename:
+          type: string
+        sha256:
+          type: string
+        chains:
+          $ref: '#/components/schemas/ChainMapping'
+        mode:
+          $ref: '#/components/schemas/PredictionMode'
+      required: [structure_id, format, source, filename, sha256, mode]
+    StructureValidationRequest:
+      type: object
+      properties:
+        structure_id:
+          type: string
+          format: uuid
+        mode:
+          $ref: '#/components/schemas/PredictionMode'
+        chains:
+          $ref: '#/components/schemas/ChainMapping'
+      required: [structure_id, mode, chains]
+    StructureValidationResult:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        normalized_format:
+          type: string
+          enum: [pdb, mmcif]
+        inferred_roles:
+          type: object
+          additionalProperties:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        errors:
+          type: array
+          items:
+            type: string
+      required: [valid, normalized_format, warnings, errors]
+    PredictionOptions:
+      type: object
+      properties:
+        return_all_models:
+          type: boolean
+          default: false
+        include_explainability:
+          type: boolean
+          default: true
+        temperature_kelvin:
+          type: number
+          default: 298.15
+      additionalProperties: false
+    PredictionRequest:
+      type: object
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        mode:
+          $ref: '#/components/schemas/PredictionMode'
+        structure_id:
+          type: string
+          format: uuid
+        options:
+          $ref: '#/components/schemas/PredictionOptions'
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+      required: [project_id, mode, structure_id]
+    PredictionInterval:
+      type: object
+      properties:
+        lower:
+          type: number
+        upper:
+          type: number
+      required: [lower, upper]
+    ModelPrediction:
+      type: object
+      properties:
+        model_id:
+          type: string
+        log_k:
+          type: number
+        delta_g_kcal_mol:
+          type: number
+        r_validation:
+          type: number
+      required: [model_id, log_k]
+    DescriptorContribution:
+      type: object
+      properties:
+        name:
+          type: string
+        contribution:
+          type: number
+      required: [name, contribution]
+    Explainability:
+      type: object
+      properties:
+        top_descriptors:
+          type: array
+          items:
+            $ref: '#/components/schemas/DescriptorContribution'
+      required: [top_descriptors]
+    Provenance:
+      type: object
+      properties:
+        model_bundle_version:
+          type: string
+        preprocess_version:
+          type: string
+        descriptor_hash:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required: [model_bundle_version, preprocess_version, descriptor_hash, created_at]
+    PredictionResult:
+      type: object
+      properties:
+        prediction_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, running, completed, failed]
+        mode:
+          $ref: '#/components/schemas/PredictionMode'
+        consensus:
+          type: object
+          properties:
+            log_k:
+              type: number
+            delta_g_kcal_mol:
+              type: number
+            pi90:
+              $ref: '#/components/schemas/PredictionInterval'
+            confidence:
+              $ref: '#/components/schemas/ConfidenceClass'
+            ood_flag:
+              type: boolean
+          required: [log_k, delta_g_kcal_mol, pi90, confidence, ood_flag]
+        best_model:
+          $ref: '#/components/schemas/ModelPrediction'
+        all_models:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModelPrediction'
+        explainability:
+          $ref: '#/components/schemas/Explainability'
+        provenance:
+          $ref: '#/components/schemas/Provenance'
+      required: [prediction_id, status, mode]
+    BatchJobRequest:
+      type: object
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        mode:
+          $ref: '#/components/schemas/PredictionMode'
+        structure_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        options:
+          $ref: '#/components/schemas/PredictionOptions'
+      required: [project_id, mode, structure_ids]
+    BatchCounts:
+      type: object
+      properties:
+        queued:
+          type: integer
+        running:
+          type: integer
+        completed:
+          type: integer
+        failed:
+          type: integer
+      required: [queued, running, completed, failed]
+    BatchJob:
+      type: object
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, running, completed, failed]
+        counts:
+          $ref: '#/components/schemas/BatchCounts'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required: [job_id, project_id, status, counts, created_at, updated_at]
+    ModelBundle:
+      type: object
+      properties:
+        model_bundle_version:
+          type: string
+        modes:
+          type: array
+          items:
+            $ref: '#/components/schemas/PredictionMode'
+        validation_metrics:
+          type: object
+          additionalProperties:
+            type: number
+      required: [model_bundle_version, modes, validation_metrics]
+    ErrorObject:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+        request_id:
+          type: string
+          format: uuid
+      required: [code, message, request_id]
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorObject'
+      required: [error]

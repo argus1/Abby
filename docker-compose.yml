@@ -1,0 +1,88 @@
+services:
+  frontend:
+    image: node:20-alpine
+    working_dir: /workspace/frontend
+    environment:
+      VITE_ABBY_API_BASE_URL: http://localhost:8000/api/v1
+    command: sh -c "npm install && npm run dev"
+    volumes:
+      - .:/workspace
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /workspace/src
+      ABBY_DATABASE_URL: postgresql+psycopg://abby:change-me@postgres:5432/abby
+      ABBY_REDIS_URL: redis://redis:6379/0
+      ABBY_OBJECT_STORAGE_BUCKET: abby-dev
+      ABBY_OBJECT_STORAGE_ENDPOINT: http://minio:9000
+    command: uvicorn abby_api.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/workspace
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+      - minio
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles: ["workers"]
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /workspace/src
+      ABBY_DATABASE_URL: postgresql+psycopg://abby:change-me@postgres:5432/abby
+      ABBY_REDIS_URL: redis://redis:6379/0
+      ABBY_OBJECT_STORAGE_BUCKET: abby-dev
+      ABBY_OBJECT_STORAGE_ENDPOINT: http://minio:9000
+    command: python -m abby_api.workers.runner
+    volumes:
+      - .:/workspace
+    depends_on:
+      - postgres
+      - redis
+      - minio
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: abby
+      POSTGRES_USER: abby
+      POSTGRES_PASSWORD: change-me
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  minio:
+    image: minio/minio:RELEASE.2025-02-18T16-25-55Z
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+volumes:
+  postgres_data:
+  minio_data:
