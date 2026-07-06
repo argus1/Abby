@@ -1,4 +1,6 @@
-export const serviceLayerModules = [
+import type { ServiceLayerModule } from '../types/ui';
+
+export const serviceLayerModules: ServiceLayerModule[] = [
   {
     title: 'Structure parsing and validation',
     service: 'services/structures.py',
