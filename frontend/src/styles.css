@@ -81,6 +81,21 @@ code { background: rgba(255,255,255,0.08); padding: 0.15rem 0.35rem; border-radi
 }
 .button.secondary, button.secondary { background: rgba(255,255,255,0.1); }
 .inline-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem; }
+.status-row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin-top: 0.75rem; }
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.status-pill.queued { background: rgba(255,196,79,0.2); color: #ffd88a; }
+.status-pill.running { background: rgba(79,174,255,0.2); color: #9fd4ff; }
+.status-pill.completed { background: rgba(82,214,144,0.2); color: #9af0bc; }
+.status-pill.failed { background: rgba(255,127,144,0.2); color: #ffb0b8; }
 .stepper { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.8rem; }
 .step { display: flex; align-items: center; gap: 0.75rem; padding: 0.85rem 1rem; border-radius: 0.9rem; background: rgba(255,255,255,0.04); }
 .step-index { width: 2rem; height: 2rem; display: grid; place-items: center; border-radius: 999px; font-weight: 700; }

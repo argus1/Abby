@@ -49,6 +49,8 @@ class PredictionConsensus(AbbyBaseModel):
 class FeatureSummary(AbbyBaseModel):
     descriptor_version: str
     source: str
+    artifact_key: str | None = None
+    artifact_url: str | None = None
     descriptors: dict[str, float] = Field(default_factory=dict)
     partner_residues: dict[str, int] = Field(default_factory=dict)
     residue_class_fractions: dict[str, float] = Field(default_factory=dict)

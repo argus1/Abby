@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from uuid import UUID
+
 from fastapi.testclient import TestClient
 
 from abby_api.main import app
+from abby_api.repositories.memory import get_feature_summary_artifact
+from abby_api.storage.object_store import ObjectStore
 
 client = TestClient(app)
 HEADERS = {"X-API-Key": "dev-local-key"}
@@ -121,10 +125,20 @@ def test_prediction_requires_validation_before_success() -> None:
     prediction = prediction_response.json()
     assert prediction["status"] == "completed"
     assert prediction["consensus"]["log_k"] is not None
+    assert prediction["best_model"]["model_id"] == "mixed_baseline_v1"
+    assert len(prediction["all_models"]) == 3
     assert prediction["feature_summary"]["source"] == "parsed_structure_summary"
+    assert prediction["feature_summary"]["artifact_key"]
+    assert prediction["feature_summary"]["artifact_url"]
     assert prediction["feature_summary"]["descriptors"]["interface_contact_proxy"] >= 1.0
     assert prediction["feature_summary"]["partner_residues"]["partner_1"] == 1
     assert prediction["provenance"]["descriptor_hash"]
+
+    record = get_feature_summary_artifact(UUID(queued["prediction_id"]))
+    assert record is not None
+    assert record.descriptor_hash == prediction["provenance"]["descriptor_hash"]
+    assert record.artifact_key == prediction["feature_summary"]["artifact_key"]
+    assert ObjectStore().exists(record.artifact_key)
 
 
 def test_feature_bundle_is_deterministic_for_same_structure() -> None:

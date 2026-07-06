@@ -21,6 +21,10 @@ export function PredictionPage() {
   });
 
   const prediction = predictionQuery.data;
+  const status = prediction?.status ?? (predictionIsUuid ? 'queued' : 'completed');
+  const isPolling = predictionIsUuid && status !== 'completed' && status !== 'failed';
+  const statusClass =
+    status === 'completed' ? 'status-success' : status === 'failed' ? 'status-error' : 'status-warning';
 
   return (
     <div className="page-stack">
@@ -29,6 +33,24 @@ export function PredictionPage() {
         <p className="muted">
           This page shows live Abby prediction payloads while preserving the planned deterministic
           feature extraction, baseline scoring, and export story from the service-layer plan.
+        </p>
+        <div className="status-row">
+          <span className={`status-pill ${status}`}>Status: {status}</span>
+          {isPolling && <span className="muted small">Polling every 1.5s for completion…</span>}
+          {predictionQuery.isFetching && <span className="muted small">Refreshing…</span>}
+        </div>
+        {predictionQuery.error && (
+          <p className="status-error">{(predictionQuery.error as Error).message}</p>
+        )}
+      </section>
+
+      <section className="card">
+        <h3>Execution status</h3>
+        <p className={statusClass}>
+          {status === 'queued' && 'Prediction is queued and waiting for worker execution.'}
+          {status === 'running' && 'Prediction is running. Intermediate updates will appear automatically.'}
+          {status === 'completed' && 'Prediction completed. Scores, descriptors, and provenance are ready.'}
+          {status === 'failed' && 'Prediction failed. Check logs/validation context and retry.'}
         </p>
       </section>
 

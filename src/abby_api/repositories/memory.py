@@ -21,6 +21,7 @@ class MemoryStore:
     structures: dict[UUID, StructureDetail] = field(default_factory=dict)
     structure_files: dict[UUID, Path] = field(default_factory=dict)
     predictions: dict[UUID, PredictionResult] = field(default_factory=dict)
+    feature_summary_artifacts: dict[UUID, FeatureSummaryArtifactRecord] = field(default_factory=dict)
     batch_jobs: dict[UUID, BatchJob] = field(default_factory=dict)
 
     def now(self) -> datetime:
@@ -28,6 +29,17 @@ class MemoryStore:
 
 
 store = MemoryStore()
+
+
+@dataclass
+class FeatureSummaryArtifactRecord:
+    prediction_id: UUID
+    project_id: UUID
+    structure_id: UUID
+    descriptor_hash: str
+    artifact_key: str
+    artifact_url: str
+    created_at: datetime
 
 
 def new_project(name: str) -> Project:
@@ -76,6 +88,40 @@ def set_structure_summary(structure_id: UUID, summary: StructureSummary) -> Stru
 def save_prediction(prediction: PredictionResult) -> PredictionResult:
     store.predictions[prediction.prediction_id] = prediction
     return prediction
+
+
+def save_feature_summary_artifact(
+    *,
+    prediction_id: UUID,
+    project_id: UUID,
+    structure_id: UUID,
+    descriptor_hash: str,
+    artifact_key: str,
+    artifact_url: str,
+) -> FeatureSummaryArtifactRecord:
+    record = FeatureSummaryArtifactRecord(
+        prediction_id=prediction_id,
+        project_id=project_id,
+        structure_id=structure_id,
+        descriptor_hash=descriptor_hash,
+        artifact_key=artifact_key,
+        artifact_url=artifact_url,
+        created_at=store.now(),
+    )
+    store.feature_summary_artifacts[prediction_id] = record
+    return record
+
+
+def get_feature_summary_artifact(prediction_id: UUID) -> FeatureSummaryArtifactRecord | None:
+    return store.feature_summary_artifacts.get(prediction_id)
+
+
+def list_project_feature_summary_artifacts(project_id: UUID) -> list[FeatureSummaryArtifactRecord]:
+    return [
+        item
+        for item in store.feature_summary_artifacts.values()
+        if item.project_id == project_id
+    ]
 
 
 def get_prediction(prediction_id: UUID) -> PredictionResult | None:

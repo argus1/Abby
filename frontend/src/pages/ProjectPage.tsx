@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ServiceLayerCard } from '../components/ServiceLayerCard';
 import { WorkflowStepper } from '../components/WorkflowStepper';
 import {
+  createBatchJob,
   createPrediction,
   createProject,
   getProject,
@@ -35,6 +36,7 @@ export function ProjectPage() {
   const [partner1, setPartner1] = useState(stubPrediction.partner1.join(', '));
   const [partner2, setPartner2] = useState(stubPrediction.partner2.join(', '));
   const [activeStructureId, setActiveStructureId] = useState<string | null>(null);
+  const [batchStructureIds, setBatchStructureIds] = useState('');
 
   const projectQuery = useQuery({
     queryKey: ['project', projectId],
@@ -90,6 +92,29 @@ export function ProjectPage() {
       });
     },
     onSuccess: (prediction) => navigate(`/predictions/${prediction.prediction_id}`),
+  });
+
+  const batchMutation = useMutation({
+    mutationFn: async () => {
+      if (!projectId || !projectIsUuid) {
+        throw new Error('Create a backend project before queuing a batch job.');
+      }
+      const parsed = batchStructureIds
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const structureIds = parsed.length > 0 ? parsed : activeStructureId ? [activeStructureId] : [];
+      if (structureIds.length === 0) {
+        throw new Error('Provide at least one structure ID or upload a structure first.');
+      }
+      return createBatchJob({
+        project_id: projectId,
+        mode,
+        structure_ids: structureIds,
+        options: { include_explainability: true, return_all_models: true },
+      });
+    },
+    onSuccess: (job) => navigate(`/projects/${projectId}/batch-jobs/${job.job_id}`),
   });
 
   const currentProjectName = useMemo(() => {
@@ -222,14 +247,34 @@ export function ProjectPage() {
 
       <section className="card">
         <h3>Next stub actions</h3>
+        <label className="field">
+          <span>Batch structure IDs (comma-separated, optional)</span>
+          <input
+            type="text"
+            placeholder={activeStructureId ?? 'use uploaded structure automatically'}
+            value={batchStructureIds}
+            onChange={(event) => setBatchStructureIds(event.target.value)}
+          />
+        </label>
         <div className="inline-actions">
           <button className="button secondary" onClick={() => predictionMutation.mutate()}>
             Submit prediction with current structure
           </button>
+          <button className="button" onClick={() => batchMutation.mutate()}>
+            {batchMutation.isPending ? 'Queueing batch...' : 'Queue batch workflow'}
+          </button>
           <Link className="button secondary" to={`/projects/${projectId ?? 'demo-project'}/batch-jobs/demo-job`}>
-            View batch campaign stub
+            Open demo batch route
           </Link>
         </div>
+        {batchMutation.data && (
+          <p className="status-success">
+            Queued batch job <code>{batchMutation.data.job_id}</code>. Opening live status page...
+          </p>
+        )}
+        {batchMutation.error && (
+          <p className="status-error">{(batchMutation.error as Error).message}</p>
+        )}
       </section>
     </div>
   );

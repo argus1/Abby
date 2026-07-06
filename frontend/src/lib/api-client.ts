@@ -1,9 +1,15 @@
 import { config } from './config';
 import type {
+  BatchJob,
+  BatchJobQueuedResponse,
+  BatchJobRequest,
+  BatchResultsPage,
+  ExportResponse,
   PredictionQueuedResponse,
   PredictionRequest,
   PredictionResult,
   Project,
+  ProjectJobsResponse,
   StructureDetail,
   StructureInput,
   StructureValidationRequest,
@@ -87,4 +93,32 @@ export async function createPrediction(
 
 export async function getPrediction(predictionId: string): Promise<PredictionResult> {
   return apiFetch<PredictionResult>(`/predictions/${predictionId}`);
+}
+
+export async function createBatchJob(payload: BatchJobRequest): Promise<BatchJobQueuedResponse> {
+  return apiFetch<BatchJobQueuedResponse>('/batch-jobs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getBatchJob(jobId: string): Promise<BatchJob> {
+  return apiFetch<BatchJob>(`/batch-jobs/${jobId}`);
+}
+
+export async function getProjectJobs(projectId: string): Promise<ProjectJobsResponse> {
+  return apiFetch<ProjectJobsResponse>(`/projects/${projectId}/jobs`);
+}
+
+export async function getBatchResults(
+  jobId: string,
+  page = 1,
+  pageSize = 100,
+): Promise<BatchResultsPage> {
+  return apiFetch<BatchResultsPage>(`/batch-jobs/${jobId}/results?page=${page}&page_size=${pageSize}`);
+}
+
+export async function getBatchExport(jobId: string, format: 'csv' | 'json'): Promise<ExportResponse> {
+  return apiFetch<ExportResponse>(`/batch-jobs/${jobId}/export?format=${format}`);
 }

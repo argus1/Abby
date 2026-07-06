@@ -69,6 +69,12 @@ export interface PredictionQueuedResponse {
   status: 'queued';
 }
 
+export interface PredictionOptions {
+  return_all_models?: boolean;
+  include_explainability?: boolean;
+  temperature_kelvin?: number;
+}
+
 export interface PredictionResult {
   prediction_id: string;
   status: 'queued' | 'running' | 'completed' | 'failed';
@@ -101,4 +107,48 @@ export interface PredictionResult {
     descriptor_hash: string;
     created_at: string;
   } | null;
+}
+
+export interface BatchJobRequest {
+  project_id: string;
+  mode: 'ppi_general' | 'antibody_antigen';
+  structure_ids: string[];
+  options?: PredictionOptions;
+}
+
+export interface BatchCounts {
+  queued: number;
+  running: number;
+  completed: number;
+  failed: number;
+}
+
+export interface BatchJob {
+  job_id: string;
+  project_id: string;
+  status: 'queued' | 'running' | 'completed' | 'failed';
+  counts: BatchCounts;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BatchJobQueuedResponse {
+  job_id: string;
+  status: 'queued';
+}
+
+export interface BatchResultsPage {
+  page: number;
+  page_size: number;
+  total: number;
+  items: PredictionResult[];
+}
+
+export interface ExportResponse {
+  format: 'csv' | 'json';
+  download_url: string;
+}
+
+export interface ProjectJobsResponse {
+  jobs: BatchJob[];
 }
