@@ -23,6 +23,7 @@ class MemoryStore:
     predictions: dict[UUID, PredictionResult] = field(default_factory=dict)
     feature_summary_artifacts: dict[UUID, FeatureSummaryArtifactRecord] = field(default_factory=dict)
     batch_jobs: dict[UUID, BatchJob] = field(default_factory=dict)
+    batch_job_execution: dict[UUID, BatchJobExecutionRecord] = field(default_factory=dict)
 
     def now(self) -> datetime:
         return datetime.now(timezone.utc)
@@ -40,6 +41,13 @@ class FeatureSummaryArtifactRecord:
     artifact_key: str
     artifact_url: str
     created_at: datetime
+
+
+@dataclass
+class BatchJobExecutionRecord:
+    job_id: UUID
+    prediction_ids: list[UUID] = field(default_factory=list)
+    failures: list[dict[str, str]] = field(default_factory=list)
 
 
 def new_project(name: str) -> Project:
@@ -139,3 +147,22 @@ def get_batch_job(job_id: UUID) -> BatchJob | None:
 
 def list_project_jobs(project_id: UUID) -> list[BatchJob]:
     return [job for job in store.batch_jobs.values() if job.project_id == project_id]
+
+
+def save_batch_job_execution(
+    *,
+    job_id: UUID,
+    prediction_ids: list[UUID],
+    failures: list[dict[str, str]],
+) -> BatchJobExecutionRecord:
+    record = BatchJobExecutionRecord(
+        job_id=job_id,
+        prediction_ids=prediction_ids,
+        failures=failures,
+    )
+    store.batch_job_execution[job_id] = record
+    return record
+
+
+def get_batch_job_execution(job_id: UUID) -> BatchJobExecutionRecord | None:
+    return store.batch_job_execution.get(job_id)

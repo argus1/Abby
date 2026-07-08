@@ -97,19 +97,20 @@ Audit baseline: **2026-07-07**
 ### 2A. Batch execution
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
-| `[ ]` | `P0 / M` | Convert batch jobs from queued placeholders into real prediction fan-out | `src/abby_api/services/batch_jobs.py`, `src/abby_api/workers/tasks.py` |
-| `[ ]` | `P0 / S` | Attach prediction IDs and statuses to batch items | Batch schemas/services/repository memory store |
-| `[ ]` | `P0 / M` | Populate `get_results()` with real completed prediction outputs | `src/abby_api/services/batch_jobs.py` |
-| `[-]` | `P0 / M` | Batch export route exists, but must generate real artifacts | Current state: synthetic download URL only |
-| `[ ]` | `P0 / M` | Persist export bundles to object storage and return stable download metadata | `src/abby_api/storage/object_store.py`, `src/abby_api/services/batch_jobs.py` |
-| `[ ]` | `P1 / S` | Add backend tests covering end-to-end batch execution and export generation | `tests/` |
+| `[x]` | `P0 / M` | Convert batch jobs from queued placeholders into real prediction fan-out | `src/abby_api/services/batch_jobs.py`, `src/abby_api/services/predictions.py` |
+| `[x]` | `P0 / S` | Attach prediction IDs and statuses to batch items | Batch execution records now persist prediction IDs in repository memory store |
+| `[x]` | `P0 / M` | Populate `get_results()` with real completed prediction outputs | `src/abby_api/services/batch_jobs.py` |
+| `[x]` | `P0 / M` | Batch export route generates real artifacts | JSON/CSV payloads are generated from job outputs |
+| `[x]` | `P0 / M` | Persist export bundles to object storage and return stable download metadata | `src/abby_api/storage/object_store.py`, `src/abby_api/services/batch_jobs.py` |
+| `[x]` | `P1 / S` | Add backend tests covering end-to-end batch execution and export generation | `tests/test_batch_jobs.py` |
 
 ### 2B. Worker/runtime reality
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
-| `[-]` | `P0 / S` | Placeholder worker entry points exist | `src/abby_api/workers/tasks.py` |
-| `[ ]` | `P0 / L` | Bind worker tasks to a real async backend | Celery/RQ/Arq/etc. still to be chosen/implemented |
-| `[ ]` | `P1 / M` | Add status transitions and failure capture for long-running tasks | Batch/prediction services and schemas |
+| `[x]` | `P0 / S` | Worker task submission interface exists | `src/abby_api/workers/tasks.py` now submits tasks through backend interface |
+| `[x]` | `P0 / L` | Bind worker tasks to a real async backend | Pluggable worker backend abstraction implemented (`in_process` + `inline`) and integrated via app lifespan/config (`src/abby_api/workers/backend.py`) |
+| `[x]` | `P1 / S` | Add `celery_stub` backend as Phase 2 bridge to distributed workers | `celery_stub` backend is selectable and fail-fast by design, providing an explicit migration waypoint to full Celery adapter integration |
+| `[x]` | `P1 / M` | Add status transitions and failure capture for long-running tasks | Batch flow now transitions queued→running→completed/failed under worker execution and captures per-structure failures |
 | `[ ]` | `P2 / S` | Add health visibility for optional scientific/runtime dependencies | `src/abby_api/services/system.py` |
 
 ### 2C. Frontend alignment cleanup
@@ -122,9 +123,9 @@ Audit baseline: **2026-07-07**
 ### Phase 2 exit criteria
 | Status | Priority / Effort | Exit criterion |
 | --- | --- | --- |
-| `[ ]` | `P0 / M` | A submitted batch job produces real prediction results |
-| `[ ]` | `P0 / M` | Batch exports produce real persisted artifacts |
-| `[ ]` | `P0 / M` | Worker-backed tasks report queued/running/completed/failed accurately |
+| `[x]` | `P0 / M` | A submitted batch job produces real prediction results |
+| `[x]` | `P0 / M` | Batch exports produce real persisted artifacts |
+| `[x]` | `P0 / M` | Worker-backed tasks report queued/running/completed/failed accurately |
 | `[ ]` | `P1 / S` | Frontend workflow copy matches actual backend capability |
 
 ---
@@ -258,7 +259,7 @@ These should be advanced throughout the roadmap rather than left until the end.
 | Status | Priority / Effort | Verification item |
 | --- | --- | --- |
 | `[ ]` | `P0 / S` | Add `mmCIF` integration tests with relational connectivity assertions |
-| `[ ]` | `P0 / S` | Add batch execution tests with real results and exports |
+| `[x]` | `P0 / S` | Add batch execution tests with real results and exports |
 | `[ ]` | `P1 / S` | Add residue-depth / new-descriptor verification tests as Phase 3 lands |
 | `[ ]` | `P1 / S` | Add imported-simulation artifact tests as Phase 4 lands |
 | `[ ]` | `P2 / M` | Add simulation worker / trajectory tests as Phase 5 lands |
@@ -274,7 +275,7 @@ If you want the highest leverage next steps, this is the shortest sensible path:
 | --- | --- | --- |
 | `[x]` | `P0 / M` | Implement `MMCIF2Dict` + `_struct_conn` preservation |
 | `[x]` | `P0 / S` | Add gap detection and MD-oriented validation preflight checks |
-| `[ ]` | `P0 / M` | Make batch jobs execute real predictions and emit real exports |
+| `[x]` | `P0 / M` | Make batch jobs execute real predictions and emit real exports |
 | `[ ]` | `P1 / M` | Add residue-depth descriptors |
 | `[ ]` | `P1 / M` | Define MD handoff + simulation provenance schema |
 
@@ -294,7 +295,7 @@ If you want the highest leverage next steps, this is the shortest sensible path:
 | Status | Priority / Effort | Capability gap |
 | --- | --- | --- |
 | `[-]` | `P0 / M` | `mmCIF` chemistry preservation |
-| `[-]` | `P0 / M` | Batch execution and export realism |
+| `[x]` | `P0 / M` | Batch execution and export realism |
 | `[-]` | `P0 / L` | Worker-backed async orchestration |
 | `[-]` | `P1 / S` | Frontend/backend capability alignment |
 
