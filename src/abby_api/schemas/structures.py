@@ -58,6 +58,7 @@ class StructureValidationResult(AbbyBaseModel):
     warning_details: list[StructureValidationIssue] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
     error_details: list[StructureValidationIssue] = Field(default_factory=list)
+    md_handoff: dict[str, Any] = Field(default_factory=dict)
 
 
 class StructureDetail(StructureInput):

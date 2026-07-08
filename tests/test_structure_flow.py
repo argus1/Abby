@@ -39,6 +39,21 @@ TER
 END
 """
 
+PDB_GAP_FIXTURE = """\
+ATOM      1  N   GLY A   1      11.104  13.207   9.111  1.00 20.00           N
+ATOM      2  CA  GLY A   1      12.560  13.102   9.262  1.00 20.00           C
+ATOM      3  C   GLY A   1      13.030  11.670   9.634  1.00 20.00           C
+ATOM      4  O   GLY A   1      12.284  10.719   9.434  1.00 20.00           O
+ATOM      5  N   ALA A   3      14.300  11.500  10.100  1.00 20.00           N
+ATOM      6  CA  ALA A   3      14.900  10.170  10.420  1.00 20.00           C
+ATOM      7  C   ALA A   3      16.350  10.200  10.900  1.00 20.00           C
+ATOM      8  O   ALA A   3      17.020   9.180  10.810  1.00 20.00           O
+ATOM      9  N   SER B   1      18.200  10.700  11.400  1.00 20.00           N
+ATOM     10  CA  SER B   1      19.100  10.900  12.500  1.00 20.00           C
+TER
+END
+"""
+
 MMCIF_CONNECTIVITY_FIXTURE = """\
 data_connectivity
 #
@@ -217,6 +232,86 @@ def test_mmcif_upload_preserves_struct_conn_connectivity_metadata() -> None:
     assert connection_by_id["disulf1"]["partner_1"]["residue_name"] == "CYS"
     assert connection_by_id["glyco1"]["is_glycan_link"] is True
     assert connection_by_id["glyco1"]["partner_2"]["residue_name"] == "NAG"
+
+
+def test_structure_summary_reports_chain_sequence_gaps_and_md_preflight_issues() -> None:
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={"file": ("test_complex_gap.pdb", PDB_GAP_FIXTURE, "chemical/x-pdb")},
+        data={"mode": "ppi_general"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    structure_id = upload_response.json()["structure_id"]
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": structure_id,
+            "mode": "ppi_general",
+            "chains": {"partner_1": ["A"], "partner_2": ["B"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    validation = validate_response.json()
+    assert validation["valid"] is True
+    assert "CHAIN_SEQUENCE_GAPS" in validation["warnings"]
+    assert "PDB2GMX_PRECHECK_ISSUES" in validation["warnings"]
+
+    warning_by_code = {item["code"]: item for item in validation["warning_details"]}
+    chain_gap_details = warning_by_code["CHAIN_SEQUENCE_GAPS"]["details"]["chain_gap_details"]
+    assert chain_gap_details["A"][0]["from_residue"] == 1
+    assert chain_gap_details["A"][0]["to_residue"] == 3
+    assert chain_gap_details["A"][0]["missing_residue_count"] == 1
+
+    precheck_issues = warning_by_code["PDB2GMX_PRECHECK_ISSUES"]["details"]["issues"]
+    assert any(issue["code"] == "CHAIN_SEQUENCE_GAPS" for issue in precheck_issues)
+
+    detail_response = client.get(f"/api/v1/structures/{structure_id}", headers=HEADERS)
+    assert detail_response.status_code == 200, detail_response.text
+    detail_payload = detail_response.json()
+
+    md_preflight = detail_payload["summary"]["metadata"]["md_preflight"]
+    assert md_preflight["ready_for_pdb2gmx"] is False
+    assert any(issue["code"] == "CHAIN_SEQUENCE_GAPS" for issue in md_preflight["issues"])
+
+
+def test_validation_returns_md_handoff_chain_canonicalization_plan() -> None:
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={"file": ("test_complex_md_handoff.pdb", PDB_FIXTURE, "chemical/x-pdb")},
+        data={"mode": "ppi_general"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    structure_id = upload_response.json()["structure_id"]
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": structure_id,
+            "mode": "ppi_general",
+            "chains": {"partner_1": ["B"], "partner_2": ["A"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    payload = validate_response.json()
+
+    assert payload["valid"] is True
+    assert "MD_CHAIN_CANONICALIZATION_SUGGESTED" in payload["warnings"]
+    assert payload["md_handoff"]["renaming_required"] is True
+    assert payload["md_handoff"]["ready_for_md_handoff"] is True
+    assert payload["md_handoff"]["canonical_chain_map"]["B"] == "A"
+    assert payload["md_handoff"]["canonical_chain_map"]["A"] == "B"
+    assert payload["md_handoff"]["canonical_partner_1"] == ["A"]
+    assert payload["md_handoff"]["canonical_partner_2"] == ["B"]
+
+    warning_by_code = {item["code"]: item for item in payload["warning_details"]}
+    handoff_details = warning_by_code["MD_CHAIN_CANONICALIZATION_SUGGESTED"]["details"]["md_handoff"]
+    assert handoff_details["renaming_required"] is True
+    assert any(issue["code"] == "CHAIN_CANONICALIZATION_REQUIRED" for issue in handoff_details["issues"])
 
 
 def test_prediction_requires_validation_before_success() -> None:

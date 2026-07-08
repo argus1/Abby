@@ -26,6 +26,7 @@ from abby_api.schemas.structures import (
 from abby_api.services.structure_parsing import parse_structure_file, summarize_structure
 
 UPLOAD_DIR = Path(__file__).resolve().parents[3] / "data" / "uploads"
+MD_CANONICAL_CHAIN_IDS = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz")
 
 
 def _normalize_format(filename: str) -> str:
@@ -143,6 +144,69 @@ def validate_partner_mapping(
     return warnings, errors, partner_residue_counts, warning_details, error_details
 
 
+def build_md_handoff_plan(chains: ChainMapping) -> dict[str, object]:
+    selected_chains = [*chains.partner_1, *chains.partner_2]
+    capacity_ok = len(selected_chains) <= len(MD_CANONICAL_CHAIN_IDS)
+    canonical_chain_map: dict[str, str] = {}
+    canonical_ids = MD_CANONICAL_CHAIN_IDS[: len(selected_chains)]
+
+    for index, chain_id in enumerate(selected_chains):
+        if index < len(canonical_ids):
+            canonical_chain_map[chain_id] = canonical_ids[index]
+
+    renaming_required = any(
+        canonical_chain_map.get(chain_id) != chain_id for chain_id in selected_chains
+    )
+    source_chain_ids_noncanonical = sorted(
+        {
+            chain_id
+            for chain_id in selected_chains
+            if len(chain_id) != 1 or (not chain_id.isalnum()) or (chain_id.isalpha() and chain_id != chain_id.upper())
+        }
+    )
+
+    issues: list[dict[str, object]] = []
+    if not capacity_ok:
+        issues.append(
+            {
+                "code": "CHAIN_ID_CAPACITY_EXCEEDED",
+                "message": "Selected chains exceed supported canonical chain ID capacity for MD handoff.",
+                "details": {
+                    "selected_chain_count": len(selected_chains),
+                    "supported_capacity": len(MD_CANONICAL_CHAIN_IDS),
+                },
+            }
+        )
+    if renaming_required:
+        issues.append(
+            {
+                "code": "CHAIN_CANONICALIZATION_REQUIRED",
+                "message": "Selected chains require remapping to canonical single-character IDs for MD handoff.",
+                "details": {"canonical_chain_map": canonical_chain_map},
+            }
+        )
+    if source_chain_ids_noncanonical:
+        issues.append(
+            {
+                "code": "SOURCE_CHAIN_IDS_NONCANONICAL",
+                "message": "One or more source chain IDs are non-canonical for pdb2gmx style workflows.",
+                "details": {"source_chain_ids_noncanonical": source_chain_ids_noncanonical},
+            }
+        )
+
+    return {
+        "selected_chains": selected_chains,
+        "capacity_ok": capacity_ok,
+        "renaming_required": renaming_required,
+        "source_chain_ids_noncanonical": source_chain_ids_noncanonical,
+        "canonical_chain_map": canonical_chain_map,
+        "canonical_partner_1": [canonical_chain_map.get(chain_id, "") for chain_id in chains.partner_1],
+        "canonical_partner_2": [canonical_chain_map.get(chain_id, "") for chain_id in chains.partner_2],
+        "issues": issues,
+        "ready_for_md_handoff": capacity_ok,
+    }
+
+
 def summarize_structure_detail(structure_id: UUID) -> StructureSummary:
     detail = get_structure(structure_id)
     if detail is None or detail.summary is None:
@@ -178,6 +242,17 @@ def validate_structure(request: StructureValidationRequest) -> StructureValidati
         detail.summary,
         normalized_groups,
     )
+    md_handoff = build_md_handoff_plan(normalized_groups)
+    if md_handoff["issues"]:
+        warnings.append("MD_CHAIN_CANONICALIZATION_SUGGESTED")
+        warning_details.append(
+            StructureValidationIssue(
+                code="MD_CHAIN_CANONICALIZATION_SUGGESTED",
+                message="MD handoff chain canonicalization guidance is available for selected chains.",
+                details={"md_handoff": md_handoff},
+            )
+        )
+
     normalized = "mmcif" if detail.format in {"mmcif", "cif"} else "pdb"
     result = StructureValidationResult(
         valid=not errors,
@@ -191,6 +266,7 @@ def validate_structure(request: StructureValidationRequest) -> StructureValidati
         warning_details=warning_details,
         errors=errors,
         error_details=error_details,
+        md_handoff=md_handoff,
     )
     set_validation(request.structure_id, result)
     detail.chains = normalized_groups

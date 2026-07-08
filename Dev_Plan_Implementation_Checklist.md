@@ -74,17 +74,17 @@ Audit baseline: **2026-07-07**
 ### 1B. Validation and normalization hardening
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
-| `[-]` | `P0 / S` | Add gap / fragmented-peptide detection | Planned but not implemented |
-| `[ ]` | `P1 / M` | Add MD-handoff-oriented chain normalization or canonical chain remapping | Current chain grouping is not yet MD-tool aware |
-| `[ ]` | `P1 / M` | Add `pdb2gmx`-oriented cleanup warnings or preflight checks | Unsupported residue naming, chain artifact issues, missing topology-critical atoms |
-| `[ ]` | `P2 / S` | Expose richer warning details in the structure frontend | `frontend/src/pages/StructurePage.tsx` |
+| `[x]` | `P0 / S` | Add gap / fragmented-peptide detection | Implemented via chain sequence-gap detection and warning details |
+| `[x]` | `P1 / M` | Add MD-handoff-oriented chain normalization or canonical chain remapping | Validation now returns `md_handoff` canonical chain map and remap guidance |
+| `[x]` | `P1 / M` | Add `pdb2gmx`-oriented cleanup warnings or preflight checks | Added MD preflight warning/metadata for non-standard residues and chain sequence gaps |
+| `[x]` | `P2 / S` | Expose richer warning details in the structure frontend | `frontend/src/pages/StructurePage.tsx` |
 
 ### Phase 1 exit criteria
 | Status | Priority / Effort | Exit criterion |
 | --- | --- | --- |
 | `[x]` | `P0 / M` | A representative `mmCIF` file can be uploaded and inspected without losing disulfide/glycan linkage information |
 | `[x]` | `P0 / M` | Structure detail responses include preserved connectivity metadata |
-| `[-]` | `P0 / S` | Validation test coverage includes `mmCIF`-specific cases and gap detection |
+| `[x]` | `P0 / S` | Validation test coverage includes `mmCIF`-specific cases and gap detection |
 
 ---
 
@@ -273,7 +273,7 @@ If you want the highest leverage next steps, this is the shortest sensible path:
 | Status | Priority / Effort | Next step |
 | --- | --- | --- |
 | `[x]` | `P0 / M` | Implement `MMCIF2Dict` + `_struct_conn` preservation |
-| `[ ]` | `P0 / S` | Add gap detection and MD-oriented validation preflight checks |
+| `[x]` | `P0 / S` | Add gap detection and MD-oriented validation preflight checks |
 | `[ ]` | `P0 / M` | Make batch jobs execute real predictions and emit real exports |
 | `[ ]` | `P1 / M` | Add residue-depth descriptors |
 | `[ ]` | `P1 / M` | Define MD handoff + simulation provenance schema |

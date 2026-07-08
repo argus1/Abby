@@ -26,7 +26,14 @@ export interface StructureSummary {
   available_chains: string[];
   residue_counts: Record<string, number>;
   warnings: string[];
+  warning_details: StructureValidationIssue[];
   metadata: Record<string, unknown>;
+}
+
+export interface StructureValidationIssue {
+  code: string;
+  message: string;
+  details: Record<string, unknown>;
 }
 
 export interface StructureValidationRequest {
@@ -44,7 +51,10 @@ export interface StructureValidationResult {
   chain_groups?: ChainMapping | null;
   partner_residue_counts: Record<string, number>;
   warnings: string[];
+  warning_details: StructureValidationIssue[];
   errors: string[];
+  error_details: StructureValidationIssue[];
+  md_handoff: Record<string, unknown>;
 }
 
 export interface StructureDetail extends StructureInput {

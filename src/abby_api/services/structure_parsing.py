@@ -272,6 +272,7 @@ def summarize_structure(
     chain_residue_name_counts: dict[str, dict[str, int]] = {}
     chain_residue_class_counts: dict[str, dict[str, int]] = {}
     unsupported_residue_counts: dict[str, dict[str, int]] = {}
+    chain_gap_details: dict[str, list[dict[str, int]]] = {}
     global_residue_class_counts: dict[str, int] = {
         "charged": 0,
         "polar": 0,
@@ -289,6 +290,7 @@ def summarize_structure(
         residue_count = 0
         residue_name_counts: dict[str, int] = {}
         unsupported_counts_for_chain: dict[str, int] = {}
+        observed_residue_numbers: set[int] = set()
         residue_class_counts: dict[str, int] = {
             "charged": 0,
             "polar": 0,
@@ -301,6 +303,7 @@ def summarize_structure(
             if residue.id[0] != " ":
                 continue
             residue_count += 1
+            observed_residue_numbers.add(int(residue.id[1]))
             residue_name = residue.get_resname().strip().upper()
             residue_name_counts[residue_name] = residue_name_counts.get(residue_name, 0) + 1
             residue_class = classify_residue(residue_name)
@@ -316,6 +319,22 @@ def summarize_structure(
         chain_residue_class_counts[chain_id] = residue_class_counts
         if unsupported_counts_for_chain:
             unsupported_residue_counts[chain_id] = unsupported_counts_for_chain
+
+        if observed_residue_numbers:
+            sorted_numbers = sorted(observed_residue_numbers)
+            gaps_for_chain: list[dict[str, int]] = []
+            for prev_number, next_number in zip(sorted_numbers, sorted_numbers[1:]):
+                if next_number - prev_number <= 1:
+                    continue
+                gaps_for_chain.append(
+                    {
+                        "from_residue": prev_number,
+                        "to_residue": next_number,
+                        "missing_residue_count": next_number - prev_number - 1,
+                    }
+                )
+            if gaps_for_chain:
+                chain_gap_details[chain_id] = gaps_for_chain
 
     if model_count > 1:
         warnings.append("MULTI_MODEL_INPUT")
@@ -337,6 +356,44 @@ def summarize_structure(
             )
         )
 
+    if chain_gap_details:
+        warnings.append("CHAIN_SEQUENCE_GAPS")
+        warning_details.append(
+            StructureValidationIssue(
+                code="CHAIN_SEQUENCE_GAPS",
+                message="One or more chains include sequence index discontinuities that may indicate missing residues.",
+                details={"chain_gap_details": chain_gap_details},
+            )
+        )
+
+    pdb2gmx_preflight_issues: list[dict[str, Any]] = []
+    if unsupported_residue_counts:
+        pdb2gmx_preflight_issues.append(
+            {
+                "code": "NON_STANDARD_RESIDUES",
+                "message": "Non-standard residues may require parameterization or renaming before pdb2gmx.",
+                "details": {"unsupported_residue_counts": unsupported_residue_counts},
+            }
+        )
+    if chain_gap_details:
+        pdb2gmx_preflight_issues.append(
+            {
+                "code": "CHAIN_SEQUENCE_GAPS",
+                "message": "Detected residue numbering gaps that may correspond to unresolved segments.",
+                "details": {"chain_gap_details": chain_gap_details},
+            }
+        )
+
+    if pdb2gmx_preflight_issues:
+        warnings.append("PDB2GMX_PRECHECK_ISSUES")
+        warning_details.append(
+            StructureValidationIssue(
+                code="PDB2GMX_PRECHECK_ISSUES",
+                message="MD preflight checks found issues that may require cleanup before pdb2gmx.",
+                details={"issues": pdb2gmx_preflight_issues},
+            )
+        )
+
     total_residues = sum(residue_counts.values())
     metadata: dict[str, Any] = {
         "total_residues": total_residues,
@@ -344,6 +401,11 @@ def summarize_structure(
         "chain_residue_class_counts": chain_residue_class_counts,
         "global_residue_class_counts": global_residue_class_counts,
         "unsupported_residue_counts": unsupported_residue_counts,
+        "chain_gap_details": chain_gap_details,
+        "md_preflight": {
+            "ready_for_pdb2gmx": not pdb2gmx_preflight_issues,
+            "issues": pdb2gmx_preflight_issues,
+        },
     }
 
     if format_name == "mmcif" and file_path is not None:
