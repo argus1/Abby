@@ -11,6 +11,7 @@ Abby v1 backend should:
 - run single and batch affinity predictions asynchronously
 - expose reproducible, versioned outputs through a stable API
 - separate heavy structure processing from lightweight request handling
+- keep full molecular simulation orchestration optional in v1 while preserving a clear path to phased GROMACS adoption
 
 ## 2. System context
 
@@ -173,6 +174,9 @@ Outputs:
 - chain-role inference hints
 - warnings/errors for UI and API clients
 
+Additional v1 requirement for future MD integration:
+- preserve simulation-handoff metadata (connectivity, chain mapping, and normalization provenance) so optional GROMACS workflows can be attached without changing core ingestion contracts
+
 ### 4.5 Descriptor generation service
 
 Responsibilities:
@@ -235,6 +239,7 @@ Worker types:
 - descriptor workers
 - inference workers
 - export workers
+- optional simulation workers (v1.1+) for explicit simulation-backed requests
 
 Why async:
 - structure parsing and scoring can be CPU-heavy
@@ -281,6 +286,24 @@ Use for:
 - queue backend if selected
 - signed export lookup optimization
 
+### 4.12 Optional molecular simulation integration (phased)
+
+To align with [`V1_Product_Spec_Abby.md`](./V1_Product_Spec_Abby.md), GROMACS integration should be explicit but staged.
+
+**Phase 1 (v1):**
+- keep the primary upload/validate/predict workflow simulation-free by default
+- accept and persist MD-ready structure artifacts and provenance fields
+- optionally ingest externally generated simulation summaries as derived descriptors
+
+**Phase 2 (v1.1):**
+- add async simulation workers for explicitly requested jobs
+- execute GROMACS in isolated worker runtime profiles
+- store simulation protocol metadata (force field, solvent model, ion settings, equilibration settings, random seed)
+
+**Phase 3 (post-v1.1):**
+- integrate trajectory-derived aggregates into standard descriptor generation
+- version simulation protocols independently from model bundles
+
 ## 5. Data flow by workflow
 
 ### 5.1 Single prediction flow
@@ -303,6 +326,14 @@ Use for:
 5. Export worker generates `csv` or `json` package.
 6. Client retrieves status and export link.
 
+### 5.3 Optional simulation-backed flow (v1.1+)
+
+1. Client submits a prediction request with simulation enabled.
+2. API creates a simulation-backed job and enqueues simulation worker tasks.
+3. Simulation worker runs protocolized GROMACS stages and writes artifacts to object storage.
+4. Descriptor worker consumes trajectory summaries and emits descriptor bundle + provenance.
+5. Inference and consensus proceed through the same result contract as non-simulation runs.
+
 ## 6. Deployment view
 
 ### v1 deployment recommendation
@@ -313,6 +344,8 @@ Use for:
 - **Redis**: managed cache/queue backend
 - **Object storage**: S3-compatible bucket
 - **Reverse proxy / ingress**: TLS termination and routing
+
+For simulation-enabled phases, add a dedicated simulation worker profile/image so GROMACS dependencies do not become a mandatory runtime dependency of the default inference workers.
 
 ### Scaling strategy
 
@@ -373,6 +406,7 @@ Future controls:
 | Slow batch jobs | queue saturation or CPU bottleneck | autoscale workers, split worker pools by stage |
 | Inconsistent results | untracked model changes | explicit model bundle versioning and descriptor hashing |
 | Large-file handling issues | oversize upload or storage timeouts | file size limits, streaming upload, retry logic |
+| Simulation job instability | resource exhaustion or protocol misconfiguration | isolated simulation worker pool, protocol validation, retries with capped runtime |
 
 ## 10. Recommended repository doc map
 
