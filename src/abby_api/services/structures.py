@@ -47,7 +47,12 @@ async def upload_structure(file: UploadFile, mode: PredictionMode) -> StructureI
 
     try:
         parsed_structure, parser_name = parse_structure_file(destination, format_name)
-        summary = summarize_structure(parsed_structure, parser_name)
+        summary = summarize_structure(
+            parsed_structure,
+            parser_name,
+            file_path=destination,
+            format_name=format_name,
+        )
     except Exception as exc:  # pragma: no cover - defensive error surface
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -153,8 +158,17 @@ def validate_structure(request: StructureValidationRequest) -> StructureValidati
         file_path = get_structure_file(request.structure_id)
         if file_path is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Structure file not found.")
-        parsed_structure, parser_name = parse_structure_file(file_path, "mmcif" if detail.format in {"mmcif", "cif"} else "pdb")
-        set_structure_summary(request.structure_id, summarize_structure(parsed_structure, parser_name))
+        normalized_format = "mmcif" if detail.format in {"mmcif", "cif"} else "pdb"
+        parsed_structure, parser_name = parse_structure_file(file_path, normalized_format)
+        set_structure_summary(
+            request.structure_id,
+            summarize_structure(
+                parsed_structure,
+                parser_name,
+                file_path=file_path,
+                format_name=normalized_format,
+            ),
+        )
         detail = get_structure(request.structure_id)
         if detail is None or detail.summary is None:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Unable to summarize structure.")

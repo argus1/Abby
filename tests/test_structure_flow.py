@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from uuid import UUID
 
+import pytest
 from fastapi.testclient import TestClient
 
 from abby_api.main import app
 from abby_api.repositories.memory import get_feature_summary_artifact
+from abby_api.services.structure_parsing import BIOPYTHON_AVAILABLE
 from abby_api.storage.object_store import ObjectStore
 
 client = TestClient(app)
@@ -35,6 +37,53 @@ ATOM      7  C   ALA B   1      16.350  10.200  10.900  1.00 20.00           C
 ATOM      8  O   ALA B   1      17.020   9.180  10.810  1.00 20.00           O
 TER
 END
+"""
+
+MMCIF_CONNECTIVITY_FIXTURE = """\
+data_connectivity
+#
+loop_
+_struct_conn.id
+_struct_conn.conn_type_id
+_struct_conn.ptnr1_label_asym_id
+_struct_conn.ptnr1_label_comp_id
+_struct_conn.ptnr1_label_seq_id
+_struct_conn.ptnr1_label_atom_id
+_struct_conn.ptnr2_label_asym_id
+_struct_conn.ptnr2_label_comp_id
+_struct_conn.ptnr2_label_seq_id
+_struct_conn.ptnr2_label_atom_id
+disulf1 disulf A CYS 6 SG A CYS 127 SG
+glyco1 covale A ASN 10 ND2 C NAG 301 C1
+#
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_entity_id
+_atom_site.label_seq_id
+_atom_site.pdbx_PDB_ins_code
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.occupancy
+_atom_site.B_iso_or_equiv
+_atom_site.pdbx_formal_charge
+_atom_site.auth_seq_id
+_atom_site.auth_comp_id
+_atom_site.auth_asym_id
+_atom_site.auth_atom_id
+_atom_site.pdbx_PDB_model_num
+ATOM 1 S SG . CYS A 1 6 ? 11.104 13.207 9.111 1.00 20.00 ? 6 CYS A SG 1
+ATOM 2 S SG . CYS A 1 127 ? 14.300 11.500 10.100 1.00 20.00 ? 127 CYS A SG 1
+ATOM 3 N ND2 . ASN A 1 10 ? 15.100 10.170 10.420 1.00 20.00 ? 10 ASN A ND2 1
+HETATM 4 C C1 . NAG C 2 301 ? 16.350 10.200 10.900 1.00 20.00 ? 301 NAG C C1 1
+ATOM 5 N N . ALA B 3 1 ? 12.560 13.102 9.262 1.00 20.00 ? 1 ALA B N 1
+#
 """
 
 
@@ -139,6 +188,35 @@ def test_structure_validation_propagates_unsupported_residue_warning() -> None:
 
     warning_details_by_code = {entry["code"]: entry for entry in payload["warning_details"]}
     assert warning_details_by_code["UNSUPPORTED_RESIDUE"]["details"]["unsupported_residue_counts"]["A"]["MSE"] == 1
+
+
+@pytest.mark.skipif(not BIOPYTHON_AVAILABLE, reason="BioPython is required for mmCIF parsing")
+def test_mmcif_upload_preserves_struct_conn_connectivity_metadata() -> None:
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={"file": ("test_connectivity.mmcif", MMCIF_CONNECTIVITY_FIXTURE, "chemical/x-cif")},
+        data={"mode": "ppi_general"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    structure_id = upload_response.json()["structure_id"]
+
+    detail_response = client.get(f"/api/v1/structures/{structure_id}", headers=HEADERS)
+    assert detail_response.status_code == 200, detail_response.text
+    detail = detail_response.json()
+
+    connectivity = detail["summary"]["metadata"]["connectivity"]
+    assert connectivity["available"] is True
+    assert connectivity["source"] == "_struct_conn"
+    assert connectivity["connection_count"] == 2
+    assert connectivity["disulfide_count"] == 1
+    assert connectivity["glycan_link_count"] == 1
+
+    connection_by_id = {entry["id"]: entry for entry in connectivity["connections"]}
+    assert connection_by_id["disulf1"]["is_disulfide"] is True
+    assert connection_by_id["disulf1"]["partner_1"]["residue_name"] == "CYS"
+    assert connection_by_id["glyco1"]["is_glycan_link"] is True
+    assert connection_by_id["glyco1"]["partner_2"]["residue_name"] == "NAG"
 
 
 def test_prediction_requires_validation_before_success() -> None:

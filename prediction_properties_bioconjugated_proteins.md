@@ -1,4 +1,4 @@
-**Yes, software tools allow the prediction of the physical properties of bioconjugated proteins**, though the software stack is highly specialized. Predicting properties like solubility, stability, charge (pI), and binding affinity for a *modified* protein is much harder than for a native protein. Standard AI tools like base AlphaFold 2 only understand the 20 natural amino acids from a sequence. \[1, 2, 3, 4, 5\]
+**software tools allow the prediction of the physical properties of bioconjugated proteins**, though the software stack is highly specialized. Predicting properties like solubility, stability, charge (pI), and binding affinity for a *modified* protein is much harder than for a native protein. Standard AI tools like base AlphaFold 2 only understand the 20 natural amino acids from a sequence. \[1, 2, 3, 4, 5\]
 
 To simulate and predict the properties of a bioconjugate (such as an EDC-modified N-terminus), the structural biology workflow combines advanced **all-atom generative AI**, **molecular dynamics (MD)**, and **hybrid property predictors**. \[4, 6, 7, 8\]
 

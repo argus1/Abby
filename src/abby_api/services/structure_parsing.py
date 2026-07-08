@@ -6,12 +6,14 @@ from typing import Any
 
 try:
     from Bio.PDB import MMCIFParser, PDBParser, Structure
+    from Bio.PDB.MMCIF2Dict import MMCIF2Dict
 
     BIOPYTHON_AVAILABLE = True
 except ModuleNotFoundError:  # pragma: no cover - exercised in environments without BioPython
     MMCIFParser = None  # type: ignore[assignment]
     PDBParser = None  # type: ignore[assignment]
     Structure = None  # type: ignore[assignment]
+    MMCIF2Dict = None  # type: ignore[assignment]
     BIOPYTHON_AVAILABLE = False
 
 from abby_api.schemas.structures import StructureSummary, StructureValidationIssue
@@ -149,7 +151,119 @@ def parse_structure_file(file_path: Path, format_name: str) -> tuple[Any, str]:
     return structure, parser_name
 
 
-def summarize_structure(structure: Any, parser_name: str) -> StructureSummary:
+def _as_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    return [str(value)]
+
+
+def _extract_mmcif_connectivity(file_path: Path) -> dict[str, Any]:
+    if not BIOPYTHON_AVAILABLE or MMCIF2Dict is None:
+        return {
+            "available": False,
+            "reason": "BIOPYTHON_UNAVAILABLE",
+            "connection_count": 0,
+            "disulfide_count": 0,
+            "glycan_link_count": 0,
+            "connections": [],
+            "disulfide_connections": [],
+            "glycan_connections": [],
+        }
+
+    try:
+        mmcif_dict = MMCIF2Dict(str(file_path))
+    except Exception as exc:  # pragma: no cover - defensive for malformed mmCIF
+        return {
+            "available": False,
+            "reason": "MMCIF2DICT_PARSE_FAILED",
+            "error": str(exc),
+            "connection_count": 0,
+            "disulfide_count": 0,
+            "glycan_link_count": 0,
+            "connections": [],
+            "disulfide_connections": [],
+            "glycan_connections": [],
+        }
+
+    connection_types = _as_list(mmcif_dict.get("_struct_conn.conn_type_id"))
+    connection_ids = _as_list(mmcif_dict.get("_struct_conn.id"))
+    ptnr1_asym = _as_list(mmcif_dict.get("_struct_conn.ptnr1_label_asym_id"))
+    ptnr1_comp = _as_list(mmcif_dict.get("_struct_conn.ptnr1_label_comp_id"))
+    ptnr1_seq = _as_list(mmcif_dict.get("_struct_conn.ptnr1_label_seq_id"))
+    ptnr1_atom = _as_list(mmcif_dict.get("_struct_conn.ptnr1_label_atom_id"))
+    ptnr2_asym = _as_list(mmcif_dict.get("_struct_conn.ptnr2_label_asym_id"))
+    ptnr2_comp = _as_list(mmcif_dict.get("_struct_conn.ptnr2_label_comp_id"))
+    ptnr2_seq = _as_list(mmcif_dict.get("_struct_conn.ptnr2_label_seq_id"))
+    ptnr2_atom = _as_list(mmcif_dict.get("_struct_conn.ptnr2_label_atom_id"))
+
+    glycan_residue_names = {
+        "NAG",
+        "BMA",
+        "MAN",
+        "FUC",
+        "GAL",
+        "GLC",
+        "SIA",
+        "NDG",
+        "BGC",
+        "FCA",
+    }
+
+    records: list[dict[str, Any]] = []
+    for index, conn_type in enumerate(connection_types):
+        conn_type_norm = conn_type.strip().lower()
+        p1_comp = ptnr1_comp[index].strip().upper() if index < len(ptnr1_comp) else ""
+        p2_comp = ptnr2_comp[index].strip().upper() if index < len(ptnr2_comp) else ""
+
+        is_disulfide = conn_type_norm == "disulf"
+        is_glycan_link = (
+            conn_type_norm in {"covale", "modres"}
+            and (p1_comp in glycan_residue_names or p2_comp in glycan_residue_names)
+        )
+
+        record = {
+            "id": connection_ids[index] if index < len(connection_ids) else f"conn_{index + 1}",
+            "type": conn_type,
+            "partner_1": {
+                "chain_id": ptnr1_asym[index] if index < len(ptnr1_asym) else "",
+                "residue_name": p1_comp,
+                "sequence_id": ptnr1_seq[index] if index < len(ptnr1_seq) else "",
+                "atom_id": ptnr1_atom[index] if index < len(ptnr1_atom) else "",
+            },
+            "partner_2": {
+                "chain_id": ptnr2_asym[index] if index < len(ptnr2_asym) else "",
+                "residue_name": p2_comp,
+                "sequence_id": ptnr2_seq[index] if index < len(ptnr2_seq) else "",
+                "atom_id": ptnr2_atom[index] if index < len(ptnr2_atom) else "",
+            },
+            "is_disulfide": is_disulfide,
+            "is_glycan_link": is_glycan_link,
+        }
+        records.append(record)
+
+    disulfides = [record for record in records if record["is_disulfide"]]
+    glycans = [record for record in records if record["is_glycan_link"]]
+    return {
+        "available": True,
+        "source": "_struct_conn",
+        "connection_count": len(records),
+        "disulfide_count": len(disulfides),
+        "glycan_link_count": len(glycans),
+        "connections": records,
+        "disulfide_connections": disulfides,
+        "glycan_connections": glycans,
+    }
+
+
+def summarize_structure(
+    structure: Any,
+    parser_name: str,
+    *,
+    file_path: Path | None = None,
+    format_name: str | None = None,
+) -> StructureSummary:
     model_count = len(list(structure.get_models()))
     residue_counts: dict[str, int] = {}
     available_chains: list[str] = []
@@ -224,6 +338,17 @@ def summarize_structure(structure: Any, parser_name: str) -> StructureSummary:
         )
 
     total_residues = sum(residue_counts.values())
+    metadata: dict[str, Any] = {
+        "total_residues": total_residues,
+        "chain_residue_name_counts": chain_residue_name_counts,
+        "chain_residue_class_counts": chain_residue_class_counts,
+        "global_residue_class_counts": global_residue_class_counts,
+        "unsupported_residue_counts": unsupported_residue_counts,
+    }
+
+    if format_name == "mmcif" and file_path is not None:
+        metadata["connectivity"] = _extract_mmcif_connectivity(file_path)
+
     return StructureSummary(
         parser_name=parser_name,
         model_count=model_count,
@@ -231,11 +356,5 @@ def summarize_structure(structure: Any, parser_name: str) -> StructureSummary:
         residue_counts=residue_counts,
         warnings=sorted(set(warnings)),
         warning_details=warning_details,
-        metadata={
-            "total_residues": total_residues,
-            "chain_residue_name_counts": chain_residue_name_counts,
-            "chain_residue_class_counts": chain_residue_class_counts,
-            "global_residue_class_counts": global_residue_class_counts,
-            "unsupported_residue_counts": unsupported_residue_counts,
-        },
+        metadata=metadata,
     )

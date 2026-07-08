@@ -85,6 +85,15 @@ export function BatchJobPage() {
     return liveJob.counts.queued + liveJob.counts.running + liveJob.counts.completed + liveJob.counts.failed;
   }, [liveJob]);
 
+  const resultCutoffSummary = useMemo(() => {
+    const cutoffs = new Set(
+      (resultsQuery.data?.items ?? [])
+        .map((item) => item.provenance?.contact_distance_cutoff_angstrom)
+        .filter((value): value is number => typeof value === 'number'),
+    );
+    return Array.from(cutoffs).sort((left, right) => left - right);
+  }, [resultsQuery.data?.items]);
+
   return (
     <div className="page-stack">
       <section className="card">
@@ -173,6 +182,12 @@ export function BatchJobPage() {
         <ul className="bullet-list compact">
           <li>Result items loaded: {resultsQuery.data?.items.length ?? 0}</li>
           <li>
+            Contact cutoff(s):{' '}
+            {resultCutoffSummary.length
+              ? resultCutoffSummary.map((value) => `${value.toFixed(2)} Å`).join(', ')
+              : 'not available yet'}
+          </li>
+          <li>
             CSV export:{' '}
             {csvExportQuery.data ? (
               <a href={csvExportQuery.data.download_url} target="_blank" rel="noreferrer">
@@ -193,6 +208,21 @@ export function BatchJobPage() {
             )}
           </li>
         </ul>
+
+        {resultsQuery.data?.items?.length ? (
+          <div>
+            <h4>Completed prediction preview</h4>
+            <ul className="bullet-list compact">
+              {resultsQuery.data.items.slice(0, 5).map((item) => (
+                <li key={item.prediction_id}>
+                  <code>{item.prediction_id}</code> — ΔG {item.consensus?.delta_g_kcal_mol ?? 'n/a'} · log(K){' '}
+                  {item.consensus?.log_k ?? 'n/a'} · cutoff{' '}
+                  {item.provenance?.contact_distance_cutoff_angstrom?.toFixed(2) ?? 'n/a'} Å
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </section>
     </div>
   );
