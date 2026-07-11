@@ -3,10 +3,18 @@ from __future__ import annotations
 from abby_api.schemas.common import AbbyBaseModel
 
 
+class DependencyStatus(AbbyBaseModel):
+    name: str
+    available: bool
+    required: bool = False
+    detail: str | None = None
+
+
 class HealthResponse(AbbyBaseModel):
     status: str
     timestamp: str
     version: str
+    dependencies: list[DependencyStatus] = []
 
 
 class VersionResponse(AbbyBaseModel):

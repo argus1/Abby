@@ -83,6 +83,7 @@ export interface PredictionOptions {
   return_all_models?: boolean;
   include_explainability?: boolean;
   temperature_kelvin?: number;
+  contact_distance_cutoff_angstrom?: number;
 }
 
 export interface PredictionResult {

@@ -111,14 +111,14 @@ Audit baseline: **2026-07-07**
 | `[x]` | `P0 / L` | Bind worker tasks to a real async backend | Pluggable worker backend abstraction implemented (`in_process` + `inline`) and integrated via app lifespan/config (`src/abby_api/workers/backend.py`) |
 | `[x]` | `P1 / S` | Add `celery_stub` backend as Phase 2 bridge to distributed workers | `celery_stub` backend is selectable and fail-fast by design, providing an explicit migration waypoint to full Celery adapter integration |
 | `[x]` | `P1 / M` | Add status transitions and failure capture for long-running tasks | Batch flow now transitions queued→running→completed/failed under worker execution and captures per-structure failures |
-| `[ ]` | `P2 / S` | Add health visibility for optional scientific/runtime dependencies | `src/abby_api/services/system.py` |
+| `[x]` | `P2 / S` | Add health visibility for optional scientific/runtime dependencies | `src/abby_api/services/system.py`, `src/abby_api/schemas/system.py`, `frontend/src/pages/DashboardPage.tsx`, `tests/test_health.py` |
 
 ### 2C. Frontend alignment cleanup
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
-| `[-]` | `P1 / S` | Batch page is wired for richer data than backend currently supplies | `frontend/src/pages/BatchJobPage.tsx` |
-| `[ ]` | `P1 / S` | Remove or rewrite outdated “planned/stubbed” frontend copy where backend support now exists | `frontend/src/lib/stub-data.ts` |
-| `[ ]` | `P2 / S` | Optionally expose `contact_distance_cutoff_angstrom` as a project-page input | `frontend/src/pages/ProjectPage.tsx` |
+| `[x]` | `P1 / S` | Batch page reflects real job, result, and export data from the backend | `frontend/src/pages/BatchJobPage.tsx` |
+| `[x]` | `P1 / S` | Remove or rewrite outdated “planned/stubbed” frontend copy where backend support now exists | `frontend/src/lib/stub-data.ts`, `frontend/src/pages/DashboardPage.tsx`, `frontend/src/pages/ProjectPage.tsx` |
+| `[x]` | `P2 / S` | Expose `contact_distance_cutoff_angstrom` as a project-page input | `frontend/src/pages/ProjectPage.tsx`, `frontend/src/types/api.ts` |
 
 ### Phase 2 exit criteria
 | Status | Priority / Effort | Exit criterion |
@@ -126,7 +126,7 @@ Audit baseline: **2026-07-07**
 | `[x]` | `P0 / M` | A submitted batch job produces real prediction results |
 | `[x]` | `P0 / M` | Batch exports produce real persisted artifacts |
 | `[x]` | `P0 / M` | Worker-backed tasks report queued/running/completed/failed accurately |
-| `[ ]` | `P1 / S` | Frontend workflow copy matches actual backend capability |
+| `[x]` | `P1 / S` | Frontend workflow copy matches actual backend capability |
 
 ---
 
@@ -168,6 +168,7 @@ Audit baseline: **2026-07-07**
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
 | `[-]` | `P1 / S` | Some provenance exists today, but not simulation provenance | Model bundle version, preprocess version, descriptor hash, contact cutoff |
+| `[ ]` | `P1 / S` | Add validation-dataset PDB→mmCIF conversion regression checks | `validation_dataset/ANDD_pdb/` |
 | `[ ]` | `P1 / M` | Add topology-handoff metadata schema | Suggested fields: normalized chain map, preserved connectivity, non-standard residues, preprocessing warnings |
 | `[ ]` | `P1 / M` | Add simulation provenance schema placeholders | Suggested fields: force field, water model, ionization, minimization protocol, seed, engine version |
 | `[ ]` | `P1 / M` | Add artifact contracts for normalized structures, topology references, and imported trajectory summaries | Storage layer + prediction/batch artifact registry |
@@ -197,7 +198,7 @@ Audit baseline: **2026-07-07**
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
 | `[ ]` | `P2 / L` | Introduce a dedicated simulation worker runtime/profile | Isolated optional runtime |
-| `[ ]` | `P2 / L` | Implement optional GROMACS execution path | Keep off critical path for default prediction flow |
+| `[ ]` | `P2 / L` | Implement optional Gromacs-CIF execution path | Keep off critical path for default prediction flow; use CIF-aware topology generation for mmCIF inputs |
 | `[ ]` | `P2 / L` | Add parameterization workflow hooks for non-standard residues/linkers | AMBER/Antechamber/LigParGen-style support |
 | `[ ]` | `P2 / M` | Capture run-time simulation provenance and store outputs in object storage | Provenance + artifact persistence |
 
@@ -260,6 +261,7 @@ These should be advanced throughout the roadmap rather than left until the end.
 | --- | --- | --- |
 | `[x]` | `P0 / S` | Add `mmCIF` integration tests with relational connectivity assertions | `tests/test_structure_flow.py` |
 | `[x]` | `P0 / S` | Add batch execution tests with real results and exports |
+| `[x]` | `P0 / S` | Add dataset-backed validation regression tests using `validation_dataset/ANDD_pdb/` | `tests/test_structure_flow.py`, `tests/test_batch_jobs.py` |
 | `[ ]` | `P1 / S` | Add residue-depth / new-descriptor verification tests as Phase 3 lands |
 | `[ ]` | `P1 / S` | Add imported-simulation artifact tests as Phase 4 lands |
 | `[ ]` | `P2 / M` | Add simulation worker / trajectory tests as Phase 5 lands |
@@ -276,6 +278,7 @@ If you want the highest leverage next steps, this is the shortest sensible path:
 | `[x]` | `P0 / M` | Implement `MMCIF2Dict` + `_struct_conn` preservation |
 | `[x]` | `P0 / S` | Add gap detection and MD-oriented validation preflight checks |
 | `[x]` | `P0 / M` | Make batch jobs execute real predictions and emit real exports |
+| `[x]` | `P0 / S` | Validate the core workflow against `validation_dataset/ANDD_pdb/` |
 | `[ ]` | `P1 / M` | Add residue-depth descriptors |
 | `[ ]` | `P1 / M` | Define MD handoff + simulation provenance schema |
 

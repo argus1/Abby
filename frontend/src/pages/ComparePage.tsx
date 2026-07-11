@@ -47,40 +47,40 @@ export function ComparePage() {
         <section className="card">
           <h3>Prediction A</h3>
           <ul className="bullet-list compact">
-            <li>Prediction ID: {leftPredictionId ?? 'stubbed'}</li>
-            <li>ΔG baseline: {leftPrediction?.consensus?.delta_g_kcal_mol ?? 'stubbed'}</li>
-            <li>log(K): {leftPrediction?.consensus?.log_k ?? 'stubbed'}</li>
+            <li>Prediction ID: {leftPredictionId ?? 'not loaded'}</li>
+            <li>ΔG baseline: {leftPrediction?.consensus?.delta_g_kcal_mol ?? 'not loaded'}</li>
+            <li>log(K): {leftPrediction?.consensus?.log_k ?? 'not loaded'}</li>
             <li>
               Contact cutoff:{' '}
               {leftPrediction?.provenance?.contact_distance_cutoff_angstrom !== undefined
                 ? `${leftPrediction.provenance.contact_distance_cutoff_angstrom.toFixed(2)} Å`
-                : 'stubbed'}
+                : 'not loaded'}
             </li>
             <li>
               Top descriptors:{' '}
               {leftDescriptors.length
                 ? leftDescriptors.map((item) => item.name).join(', ')
-                : 'charged-polar, apolar-apolar'}
+                : 'available after loading'}
             </li>
           </ul>
         </section>
         <section className="card">
           <h3>Prediction B</h3>
           <ul className="bullet-list compact">
-            <li>Prediction ID: {rightPredictionId ?? 'stubbed'}</li>
-            <li>ΔG baseline: {rightPrediction?.consensus?.delta_g_kcal_mol ?? 'stubbed'}</li>
-            <li>log(K): {rightPrediction?.consensus?.log_k ?? 'stubbed'}</li>
+            <li>Prediction ID: {rightPredictionId ?? 'not loaded'}</li>
+            <li>ΔG baseline: {rightPrediction?.consensus?.delta_g_kcal_mol ?? 'not loaded'}</li>
+            <li>log(K): {rightPrediction?.consensus?.log_k ?? 'not loaded'}</li>
             <li>
               Contact cutoff:{' '}
               {rightPrediction?.provenance?.contact_distance_cutoff_angstrom !== undefined
                 ? `${rightPrediction.provenance.contact_distance_cutoff_angstrom.toFixed(2)} Å`
-                : 'stubbed'}
+                : 'not loaded'}
             </li>
             <li>
               Top descriptors:{' '}
               {rightDescriptors.length
                 ? rightDescriptors.map((item) => item.name).join(', ')
-                : 'apolar surface, charged surface'}
+                : 'available after loading'}
             </li>
           </ul>
         </section>

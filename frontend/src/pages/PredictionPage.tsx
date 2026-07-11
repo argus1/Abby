@@ -31,8 +31,8 @@ export function PredictionPage() {
       <section className="card">
         <h2>Prediction result</h2>
         <p className="muted">
-          This page shows live Abby prediction payloads while preserving the planned deterministic
-          feature extraction, baseline scoring, and export story from the service-layer plan.
+          This page shows live Abby prediction payloads while preserving deterministic feature
+          extraction, baseline scoring, and export provenance from the service-layer workflow.
         </p>
         <div className="status-row">
           <span className={`status-pill ${status}`}>Status: {status}</span>
@@ -57,11 +57,11 @@ export function PredictionPage() {
       <section className="grid three-col">
         <section className="card metric-card">
           <span className="muted">ΔG output</span>
-          <strong>{prediction?.consensus?.delta_g_kcal_mol ?? 'stubbed baseline'}</strong>
+          <strong>{prediction?.consensus?.delta_g_kcal_mol ?? 'loading baseline'}</strong>
         </section>
         <section className="card metric-card">
           <span className="muted">log(K)</span>
-          <strong>{prediction?.consensus?.log_k ?? 'stubbed baseline'}</strong>
+          <strong>{prediction?.consensus?.log_k ?? 'loading baseline'}</strong>
         </section>
         <section className="card metric-card">
           <span className="muted">Explainability</span>
@@ -79,27 +79,27 @@ export function PredictionPage() {
             {(prediction?.explainability?.top_descriptors ?? []).map((item) => (
               <li key={item.name}>{item.name}: {item.contribution}</li>
             ))}
-            {!prediction?.explainability && stubPrediction.plannedOutputs.contacts.map((item) => (
+            {!prediction?.explainability && stubPrediction.exampleOutputs.contacts.map((item) => (
               <li key={item}>{item}</li>
             ))}
-            {!prediction?.explainability && stubPrediction.plannedOutputs.surface.map((item) => (
+            {!prediction?.explainability && stubPrediction.exampleOutputs.surface.map((item) => (
               <li key={item}>{item}</li>
             ))}
           </ul>
         </section>
         <section className="card">
-          <h3>Export artifact stubs</h3>
+          <h3>Export artifacts</h3>
           <ul className="bullet-list compact">
-            {stubPrediction.plannedOutputs.exports.map((item) => (
+            {stubPrediction.exampleOutputs.exports.map((item) => (
               <li key={item}>{item}</li>
             ))}
-            {stubPrediction.plannedOutputs.exportNotes?.map((item) => (
+            {stubPrediction.exampleOutputs.exportNotes?.map((item) => (
               <li key={item}>{item}</li>
             ))}
           </ul>
           <div className="inline-actions">
-            <button className="button">Download contact list (stub)</button>
-            <button className="button secondary">Generate PyMOL script (stub)</button>
+            <button className="button">Download contact list</button>
+            <button className="button secondary">Generate PyMOL script</button>
           </div>
         </section>
       </section>

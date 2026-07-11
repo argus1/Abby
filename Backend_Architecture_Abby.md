@@ -176,6 +176,13 @@ Outputs:
 
 Additional v1 requirement for future MD integration:
 - preserve simulation-handoff metadata (connectivity, chain mapping, and normalization provenance) so optional GROMACS workflows can be attached without changing core ingestion contracts
+- treat `validation_dataset/ANDD_pdb/` as the canonical corpus for PDB→mmCIF conversion checks before validation or simulation handoff
+- prefer the CIF-modified `Gromacs-CIF` backend for any mmCIF-driven topology generation path instead of vanilla GROMACS
+
+Dataset-backed validation requirement:
+- use `validation_dataset/ANDD_pdb/` as the canonical local regression corpus for validation, normalization, and export behavior
+- keep the validation service aligned with that corpus so future parser or chain-mapping changes can be verified against representative Abby inputs
+- extend validation summaries and tests whenever the dataset grows so roadmap docs and runtime behavior stay synchronized
 
 ### 4.5 Descriptor generation service
 

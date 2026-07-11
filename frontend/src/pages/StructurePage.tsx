@@ -62,7 +62,7 @@ export function StructurePage() {
       <section className="card">
         <h2>Structure validation detail</h2>
         <p className="muted">
-          Live structure detail from Abby plus the parser/validation logic planned in
+          Live structure detail from Abby plus the parser and validation logic in
           `services/structures.py` and `services/structure_parsing.py`.
         </p>
       </section>
@@ -71,9 +71,9 @@ export function StructurePage() {
         <section className="card">
           <h3>Normalized structure summary</h3>
           <ul className="bullet-list compact">
-            <li>Input: {detail?.filename ?? 'Demo structure stub'}</li>
-            <li>Parser: {detail?.summary?.parser_name ?? 'MMCIFParser (planned default)'}</li>
-            <li>Available chains: {detail?.summary?.available_chains.join(', ') || 'A, B (stub)'}</li>
+            <li>Input: {detail?.filename ?? 'Demo structure'}</li>
+            <li>Parser: {detail?.summary?.parser_name ?? 'MMCIFParser (backend default)'}</li>
+            <li>Available chains: {detail?.summary?.available_chains.join(', ') || 'A, B (demo)'}</li>
             <li>Model count: {detail?.summary?.model_count ?? 1}</li>
             <li>Residue counts: {detail?.summary ? JSON.stringify(detail.summary.residue_counts) : '{"A": 1, "B": 1}'}</li>
           </ul>

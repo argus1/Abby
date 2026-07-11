@@ -33,7 +33,17 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function fetchHealth(): Promise<{ status: string; version: string; timestamp: string }> {
+export async function fetchHealth(): Promise<{
+  status: string;
+  version: string;
+  timestamp: string;
+  dependencies: Array<{
+    name: string;
+    available: boolean;
+    required: boolean;
+    detail?: string | null;
+  }>;
+}> {
   return apiFetch('/health');
 }
 

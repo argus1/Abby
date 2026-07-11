@@ -4,7 +4,7 @@ export function SettingsPage() {
       <section className="card">
         <h2>Frontend settings</h2>
         <p className="muted">
-          Stub settings page for local API URL, API key storage, and future feature flags.
+          Settings for local API URL, API key storage, and future feature flags.
         </p>
       </section>
       <section className="card">
@@ -14,7 +14,7 @@ export function SettingsPage() {
         </label>
         <label className="field">
           <span>Authentication</span>
-          <input type="text" value="API key header (planned UI management)" readOnly />
+          <input type="text" value="API key header (managed externally for now)" readOnly />
         </label>
       </section>
     </div>

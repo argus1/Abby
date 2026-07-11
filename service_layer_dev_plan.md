@@ -24,6 +24,8 @@ The strongest reuse candidates are:
    * chain-presence validation for user selections
    * multi-model consistency checks
    * gap and discontinuity warnings
+   * dataset-backed regression checks using `validation_dataset/ANDD_pdb/` so parser and validation changes stay anchored to real local fixtures
+   * PDB→mmCIF conversion checks for the validation dataset before the structure is handed to downstream services or exports
 
 2. **Chain selection semantics**
    * grouping multiple chains into one binding partner
@@ -106,6 +108,8 @@ The current Abby codebase already has the right high-level folders, so the reuse
 ### 4.1 `src/abby_api/services/structures.py`
 
 This file should become the home for **structure ingestion, validation coordination, and chain mapping checks**.
+
+Use `validation_dataset/ANDD_pdb/` as the canonical local regression corpus for chain mapping, mmCIF conversion, validation output, and export behavior.
 
 Recommended responsibilities:
 

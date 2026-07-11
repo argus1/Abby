@@ -20,16 +20,29 @@ export function DashboardPage() {
     <div className="page-stack">
       <section className="hero card">
         <div>
-          <h2>Abby end-to-end frontend stub</h2>
+          <h2>Abby end-to-end frontend</h2>
           <p>
-            This UI is scaffolded to match the Docker-based Abby stack and expose the planned
-            service-layer logic as visible workflow steps.
+            This UI is wired to the Docker-based Abby stack and exposes the service-layer workflow
+            steps that are currently supported by the backend.
           </p>
         </div>
         <div className="health-panel">
           <div className="muted">API health</div>
           <strong>{health.data?.status ?? 'offline / not yet connected'}</strong>
           <div className="muted small">{health.data?.version ?? 'backend unavailable'}</div>
+          {health.data?.dependencies?.length ? (
+            <div className="muted small">
+              <div>Runtime dependencies:</div>
+              <ul className="bullet-list compact">
+                {health.data.dependencies.map((dependency) => (
+                  <li key={dependency.name}>
+                    {dependency.name}: {dependency.available ? 'available' : 'missing'}
+                    {dependency.required ? ' (required)' : ''}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -42,10 +55,10 @@ export function DashboardPage() {
       </section>
 
       <section className="card">
-        <h3>Start with the stub workflow</h3>
+        <h3>Start with the workflow</h3>
         <p className="muted">
           Use the project view to walk through real upload, chain validation, prediction
-          submission, and service-layer-aware frontend stubs.
+          submission, and export workflows.
         </p>
         <div className="inline-actions">
           <button className="button" onClick={() => createProjectMutation.mutate()}>

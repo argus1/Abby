@@ -4,7 +4,7 @@ export const serviceLayerModules: ServiceLayerModule[] = [
   {
     title: 'Structure parsing and validation',
     service: 'services/structures.py',
-    status: 'planned',
+    status: 'available',
     bullets: [
       'Parser selection for PDB/mmCIF',
       'Disjoint partner validation',
@@ -15,7 +15,7 @@ export const serviceLayerModules: ServiceLayerModule[] = [
   {
     title: 'Feature extraction',
     service: 'services/feature_extraction.py',
-    status: 'planned',
+    status: 'available',
     bullets: [
       'Inter-partner contact detection',
       'Charged/polar/apolar contact bins',
@@ -26,7 +26,7 @@ export const serviceLayerModules: ServiceLayerModule[] = [
   {
     title: 'Baseline models',
     service: 'services/baseline_models.py',
-    status: 'planned',
+    status: 'available',
     bullets: [
       'Deterministic baseline scoring',
       'ΔG ↔ Kd conversion helpers',
@@ -37,7 +37,7 @@ export const serviceLayerModules: ServiceLayerModule[] = [
   {
     title: 'Exports and scientist artifacts',
     service: 'services/exports.py',
-    status: 'planned',
+    status: 'available',
     bullets: [
       'Contact list download',
       'PyMOL selection script artifact',
@@ -50,9 +50,9 @@ export const serviceLayerModules: ServiceLayerModule[] = [
 export const workflowSteps = [
   { id: 'upload', label: 'Upload structure', state: 'available' },
   { id: 'validate', label: 'Validate chains', state: 'available' },
-  { id: 'features', label: 'Extract interface features', state: 'stubbed' },
-  { id: 'baseline', label: 'Run baseline affinity model', state: 'stubbed' },
-  { id: 'result', label: 'Review prediction + exports', state: 'stubbed' },
+  { id: 'features', label: 'Extract interface features', state: 'available' },
+  { id: 'baseline', label: 'Run baseline affinity model', state: 'available' },
+  { id: 'result', label: 'Review prediction + exports', state: 'available' },
 ];
 
 export const stubPrediction = {
@@ -60,7 +60,7 @@ export const stubPrediction = {
   structureName: 'af3_candidate_017.cif',
   partner1: ['H', 'L'],
   partner2: ['A'],
-  plannedOutputs: {
+  exampleOutputs: {
     contacts: ['charged-polar contacts', 'apolar-apolar contacts', 'interface residue count'],
     surface: ['relative solvent accessibility', 'surface composition buckets'],
     baseline: ['ΔG baseline', 'log(K) baseline', 'Kd derivation'],

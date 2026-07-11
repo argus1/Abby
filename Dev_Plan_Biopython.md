@@ -63,11 +63,21 @@ To feed your MD trajectories into a machine learning model, you can use BioPytho
 
 **Critical Gap:** While BioPython is excellent for structure manipulation, it does not natively handle the large trajectory files (`.xtc` or `.dcd`) produced by GROMACS. You should pair BioPython with **MDAnalysis** to loop through MD frames and extract the averaged structural coordinates for your final ML affinity prediction.
 
+### **4A. Dataset-backed validation harness**
+
+Treat `validation_dataset/ANDD_pdb/` as the canonical local regression corpus for BioPython-driven parsing and validation work.
+
+* **Canonical fixtures:** `validation_dataset/ANDD_pdb/` contains representative local artifacts that exercise structure loading, validation, and export paths without relying on remote data.
+* **mmCIF conversion checks:** use the same corpus to verify PDB→mmCIF conversion results, including chain mapping, connectivity preservation, and parser compatibility before the structure is handed downstream.
+* **Validation targets:** use these files to confirm that chain normalization, connectivity preservation, and validation summaries stay stable as parsing code evolves.
+* **Cross-document alignment:** when the validation corpus changes, update the system plan and implementation checklist so the documented roadmap stays aligned with the regression set.
+
 ### **5. GROMACS Integration Boundary**
 
-GROMACS should be treated as an **optional simulation backend** rather than a mandatory part of Abby's core v1 upload-and-predict path.
+GROMACS should be treated as an **optional simulation backend** rather than a mandatory part of Abby's core v1 upload-and-predict path, and the CIF-modified `Gromacs-CIF` build should be the preferred backend when mmCIF structures need to flow directly into topology generation.
 
 * **v1 scope:** support MD-ready preprocessing, topology handoff metadata, and import of externally generated GROMACS outputs.
+* **v1 conversion path:** convert validation-dataset structures to `PDBx/mmCIF` first, then hand the mmCIF files to `Gromacs-CIF` for topology generation and optional simulation preparation.
 * **v1.1 scope:** add an async worker path that can launch GROMACS jobs, capture run provenance, and store derived trajectory summaries.
 * **Implementation detail:** keep BioPython responsible for parsing, chain normalization, and connectivity preservation; keep GROMACS responsible for minimization/simulation; keep MDAnalysis responsible for trajectory traversal and aggregation.
 * **Provenance requirements:** record force field, water model, ion settings, equilibration protocol, and random seed alongside any MD-derived features.

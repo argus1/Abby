@@ -33,6 +33,7 @@ export function ProjectPage() {
   const [projectName, setProjectName] = useState('Abby Demo Project');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [mode, setMode] = useState<'ppi_general' | 'antibody_antigen'>('antibody_antigen');
+  const [contactDistanceCutoff, setContactDistanceCutoff] = useState('5.5');
   const [partner1, setPartner1] = useState(stubPrediction.partner1.join(', '));
   const [partner2, setPartner2] = useState(stubPrediction.partner2.join(', '));
   const [activeStructureId, setActiveStructureId] = useState<string | null>(null);
@@ -83,11 +84,19 @@ export function ProjectPage() {
       if (!projectId || !projectIsUuid || !structureId) {
         throw new Error('Create a backend project and upload a structure before predicting.');
       }
+      const cutoff = Number(contactDistanceCutoff);
+      if (!Number.isFinite(cutoff) || cutoff <= 0) {
+        throw new Error('Enter a valid contact distance cutoff greater than zero.');
+      }
       return createPrediction({
         project_id: projectId,
         mode,
         structure_id: structureId,
-        options: { include_explainability: true, return_all_models: true },
+        options: {
+          include_explainability: true,
+          return_all_models: true,
+          contact_distance_cutoff_angstrom: cutoff,
+        },
         metadata: { candidate_id: 'frontend-demo' },
       });
     },
@@ -107,11 +116,19 @@ export function ProjectPage() {
       if (structureIds.length === 0) {
         throw new Error('Provide at least one structure ID or upload a structure first.');
       }
+      const cutoff = Number(contactDistanceCutoff);
+      if (!Number.isFinite(cutoff) || cutoff <= 0) {
+        throw new Error('Enter a valid contact distance cutoff greater than zero.');
+      }
       return createBatchJob({
         project_id: projectId,
         mode,
         structure_ids: structureIds,
-        options: { include_explainability: true, return_all_models: true },
+        options: {
+          include_explainability: true,
+          return_all_models: true,
+          contact_distance_cutoff_angstrom: cutoff,
+        },
       });
     },
     onSuccess: (job) => navigate(`/projects/${projectId}/batch-jobs/${job.job_id}`),
@@ -167,6 +184,17 @@ export function ProjectPage() {
             </select>
           </label>
           <label className="field">
+            <span>Contact distance cutoff (Å)</span>
+            <input
+              type="number"
+              min="0.1"
+              max="20"
+              step="0.1"
+              value={contactDistanceCutoff}
+              onChange={(event) => setContactDistanceCutoff(event.target.value)}
+            />
+          </label>
+          <label className="field">
             <span>Partner 1 chains</span>
             <input type="text" value={partner1} onChange={(event) => setPartner1(event.target.value)} />
           </label>
@@ -200,12 +228,13 @@ export function ProjectPage() {
           )}
         </div>
         <div>
-          <h3>Planned service-layer actions</h3>
+          <h3>Service-layer actions</h3>
           <ul className="bullet-list compact">
             <li>Parser selection for `MMCIFParser` vs `PDBParser`</li>
             <li>Disjoint partner validation and chain grouping normalization</li>
             <li>Gap, multi-model, and unsupported residue warnings</li>
             <li>Preparation of normalized structure metadata for downstream services</li>
+            <li>Contact cutoff provenance threaded into predictions and batch jobs</li>
           </ul>
           {validateMutation.data && (
             <div className="status-panel">
@@ -246,7 +275,7 @@ export function ProjectPage() {
       </section>
 
       <section className="card">
-        <h3>Next stub actions</h3>
+        <h3>Next actions</h3>
         <label className="field">
           <span>Batch structure IDs (comma-separated, optional)</span>
           <input
