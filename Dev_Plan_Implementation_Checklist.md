@@ -50,8 +50,8 @@ Audit baseline: **2026-07-07**
 ### Baseline gaps blocking later phases
 | Status | Priority / Effort | Item | Evidence |
 | --- | --- | --- | --- |
-| `[-]` | `P0 / M` | Basic `mmCIF` ingestion exists with initial relational chemistry preservation | parser dispatch plus `MMCIF2Dict` / `_struct_conn` extraction now implemented; broader chemistry coverage remains to expand |
-| `[-]` | `P0 / M` | Worker entry points exist, but no real async execution backend exists | `src/abby_api/workers/tasks.py` |
+| `[x]` | `P0 / M` | Basic `mmCIF` ingestion exists with initial relational chemistry preservation | parser dispatch plus `MMCIF2Dict` / `_struct_conn` extraction implemented and validated through integration coverage in `tests/test_structure_flow.py` |
+| `[x]` | `P0 / M` | Worker entry points exist, and a real async execution backend now exists | pluggable backend with in-process threaded execution, lifecycle/failure tracking, and tests (`src/abby_api/workers/backend.py`, `tests/test_worker_backend.py`) |
 | `[-]` | `P0 / M` | Batch routes exist, but batch result production/export is still stubbed | `src/abby_api/services/batch_jobs.py` |
 
 ---
@@ -258,7 +258,7 @@ These should be advanced throughout the roadmap rather than left until the end.
 
 | Status | Priority / Effort | Verification item |
 | --- | --- | --- |
-| `[ ]` | `P0 / S` | Add `mmCIF` integration tests with relational connectivity assertions |
+| `[x]` | `P0 / S` | Add `mmCIF` integration tests with relational connectivity assertions | `tests/test_structure_flow.py` |
 | `[x]` | `P0 / S` | Add batch execution tests with real results and exports |
 | `[ ]` | `P1 / S` | Add residue-depth / new-descriptor verification tests as Phase 3 lands |
 | `[ ]` | `P1 / S` | Add imported-simulation artifact tests as Phase 4 lands |
@@ -294,9 +294,9 @@ If you want the highest leverage next steps, this is the shortest sensible path:
 ### Needs finishing next
 | Status | Priority / Effort | Capability gap |
 | --- | --- | --- |
-| `[-]` | `P0 / M` | `mmCIF` chemistry preservation |
+| `[x]` | `P0 / M` | `mmCIF` chemistry preservation |
 | `[x]` | `P0 / M` | Batch execution and export realism |
-| `[-]` | `P0 / L` | Worker-backed async orchestration |
+| `[x]` | `P0 / L` | Worker-backed async orchestration |
 | `[-]` | `P1 / S` | Frontend/backend capability alignment |
 
 ### Strategic later work

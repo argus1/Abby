@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -21,8 +22,11 @@ class Settings(BaseSettings):
     object_storage_endpoint: str = Field(
         default="http://localhost:9000", alias="ABBY_OBJECT_STORAGE_ENDPOINT"
     )
-    worker_backend: str = Field(default="in_process", alias="ABBY_WORKER_BACKEND")
-    worker_threads: int = Field(default=1, alias="ABBY_WORKER_THREADS")
+    worker_backend: Literal["in_process", "inline", "celery_stub"] = Field(
+        default="in_process",
+        alias="ABBY_WORKER_BACKEND",
+    )
+    worker_threads: int = Field(default=1, ge=1, alias="ABBY_WORKER_THREADS")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

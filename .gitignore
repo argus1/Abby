@@ -11,3 +11,4 @@ node_modules/
 frontend/node_modules/
 data/uploads/
 data/object_store/
+validation_dataset/ANDD_pdb/

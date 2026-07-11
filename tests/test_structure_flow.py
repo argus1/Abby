@@ -234,6 +234,44 @@ def test_mmcif_upload_preserves_struct_conn_connectivity_metadata() -> None:
     assert connection_by_id["glyco1"]["partner_2"]["residue_name"] == "NAG"
 
 
+@pytest.mark.skipif(not BIOPYTHON_AVAILABLE, reason="BioPython is required for mmCIF parsing")
+def test_mmcif_connectivity_metadata_persists_through_validation_flow() -> None:
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={"file": ("test_connectivity_validation.mmcif", MMCIF_CONNECTIVITY_FIXTURE, "chemical/x-cif")},
+        data={"mode": "ppi_general"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    structure_id = upload_response.json()["structure_id"]
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": structure_id,
+            "mode": "ppi_general",
+            "chains": {"partner_1": ["A"], "partner_2": ["B", "C"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    assert validate_response.json()["valid"] is True
+
+    detail_response = client.get(f"/api/v1/structures/{structure_id}", headers=HEADERS)
+    assert detail_response.status_code == 200, detail_response.text
+    detail = detail_response.json()
+
+    connectivity = detail["summary"]["metadata"]["connectivity"]
+    assert connectivity["available"] is True
+    assert connectivity["connection_count"] == 2
+    assert len(connectivity["disulfide_connections"]) == connectivity["disulfide_count"] == 1
+    assert len(connectivity["glycan_connections"]) == connectivity["glycan_link_count"] == 1
+
+    glycan_connection = connectivity["glycan_connections"][0]
+    assert glycan_connection["partner_1"]["residue_name"] == "ASN"
+    assert glycan_connection["partner_2"]["residue_name"] == "NAG"
+
+
 def test_structure_summary_reports_chain_sequence_gaps_and_md_preflight_issues() -> None:
     upload_response = client.post(
         "/api/v1/structures:upload",
