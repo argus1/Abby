@@ -52,7 +52,7 @@ Audit baseline: **2026-07-07**
 | --- | --- | --- | --- |
 | `[x]` | `P0 / M` | Basic `mmCIF` ingestion exists with initial relational chemistry preservation | parser dispatch plus `MMCIF2Dict` / `_struct_conn` extraction implemented and validated through integration coverage in `tests/test_structure_flow.py` |
 | `[x]` | `P0 / M` | Worker entry points exist, and a real async execution backend now exists | pluggable backend with in-process threaded execution, lifecycle/failure tracking, and tests (`src/abby_api/workers/backend.py`, `tests/test_worker_backend.py`) |
-| `[-]` | `P0 / M` | Batch routes exist, but batch result production/export is still stubbed | `src/abby_api/services/batch_jobs.py` |
+| `[x]` | `P0 / M` | Batch routes produce real results and export persisted CSV/JSON artifacts (including structure-level failures) | `src/abby_api/services/batch_jobs.py`, `tests/test_batch_jobs.py` |
 
 ---
 

@@ -65,22 +65,38 @@ def _collect_export_rows(job_id: UUID) -> tuple[list[dict[str, str]], list[dict[
 
     rows: list[dict[str, str]] = []
     prediction_payloads: list[dict[str, str]] = []
-    for prediction_id in execution.prediction_ids:
-        prediction = get_prediction(prediction_id)
+    prediction_items = execution.prediction_items or [
+        {
+            "prediction_id": str(prediction_id),
+            "structure_id": "",
+        }
+        for prediction_id in execution.prediction_ids
+    ]
+    for prediction_item in prediction_items:
+        raw_prediction_id = prediction_item.get("prediction_id")
+        if raw_prediction_id is None:
+            continue
+        prediction = get_prediction(UUID(raw_prediction_id))
         if prediction is None:
             continue
+        structure_id = prediction_item.get("structure_id", "")
         prediction_payloads.append(
             {
                 "prediction_id": str(prediction.prediction_id),
+                "structure_id": structure_id,
                 "status": prediction.status,
                 "mode": prediction.mode,
+                "log_k": "" if prediction.consensus is None else str(prediction.consensus.log_k),
+                "delta_g_kcal_mol": ""
+                if prediction.consensus is None
+                else str(prediction.consensus.delta_g_kcal_mol),
             }
         )
         rows.append(
             {
                 "job_id": str(job_id),
                 "prediction_id": str(prediction.prediction_id),
-                "structure_id": "",
+                "structure_id": structure_id,
                 "status": prediction.status,
                 "mode": prediction.mode,
                 "log_k": "" if prediction.consensus is None else str(prediction.consensus.log_k),
@@ -151,6 +167,7 @@ def _execute_batch_job(*, job_id: UUID, request: BatchJobRequest) -> None:
     save_batch_job(running_job)
 
     prediction_ids: list[UUID] = []
+    prediction_items: list[dict[str, str]] = []
     failures: list[dict[str, str]] = []
 
     try:
@@ -166,6 +183,12 @@ def _execute_batch_job(*, job_id: UUID, request: BatchJobRequest) -> None:
                     )
                 )
                 prediction_ids.append(queued.prediction_id)
+                prediction_items.append(
+                    {
+                        "prediction_id": str(queued.prediction_id),
+                        "structure_id": str(structure_id),
+                    }
+                )
             except HTTPException as exc:
                 failures.append(
                     {
@@ -193,7 +216,12 @@ def _execute_batch_job(*, job_id: UUID, request: BatchJobRequest) -> None:
         updated_at=_now_utc(),
     )
     save_batch_job(finalized_job)
-    save_batch_job_execution(job_id=job_id, prediction_ids=prediction_ids, failures=failures)
+    save_batch_job_execution(
+        job_id=job_id,
+        prediction_ids=prediction_ids,
+        prediction_items=prediction_items,
+        failures=failures,
+    )
 
 
 def get_job(job_id: UUID) -> BatchJob:
@@ -238,6 +266,7 @@ def export_results(job_id: UUID, export_format: str) -> ExportResponse:
                 "status": job.status,
                 "counts": job.counts.model_dump(),
                 "predictions": prediction_payloads,
+                "failures": get_batch_job_execution(job_id).failures if get_batch_job_execution(job_id) else [],
                 "rows": rows,
             },
         )

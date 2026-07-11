@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from csv import DictReader
 import json
 import time
+from io import StringIO
 from uuid import UUID
 
 from fastapi.testclient import TestClient
@@ -134,10 +136,20 @@ def test_batch_job_executes_predictions_and_produces_real_results_and_exports() 
     assert object_store.exists(json_key)
 
     json_payload_raw = object_store.get_bytes(json_key)
+    csv_payload_raw = object_store.get_bytes(csv_key)
     assert json_payload_raw is not None
+    assert csv_payload_raw is not None
+
+    csv_rows = list(DictReader(StringIO(csv_payload_raw.decode("utf-8"))))
+    assert len(csv_rows) == 2
+    assert {row["structure_id"] for row in csv_rows} == {structure_a, structure_b}
+    assert {row["status"] for row in csv_rows} == {"completed"}
+
     json_payload = json.loads(json_payload_raw.decode("utf-8"))
     assert json_payload["job_id"] == job_id
     assert len(json_payload["predictions"]) == 2
+    assert {item["structure_id"] for item in json_payload["predictions"]} == {structure_a, structure_b}
+    assert json_payload["failures"] == []
 
 
 def test_batch_job_tracks_partial_failures_without_losing_successful_results() -> None:
@@ -173,5 +185,33 @@ def test_batch_job_tracks_partial_failures_without_losing_successful_results() -
     prediction_response = client.get(f"/api/v1/predictions/{prediction_id}", headers=HEADERS)
     assert prediction_response.status_code == 200, prediction_response.text
     assert prediction_response.json()["status"] == "completed"
+
+    csv_export_response = client.get(f"/api/v1/batch-jobs/{job_id}/export?format=csv", headers=HEADERS)
+    json_export_response = client.get(f"/api/v1/batch-jobs/{job_id}/export?format=json", headers=HEADERS)
+    assert csv_export_response.status_code == 200, csv_export_response.text
+    assert json_export_response.status_code == 200, json_export_response.text
+
+    object_store = ObjectStore()
+    csv_key = _object_key_from_download_url(csv_export_response.json()["download_url"])
+    json_key = _object_key_from_download_url(json_export_response.json()["download_url"])
+
+    csv_payload_raw = object_store.get_bytes(csv_key)
+    json_payload_raw = object_store.get_bytes(json_key)
+    assert csv_payload_raw is not None
+    assert json_payload_raw is not None
+
+    csv_rows = list(DictReader(StringIO(csv_payload_raw.decode("utf-8"))))
+    assert len(csv_rows) == 2
+    assert {row["status"] for row in csv_rows} == {"completed", "failed"}
+    failed_rows = [row for row in csv_rows if row["status"] == "failed"]
+    assert len(failed_rows) == 1
+    assert failed_rows[0]["structure_id"] == unvalidated_structure
+    assert "validated successfully" in failed_rows[0]["error"]
+
+    json_payload = json.loads(json_payload_raw.decode("utf-8"))
+    assert len(json_payload["predictions"]) == 1
+    assert json_payload["predictions"][0]["structure_id"] == validated_structure
+    assert len(json_payload["failures"]) == 1
+    assert json_payload["failures"][0]["structure_id"] == unvalidated_structure
 
     assert UUID(job_id)

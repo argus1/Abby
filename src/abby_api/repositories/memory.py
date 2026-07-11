@@ -47,6 +47,7 @@ class FeatureSummaryArtifactRecord:
 class BatchJobExecutionRecord:
     job_id: UUID
     prediction_ids: list[UUID] = field(default_factory=list)
+    prediction_items: list[dict[str, str]] = field(default_factory=list)
     failures: list[dict[str, str]] = field(default_factory=list)
 
 
@@ -153,11 +154,20 @@ def save_batch_job_execution(
     *,
     job_id: UUID,
     prediction_ids: list[UUID],
+    prediction_items: list[dict[str, str]] | None = None,
     failures: list[dict[str, str]],
 ) -> BatchJobExecutionRecord:
+    normalized_prediction_items = prediction_items or [
+        {
+            "prediction_id": str(prediction_id),
+            "structure_id": "",
+        }
+        for prediction_id in prediction_ids
+    ]
     record = BatchJobExecutionRecord(
         job_id=job_id,
         prediction_ids=prediction_ids,
+        prediction_items=normalized_prediction_items,
         failures=failures,
     )
     store.batch_job_execution[job_id] = record
