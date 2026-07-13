@@ -112,7 +112,7 @@ def _project_id_from_prediction(prediction: PredictionResult) -> UUID:
     if not artifact_key:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Prediction does not include project artifact metadata.",
+            detail="Prediction does not include project artifact metadata required for simulation import.",
         )
     prefix = "projects/"
     if not artifact_key.startswith(prefix):

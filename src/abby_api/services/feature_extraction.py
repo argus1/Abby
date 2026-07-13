@@ -196,6 +196,11 @@ def _depths_from_geometry(model: Any) -> dict[int, float]:
 
 
 def _antibody_chain_candidate_count(chains: list[str]) -> int:
+    """Return a lightweight antibody-chain count for bookkeeping-only feature hooks.
+
+    This heuristic intentionally looks only for single-letter `H`/`L` chain IDs and can
+    produce false positives for non-antibody structures that use the same labels.
+    """
     # Heuristic only: this can produce false positives for non-antibody complexes
     # that happen to use single-letter H/L chain IDs.
     # This bookkeeping flag is advisory and does not replace CDR annotation.
@@ -759,7 +764,7 @@ def build_descriptor_bundle(
     notes.extend(sasa_notes)
     notes.extend(residue_depth_notes)
     notes.extend(radius_of_gyration_notes)
-    if mode == "antibody_antigen":
+    if mode == "antibody_antigen" and cdr_bookkeeping_ready_flag > 0.0:
         notes.append("ANTIBODY_MODE_CDR_DETECTION_PENDING")
     if electrostatics_hook_ready > 0.0 and surface_pka_hook_ready > 0.0:
         notes.append("ELECTROSTATICS_SURFACE_PKA_HOOKS_ENABLED")
