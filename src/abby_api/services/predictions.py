@@ -120,7 +120,7 @@ def _project_id_from_prediction(prediction: PredictionResult) -> UUID:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Unable to derive project scope from artifact key.",
         )
-    project_token = artifact_key[len(prefix) :].split("/", 1)[0]
+    project_token = artifact_key[len(prefix):].split("/", 1)[0]
     return UUID(project_token)
 
 

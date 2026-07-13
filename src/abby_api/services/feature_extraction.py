@@ -194,6 +194,12 @@ def _depths_from_geometry(model: Any) -> dict[int, float]:
     return residue_depths
 
 
+def _antibody_chain_candidate_count(chains: list[str]) -> int:
+    # Heuristic only: many antibody datasets use H/L-prefixed chain IDs.
+    # This bookkeeping flag is advisory and does not replace CDR annotation.
+    return len([chain_id for chain_id in chains if chain_id.upper().startswith(("H", "L"))])
+
+
 def _to_contact_letter(residue_class: str) -> str:
     if residue_class == "charged":
         return "C"
@@ -690,13 +696,7 @@ def build_descriptor_bundle(
         radius_of_gyration_notes = list(radius_of_gyration_observation.notes)
 
     antibody_candidate_count = float(
-        len(
-            [
-                chain_id
-                for chain_id in [*partner_1_chains, *partner_2_chains]
-                if chain_id.upper().startswith(("H", "L"))
-            ]
-        )
+        _antibody_chain_candidate_count([*partner_1_chains, *partner_2_chains])
     )
     cdr_bookkeeping_ready = 1.0 if mode == "antibody_antigen" and antibody_candidate_count > 0 else 0.0
 
