@@ -120,7 +120,14 @@ def _project_id_from_prediction(prediction: PredictionResult) -> UUID:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Unable to derive project scope from artifact key.",
         )
-    project_token = artifact_key[len(prefix):].split("/", 1)[0]
+    remainder = artifact_key[len(prefix):]
+    segments = remainder.split("/")
+    if len(segments) < 2 or not segments[0]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Prediction artifact key is missing required project path segments.",
+        )
+    project_token = segments[0]
     return UUID(project_token)
 
 
@@ -253,7 +260,7 @@ def create_prediction(request: PredictionRequest) -> PredictionQueuedResponse:
             simulation=SimulationProvenance(
                 source="none",
                 imported=False,
-                notes=["SIMULATION_PROVENANCE_PLACEHOLDER"],
+                notes=["SIMULATION_NOT_YET_RUN"],
             ),
             artifacts=ArtifactRegistry(
                 normalized_structure=(
@@ -320,6 +327,7 @@ def import_simulation_summary(
     )
 
     existing_artifacts = prediction.provenance.artifacts or ArtifactRegistry()
+    prediction.provenance.artifacts = existing_artifacts
     existing_artifacts.trajectory_summary = trajectory_artifact
     if payload.topology_reference_url:
         existing_artifacts.topology_reference = ArtifactReference(

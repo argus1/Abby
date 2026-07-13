@@ -33,6 +33,7 @@ RESIDUE_CLASS_MAP = {
     "TRP": "aromatic",
 }
 
+# v2 adds residue-depth, burial, radius-of-gyration, and enrichment-hook bookkeeping.
 DESCRIPTOR_VERSION = "summary_features_v2"
 
 
@@ -197,7 +198,7 @@ def _depths_from_geometry(model: Any) -> dict[int, float]:
 def _antibody_chain_candidate_count(chains: list[str]) -> int:
     # Heuristic only: many antibody datasets use H/L-prefixed chain IDs.
     # This bookkeeping flag is advisory and does not replace CDR annotation.
-    return len([chain_id for chain_id in chains if chain_id.upper().startswith(("H", "L"))])
+    return len([chain_id for chain_id in chains if len(chain_id) == 1 and chain_id.upper() in {"H", "L"}])
 
 
 def _to_contact_letter(residue_class: str) -> str:
@@ -699,6 +700,8 @@ def build_descriptor_bundle(
         _antibody_chain_candidate_count([*partner_1_chains, *partner_2_chains])
     )
     cdr_bookkeeping_ready = 1.0 if mode == "antibody_antigen" and antibody_candidate_count > 0 else 0.0
+    electrostatics_hook_ready = 1.0 if validation.chain_groups is not None else 0.0
+    surface_pka_hook_ready = 1.0 if validation.chain_groups is not None else 0.0
 
     descriptors = {
         "total_residues": float(total_residues),
@@ -737,8 +740,8 @@ def build_descriptor_bundle(
         "radius_of_gyration_atom_count": radius_of_gyration_atom_count,
         "antibody_chain_candidate_count": antibody_candidate_count,
         "cdr_bookkeeping_ready_flag": cdr_bookkeeping_ready,
-        "electrostatics_hook_ready_flag": 1.0,
-        "surface_pka_hook_ready_flag": 1.0,
+        "electrostatics_hook_ready_flag": electrostatics_hook_ready,
+        "surface_pka_hook_ready_flag": surface_pka_hook_ready,
         "global_apolar_fraction": residue_class_fractions.get("apolar", 0.0),
         "global_charged_fraction": residue_class_fractions.get("charged", 0.0),
         "global_polar_fraction": residue_class_fractions.get("polar", 0.0),
@@ -754,8 +757,9 @@ def build_descriptor_bundle(
     notes.extend(residue_depth_notes)
     notes.extend(radius_of_gyration_notes)
     if mode == "antibody_antigen":
-        notes.append("CDR_BOOKKEEPING_PLACEHOLDER_ENABLED")
-    notes.append("ELECTROSTATICS_SURFACE_PKA_HOOKS_ENABLED")
+        notes.append("ANTIBODY_MODE_CDR_DETECTION_PENDING")
+    if electrostatics_hook_ready > 0.0 and surface_pka_hook_ready > 0.0:
+        notes.append("ELECTROSTATICS_SURFACE_PKA_HOOKS_ENABLED")
     notes.append(f"CONTACT_DISTANCE_CUTOFF_{round(float(contact_distance_cutoff), 3)}A")
     notes = sorted(set(notes))
 
