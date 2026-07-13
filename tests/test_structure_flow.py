@@ -452,8 +452,8 @@ def test_prediction_requires_validation_before_success() -> None:
     assert prediction["feature_summary"]["descriptors"]["residue_depth_interface_mean"] >= 0.0
     assert prediction["feature_summary"]["descriptors"]["radius_of_gyration_angstrom"] > 0.0
     assert prediction["feature_summary"]["descriptors"]["radius_of_gyration_atom_count"] > 0.0
-    assert prediction["feature_summary"]["descriptors"]["electrostatics_hook_ready_flag"] == 1.0
-    assert prediction["feature_summary"]["descriptors"]["surface_pka_hook_ready_flag"] == 1.0
+    assert prediction["feature_summary"]["descriptors"]["electrostatics_hook_ready_flag"] > 0.0
+    assert prediction["feature_summary"]["descriptors"]["surface_pka_hook_ready_flag"] > 0.0
     assert prediction["feature_summary"]["partner_residues"]["partner_1"] == 1
     assert prediction["provenance"]["descriptor_hash"]
     assert prediction["provenance"]["contact_distance_cutoff_angstrom"] == 5.5

@@ -33,7 +33,7 @@ RESIDUE_CLASS_MAP = {
     "TRP": "aromatic",
 }
 
-# v2 adds residue-depth, burial, radius-of-gyration, and enrichment-hook bookkeeping.
+# v2 adds residue-depth, burial, radius of gyration, and enrichment-hook bookkeeping.
 DESCRIPTOR_VERSION = "summary_features_v2"
 
 
@@ -200,6 +200,8 @@ def _antibody_chain_candidate_count(chains: list[str]) -> int:
 
     This heuristic intentionally looks only for single-letter `H`/`L` chain IDs and can
     produce false positives for non-antibody structures that use the same labels.
+    This is acceptable for initial bookkeeping and should not be used for definitive
+    antibody-chain identification.
     """
     return len([chain_id for chain_id in chains if len(chain_id) == 1 and chain_id.upper() in {"H", "L"}])
 
