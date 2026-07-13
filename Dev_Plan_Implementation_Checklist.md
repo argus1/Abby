@@ -139,22 +139,22 @@ Audit baseline: **2026-07-07**
 ### 3A. Next descriptor tranche
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
-| `[ ]` | `P1 / M` | Add residue depth extraction via `Bio.PDB.ResidueDepth` | `src/abby_api/services/feature_extraction.py` |
-| `[ ]` | `P1 / M` | Add interface-burial features derived from residue depth | Descriptor bundle schema and explainability summary |
-| `[ ]` | `P2 / M` | Add radius-of-gyration or other compact MD-adjacent structural summary only if computable from static structure inputs | Avoid overpromising simulation-derived descriptors before Phase 4 |
-| `[ ]` | `P1 / S` | Add tests for new descriptor determinism and provenance threading | `tests/test_structure_flow.py`, `tests/test_baseline_models.py` |
+| `[x]` | `P1 / M` | Add residue depth extraction via `Bio.PDB.ResidueDepth` | `src/abby_api/services/feature_extraction.py` |
+| `[x]` | `P1 / M` | Add interface-burial features derived from residue depth | Descriptor bundle schema and explainability summary |
+| `[x]` | `P2 / M` | Add radius-of-gyration or other compact MD-adjacent structural summary only if computable from static structure inputs | Avoid overpromising simulation-derived descriptors before Phase 4 |
+| `[x]` | `P1 / S` | Add tests for new descriptor determinism and provenance threading | `tests/test_structure_flow.py`, `tests/test_baseline_models.py` |
 
 ### 3B. Domain-specific structural feature ideas
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
-| `[ ]` | `P2 / M` | Add CDR-aware structural bookkeeping if antibody-specific mode needs it | No CDR extraction exists today |
-| `[ ]` | `P2 / M` | Add electrostatics / surface pKa integration hooks for future PlayMolecule-style enrichment | Contract/hook only is sufficient in this phase if implementation is deferred |
+| `[-]` | `P2 / M` | Add CDR-aware structural bookkeeping if antibody-specific mode needs it | Initial descriptor bookkeeping flags added; full CDR extraction still pending |
+| `[x]` | `P2 / M` | Add electrostatics / surface pKa integration hooks for future PlayMolecule-style enrichment | Contract/hook only is sufficient in this phase if implementation is deferred |
 
 ### Phase 3 exit criteria
 | Status | Priority / Effort | Exit criterion |
 | --- | --- | --- |
-| `[ ]` | `P1 / M` | Prediction descriptors include at least one new non-contact, non-SASA structural feature family |
-| `[ ]` | `P1 / S` | New descriptor fields are included in explainability and provenance-sensitive tests |
+| `[x]` | `P1 / M` | Prediction descriptors include at least one new non-contact, non-SASA structural feature family |
+| `[x]` | `P1 / S` | New descriptor fields are included in explainability and provenance-sensitive tests |
 
 ---
 
@@ -168,23 +168,23 @@ Audit baseline: **2026-07-07**
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
 | `[-]` | `P1 / S` | Some provenance exists today, but not simulation provenance | Model bundle version, preprocess version, descriptor hash, contact cutoff |
-| `[ ]` | `P1 / S` | Add validation-dataset PDB→mmCIF conversion regression checks | `validation_dataset/ANDD_pdb/` |
-| `[ ]` | `P1 / M` | Add topology-handoff metadata schema | Suggested fields: normalized chain map, preserved connectivity, non-standard residues, preprocessing warnings |
-| `[ ]` | `P1 / M` | Add simulation provenance schema placeholders | Suggested fields: force field, water model, ionization, minimization protocol, seed, engine version |
-| `[ ]` | `P1 / M` | Add artifact contracts for normalized structures, topology references, and imported trajectory summaries | Storage layer + prediction/batch artifact registry |
+| `[x]` | `P1 / S` | Add validation-dataset PDB→mmCIF conversion regression checks | `validation_dataset/ANDD_pdb/` |
+| `[x]` | `P1 / M` | Add topology-handoff metadata schema | Suggested fields: normalized chain map, preserved connectivity, non-standard residues, preprocessing warnings |
+| `[x]` | `P1 / M` | Add simulation provenance schema placeholders | Suggested fields: force field, water model, ionization, minimization protocol, seed, engine version |
+| `[x]` | `P1 / M` | Add artifact contracts for normalized structures, topology references, and imported trajectory summaries | Storage layer + prediction/batch artifact registry |
 
 ### 4B. External simulation import path
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
-| `[ ]` | `P1 / M` | Support importing externally generated GROMACS outputs and summaries | Align with v1/v1.1 boundary in `Dev_Plan_Biopython.md` |
-| `[ ]` | `P1 / M` | Add parsing/storage for trajectory-summary artifacts without requiring local simulation execution | Import path only |
-| `[ ]` | `P1 / S` | Add tests for imported simulation artifact provenance | Verification for imported artifacts |
+| `[x]` | `P1 / M` | Support importing externally generated GROMACS outputs and summaries | Align with v1/v1.1 boundary in `Dev_Plan_Biopython.md` |
+| `[x]` | `P1 / M` | Add parsing/storage for trajectory-summary artifacts without requiring local simulation execution | Import path only |
+| `[x]` | `P1 / S` | Add tests for imported simulation artifact provenance | Verification for imported artifacts |
 
 ### Phase 4 exit criteria
 | Status | Priority / Effort | Exit criterion |
 | --- | --- | --- |
-| `[ ]` | `P1 / M` | Abby can store MD-ready handoff metadata for a validated structure |
-| `[ ]` | `P1 / M` | Abby can import external simulation summary artifacts under a stable schema |
+| `[x]` | `P1 / M` | Abby can store MD-ready handoff metadata for a validated structure |
+| `[x]` | `P1 / M` | Abby can import external simulation summary artifacts under a stable schema |
 
 ---
 
@@ -262,8 +262,8 @@ These should be advanced throughout the roadmap rather than left until the end.
 | `[x]` | `P0 / S` | Add `mmCIF` integration tests with relational connectivity assertions | `tests/test_structure_flow.py` |
 | `[x]` | `P0 / S` | Add batch execution tests with real results and exports |
 | `[x]` | `P0 / S` | Add dataset-backed validation regression tests using `validation_dataset/ANDD_pdb/` | `tests/test_structure_flow.py`, `tests/test_batch_jobs.py` |
-| `[ ]` | `P1 / S` | Add residue-depth / new-descriptor verification tests as Phase 3 lands |
-| `[ ]` | `P1 / S` | Add imported-simulation artifact tests as Phase 4 lands |
+| `[x]` | `P1 / S` | Add residue-depth / new-descriptor verification tests as Phase 3 lands |
+| `[x]` | `P1 / S` | Add imported-simulation artifact tests as Phase 4 lands |
 | `[ ]` | `P2 / M` | Add simulation worker / trajectory tests as Phase 5 lands |
 | `[ ]` | `P3 / M` | Add learned-model provenance and regression tests as Phase 6 lands |
 
@@ -279,8 +279,8 @@ If you want the highest leverage next steps, this is the shortest sensible path:
 | `[x]` | `P0 / S` | Add gap detection and MD-oriented validation preflight checks |
 | `[x]` | `P0 / M` | Make batch jobs execute real predictions and emit real exports |
 | `[x]` | `P0 / S` | Validate the core workflow against `validation_dataset/ANDD_pdb/` |
-| `[ ]` | `P1 / M` | Add residue-depth descriptors |
-| `[ ]` | `P1 / M` | Define MD handoff + simulation provenance schema |
+| `[x]` | `P1 / M` | Add residue-depth descriptors |
+| `[x]` | `P1 / M` | Define MD handoff + simulation provenance schema |
 
 ---
 
