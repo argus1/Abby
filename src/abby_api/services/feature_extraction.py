@@ -196,7 +196,8 @@ def _depths_from_geometry(model: Any) -> dict[int, float]:
 
 
 def _antibody_chain_candidate_count(chains: list[str]) -> int:
-    # Heuristic only: many antibody datasets use H/L-prefixed chain IDs.
+    # Heuristic only: this can produce false positives for non-antibody complexes
+    # that happen to use single-letter H/L chain IDs.
     # This bookkeeping flag is advisory and does not replace CDR annotation.
     return len([chain_id for chain_id in chains if len(chain_id) == 1 and chain_id.upper() in {"H", "L"}])
 
@@ -699,7 +700,9 @@ def build_descriptor_bundle(
     antibody_candidate_count = float(
         _antibody_chain_candidate_count([*partner_1_chains, *partner_2_chains])
     )
-    cdr_bookkeeping_ready = 1.0 if mode == "antibody_antigen" and antibody_candidate_count > 0 else 0.0
+    cdr_bookkeeping_ready_flag = (
+        1.0 if mode == "antibody_antigen" and antibody_candidate_count > 0 else 0.0
+    )
     electrostatics_hook_ready = 1.0 if validation.chain_groups is not None else 0.0
     surface_pka_hook_ready = 1.0 if validation.chain_groups is not None else 0.0
 
@@ -739,7 +742,7 @@ def build_descriptor_bundle(
         "radius_of_gyration_angstrom": radius_of_gyration,
         "radius_of_gyration_atom_count": radius_of_gyration_atom_count,
         "antibody_chain_candidate_count": antibody_candidate_count,
-        "cdr_bookkeeping_ready_flag": cdr_bookkeeping_ready,
+        "cdr_bookkeeping_ready_flag": cdr_bookkeeping_ready_flag,
         "electrostatics_hook_ready_flag": electrostatics_hook_ready,
         "surface_pka_hook_ready_flag": surface_pka_hook_ready,
         "global_apolar_fraction": residue_class_fractions.get("apolar", 0.0),

@@ -128,7 +128,13 @@ def _project_id_from_prediction(prediction: PredictionResult) -> UUID:
             detail="Prediction artifact key is missing required project path segments.",
         )
     project_token = segments[0]
-    return UUID(project_token)
+    try:
+        return UUID(project_token)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Prediction artifact key includes an invalid project identifier.",
+        ) from exc
 
 
 def create_prediction(request: PredictionRequest) -> PredictionQueuedResponse:
@@ -326,8 +332,10 @@ def import_simulation_summary(
         format="json",
     )
 
-    existing_artifacts = prediction.provenance.artifacts or ArtifactRegistry()
-    prediction.provenance.artifacts = existing_artifacts
+    existing_artifacts = prediction.provenance.artifacts
+    if existing_artifacts is None:
+        existing_artifacts = ArtifactRegistry()
+        prediction.provenance.artifacts = existing_artifacts
     existing_artifacts.trajectory_summary = trajectory_artifact
     if payload.topology_reference_url:
         existing_artifacts.topology_reference = ArtifactReference(
