@@ -201,9 +201,6 @@ def _antibody_chain_candidate_count(chains: list[str]) -> int:
     This heuristic intentionally looks only for single-letter `H`/`L` chain IDs and can
     produce false positives for non-antibody structures that use the same labels.
     """
-    # Heuristic only: this can produce false positives for non-antibody complexes
-    # that happen to use single-letter H/L chain IDs.
-    # This bookkeeping flag is advisory and does not replace CDR annotation.
     return len([chain_id for chain_id in chains if len(chain_id) == 1 and chain_id.upper() in {"H", "L"}])
 
 
