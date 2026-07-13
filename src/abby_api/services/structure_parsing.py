@@ -5,12 +5,13 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from Bio.PDB import MMCIFParser, PDBParser, Structure
+    from Bio.PDB import MMCIFIO, MMCIFParser, PDBParser, Structure
     from Bio.PDB.MMCIF2Dict import MMCIF2Dict
 
     BIOPYTHON_AVAILABLE = True
 except ModuleNotFoundError:  # pragma: no cover - exercised in environments without BioPython
     MMCIFParser = None  # type: ignore[assignment]
+    MMCIFIO = None  # type: ignore[assignment]
     PDBParser = None  # type: ignore[assignment]
     Structure = None  # type: ignore[assignment]
     MMCIF2Dict = None  # type: ignore[assignment]
@@ -149,6 +150,18 @@ def parse_structure_file(file_path: Path, format_name: str) -> tuple[Any, str]:
         return _parse_pdb_without_biopython(file_path), parser_name
     structure = parser.get_structure(file_path.stem, str(file_path))
     return structure, parser_name
+
+
+def convert_pdb_to_mmcif(file_path: Path, destination: Path) -> Path:
+    if not BIOPYTHON_AVAILABLE or PDBParser is None or MMCIFIO is None:
+        raise RuntimeError("BioPython is required for PDB to mmCIF conversion.")
+    parser = PDBParser(QUIET=True)
+    structure = parser.get_structure(file_path.stem, str(file_path))
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    writer = MMCIFIO()
+    writer.set_structure(structure)
+    writer.save(str(destination))
+    return destination
 
 
 def _as_list(value: Any) -> list[str]:

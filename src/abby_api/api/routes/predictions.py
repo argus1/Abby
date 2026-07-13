@@ -6,7 +6,13 @@ from fastapi import APIRouter, Depends
 
 from abby_api.core.security import require_api_key
 from abby_api.schemas.common import Explainability
-from abby_api.schemas.predictions import PredictionQueuedResponse, PredictionRequest, PredictionResult
+from abby_api.schemas.predictions import (
+    PredictionQueuedResponse,
+    PredictionRequest,
+    PredictionResult,
+    SimulationImportRequest,
+    SimulationImportResponse,
+)
 from abby_api.services import predictions
 
 router = APIRouter(dependencies=[Depends(require_api_key)])
@@ -26,3 +32,11 @@ def get_prediction(prediction_id: UUID) -> PredictionResult:
 def get_explainability(prediction_id: UUID) -> Explainability:
     prediction = predictions.get_prediction(prediction_id)
     return prediction.explainability or Explainability(top_descriptors=[])
+
+
+@router.post("/{prediction_id}/simulation-summary:import", response_model=SimulationImportResponse)
+def import_simulation_summary(
+    prediction_id: UUID,
+    payload: SimulationImportRequest,
+) -> SimulationImportResponse:
+    return predictions.import_simulation_summary(prediction_id, payload)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from typing import Literal
 from uuid import UUID
 
@@ -8,12 +9,14 @@ from pydantic import Field
 
 from abby_api.schemas.common import (
     AbbyBaseModel,
+    ArtifactReference,
     ConfidenceClass,
     Explainability,
     JobStatus,
     PredictionInterval,
     PredictionMode,
     Provenance,
+    SimulationProvenance,
 )
 
 
@@ -113,3 +116,25 @@ class BatchResultsPage(AbbyBaseModel):
 class ExportResponse(AbbyBaseModel):
     format: Literal["csv", "json"]
     download_url: str
+
+
+class SimulationImportRequest(AbbyBaseModel):
+    force_field: str | None = None
+    water_model: str | None = None
+    ionization: str | None = None
+    minimization_protocol: str | None = None
+    seed: int | None = None
+    engine: str = "gromacs_external"
+    engine_version: str | None = None
+    topology_reference_url: str | None = None
+    topology_reference_format: str | None = None
+    trajectory_summary: dict[str, Any] = Field(default_factory=dict)
+    notes: list[str] = Field(default_factory=list)
+
+
+class SimulationImportResponse(AbbyBaseModel):
+    prediction_id: UUID
+    status: Literal["imported"]
+    simulation: SimulationProvenance
+    provenance: Provenance
+    trajectory_summary_artifact: ArtifactReference

@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from abby_api.main import app
 from abby_api.repositories.memory import get_feature_summary_artifact
-from abby_api.services.structure_parsing import BIOPYTHON_AVAILABLE
+from abby_api.services.structure_parsing import BIOPYTHON_AVAILABLE, convert_pdb_to_mmcif
 from abby_api.storage.object_store import ObjectStore
 
 client = TestClient(app)
@@ -447,9 +447,20 @@ def test_prediction_requires_validation_before_success() -> None:
     assert prediction["feature_summary"]["descriptors"]["sasa_polar_fraction"] >= 0.0
     assert prediction["feature_summary"]["descriptors"]["sasa_aromatic_fraction"] >= 0.0
     assert prediction["feature_summary"]["descriptors"]["accessible_residue_count"] >= 0.0
+    assert prediction["feature_summary"]["descriptors"]["residue_depth_partner_1_mean"] >= 0.0
+    assert prediction["feature_summary"]["descriptors"]["residue_depth_partner_2_mean"] >= 0.0
+    assert prediction["feature_summary"]["descriptors"]["residue_depth_interface_mean"] >= 0.0
+    assert prediction["feature_summary"]["descriptors"]["radius_of_gyration_angstrom"] > 0.0
+    assert prediction["feature_summary"]["descriptors"]["radius_of_gyration_atom_count"] > 0.0
+    assert prediction["feature_summary"]["descriptors"]["electrostatics_hook_ready_flag"] > 0.0
+    assert prediction["feature_summary"]["descriptors"]["surface_pka_hook_ready_flag"] > 0.0
     assert prediction["feature_summary"]["partner_residues"]["partner_1"] == 1
     assert prediction["provenance"]["descriptor_hash"]
     assert prediction["provenance"]["contact_distance_cutoff_angstrom"] == 5.5
+    assert prediction["provenance"]["topology_handoff"]["normalized_chain_map"]
+    assert prediction["provenance"]["simulation"]["imported"] is False
+    assert prediction["provenance"]["artifacts"]["feature_summary"]["artifact_key"]
+    assert prediction["provenance"]["artifacts"]["normalized_structure"]["artifact_key"]
 
     record = get_feature_summary_artifact(UUID(queued["prediction_id"]))
     assert record is not None
@@ -597,3 +608,110 @@ def test_prediction_contact_cutoff_is_configurable() -> None:
     assert low_payload["provenance"]["descriptor_hash"] != high_payload["provenance"]["descriptor_hash"]
     assert low_payload["provenance"]["contact_distance_cutoff_angstrom"] == 0.5
     assert high_payload["provenance"]["contact_distance_cutoff_angstrom"] == 8.0
+
+
+@pytest.mark.skipif(not BIOPYTHON_AVAILABLE, reason="BioPython is required for PDB->mmCIF conversion")
+def test_pdb_to_mmcif_conversion_regression_preserves_chain_and_residue_counts(tmp_path) -> None:
+    source_path = tmp_path / "source.pdb"
+    converted_path = tmp_path / "converted.mmcif"
+    source_path.write_text(PDB_FIXTURE)
+
+    converted = convert_pdb_to_mmcif(source_path, converted_path)
+    assert converted.exists()
+
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                "converted_regression.mmcif",
+                converted.read_text(),
+                "chemical/x-cif",
+            )
+        },
+        data={"mode": "ppi_general"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    structure_id = upload_response.json()["structure_id"]
+
+    detail_response = client.get(f"/api/v1/structures/{structure_id}", headers=HEADERS)
+    assert detail_response.status_code == 200, detail_response.text
+    summary = detail_response.json()["summary"]
+    assert summary["available_chains"] == ["A", "B"]
+    assert summary["residue_counts"]["A"] == 1
+    assert summary["residue_counts"]["B"] == 1
+    assert summary["metadata"]["total_residues"] == 2
+
+
+def test_prediction_supports_external_simulation_summary_import() -> None:
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={"file": ("test_complex_import_sim.pdb", PDB_FIXTURE, "chemical/x-pdb")},
+        data={"mode": "ppi_general"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    structure_id = upload_response.json()["structure_id"]
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": structure_id,
+            "mode": "ppi_general",
+            "chains": {"partner_1": ["A"], "partner_2": ["B"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+
+    project_response = client.post("/api/v1/projects", headers=HEADERS, json={"name": "Simulation import"})
+    assert project_response.status_code == 201, project_response.text
+    project_id = project_response.json()["project_id"]
+
+    prediction_response = client.post(
+        "/api/v1/predictions",
+        headers=HEADERS,
+        json={
+            "project_id": project_id,
+            "structure_id": structure_id,
+            "mode": "ppi_general",
+        },
+    )
+    assert prediction_response.status_code == 202, prediction_response.text
+    prediction_id = prediction_response.json()["prediction_id"]
+
+    import_response = client.post(
+        f"/api/v1/predictions/{prediction_id}/simulation-summary:import",
+        headers=HEADERS,
+        json={
+            "force_field": "amber99sb-ildn",
+            "water_model": "tip3p",
+            "ionization": "0.15M NaCl",
+            "minimization_protocol": "steepest-descent-5000",
+            "seed": 42,
+            "engine": "gromacs_external",
+            "engine_version": "2026.1-cif",
+            "topology_reference_url": "s3://external-bucket/topol.tpr",
+            "topology_reference_format": "tpr",
+            "trajectory_summary": {"frame_count": 5000, "radius_gyration_mean": 17.8},
+            "notes": ["imported from external gromacs-cif run"],
+        },
+    )
+    assert import_response.status_code == 200, import_response.text
+    import_payload = import_response.json()
+    assert import_payload["status"] == "imported"
+    assert import_payload["simulation"]["imported"] is True
+    assert import_payload["simulation"]["force_field"] == "amber99sb-ildn"
+    assert import_payload["provenance"]["artifacts"]["trajectory_summary"]["artifact_key"]
+    assert (
+        import_payload["provenance"]["artifacts"]["topology_reference"]["external_url"]
+        == "s3://external-bucket/topol.tpr"
+    )
+
+    prediction_fetch = client.get(f"/api/v1/predictions/{prediction_id}", headers=HEADERS)
+    assert prediction_fetch.status_code == 200, prediction_fetch.text
+    prediction_payload = prediction_fetch.json()
+    assert prediction_payload["provenance"]["simulation"]["imported"] is True
+    trajectory_key = prediction_payload["provenance"]["artifacts"]["trajectory_summary"]["artifact_key"]
+    assert trajectory_key
+    assert ObjectStore().exists(trajectory_key)
