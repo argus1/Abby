@@ -9,6 +9,7 @@ from typing import Any
 from abby_api.schemas.common import DescriptorContribution, Explainability, PredictionMode
 from abby_api.schemas.predictions import FeatureSummary
 from abby_api.schemas.structures import StructureSummary, StructureValidationResult
+from abby_api.services.cdr_annotation import CDR_NUMBERING_MISSING
 
 RESIDUE_CLASS_MAP = {
     "ARG": "charged",
@@ -786,6 +787,7 @@ def build_descriptor_bundle(
     notes.extend(radius_of_gyration_notes)
     if mode == "antibody_antigen" and cdr_bookkeeping_ready_flag > 0.0:
         notes.append("ANTIBODY_MODE_CDR_DETECTION_PENDING")
+        notes.append(CDR_NUMBERING_MISSING)
     if electrostatics_hook_ready > 0.0 and surface_pka_hook_ready > 0.0:
         notes.append("ELECTROSTATICS_SURFACE_PKA_HOOKS_ENABLED")
     notes.append(f"CONTACT_DISTANCE_CUTOFF_{round(float(contact_distance_cutoff), 3)}A")

@@ -65,6 +65,7 @@ For CDR-aware structural bookkeeping, Abby v1.1 should follow the execution path
 * **Use now:** deterministic structural CDR boundaries, explicit numbering/provenance, and typed ambiguity handling.
 * **Use later/optional:** AIRR-compliant import/export adapters and repertoire-scale analytics.
 * **Keep out of v1.1 core flow:** mandatory AIRR-seq assembly dependencies or repertoire-only boundary inference replacing structure-driven extraction.
+* **Current execution status:** CompDetRAE Phase 0 (contract/taxonomy foundations) is implemented; next delivery slice is Phase 1 deterministic CDR-H3 boundary extraction and provenance threading.
 
 ### **Dataset-backed validation workflow**
 

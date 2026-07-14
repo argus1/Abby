@@ -142,19 +142,28 @@ Freeze CDR annotation interface and warning/error taxonomy before feature implem
 
 ### Checklist
 
-- [ ] Define CDR annotation glossary and region naming standard.
-- [ ] Define stable residue key format: `(chain_id, auth_seq_id/label_seq_id, insertion_code)`.
-- [ ] Define typed warning/error codes:
+- [x] Define CDR annotation glossary and region naming standard.
+- [x] Define stable residue key format: `(chain_id, auth_seq_id/label_seq_id, insertion_code)`.
+- [x] Define typed warning/error codes:
   - `CDR_CHAIN_ROLE_AMBIGUOUS`
   - `CDR_BOUNDARY_AMBIGUOUS`
   - `CDR_MOTIF_FALLBACK_USED`
   - `CDR_NUMBERING_MISSING`
-- [ ] Add architecture note linking CompDetRAE to `Dev_Plan_Biopython.md` and checklist roadmap.
+- [x] Add architecture note linking CompDetRAE to `Dev_Plan_Biopython.md` and checklist roadmap.
 
 ### Exit criteria
 
-- [ ] Contract reviewed and documented.
-- [ ] No API breaking changes introduced.
+- [x] Contract reviewed and documented.
+- [x] No API breaking changes introduced.
+
+### Implementation status notes (Phase 0)
+
+- Implemented contract scaffolding:
+  - `src/abby_api/services/cdr_annotation.py`
+  - `src/abby_api/services/cdr_numbering.py`
+- Added contract tests:
+  - `tests/test_cdr_annotation.py`
+- Existing feature-note path now emits `CDR_NUMBERING_MISSING` alongside the prior pending antibody CDR note until Phase 1 boundary extraction is complete.
 
 ---
 

@@ -94,6 +94,7 @@ For antibody-specific CDR bookkeeping implementation details, use `Dev_Plan_Comp
 * **Implementation-now focus:** structure-first CDR region extraction, numbering/provenance fields, and deterministic fallback behavior.
 * **Optional interoperability:** AIRR-oriented schema/adapter mapping may be added as a non-blocking extension.
 * **Guardrail:** do not introduce mandatory repertoire-pipeline preprocessing in the default BioPython parsing/normalization path.
+* **Current execution status:** CompDetRAE Phase 0 contract scaffolding is now implemented in `src/abby_api/services/cdr_annotation.py` and `src/abby_api/services/cdr_numbering.py`; proceed with Phase 1 boundary extraction against this fixed contract.
 
 ## Relationship to product scope
 
