@@ -38,6 +38,7 @@ Audit baseline: **2026-07-07**
 ### Already in place
 | Status | Priority / Effort | Item | Evidence |
 | --- | --- | --- | --- |
+| `[x]` | `P0 / S` | mmCIF-compatible GROMACS runtime baseline is defined for this repo | `argus1/Gromacs-CIF` is the designated engine and is already installed on the local machine |
 | `[x]` | `P0 / S` | Project creation flow exists | `src/abby_api/services/projects.py`, `frontend/src/pages/ProjectPage.tsx` |
 | `[x]` | `P0 / M` | Structure upload, parsing, summary generation, and validation exist | `src/abby_api/services/structures.py`, `src/abby_api/services/structure_parsing.py` |
 | `[x]` | `P0 / S` | Typed validation diagnostics exist | `src/abby_api/schemas/structures.py` |
@@ -198,7 +199,7 @@ Audit baseline: **2026-07-07**
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
 | `[x]` | `P2 / L` | Introduce a dedicated simulation worker runtime/profile | Isolated optional runtime; `SimulationWorkerBackend` singleton in `src/abby_api/workers/tasks.py` with `initialize_simulation_worker_backend` / `submit_simulation_task` / `shutdown_simulation_worker_backend`; separate from general prediction queue; configurable via `ABBY_SIMULATION_WORKER_BACKEND` / `ABBY_SIMULATION_WORKER_THREADS` |
-| `[x]` | `P2 / L` | Implement optional Gromacs-CIF execution path | `src/abby_api/services/simulation.py` `run_gromacs_cif_simulation()`; graceful stub when GROMACS absent; exposed via `POST /predictions/{id}/simulation:run`; off critical path for default prediction flow |
+| `[x]` | `P2 / L` | Implement optional Gromacs-CIF execution path | `src/abby_api/services/simulation.py` `run_gromacs_cif_simulation()`; graceful stub when GROMACS absent; exposed via `POST /predictions/{id}/simulation:run`; off critical path for default prediction flow; engine install baseline already exists locally (`argus1/Gromacs-CIF`) |
 | `[x]` | `P2 / L` | Add parameterization workflow hooks for non-standard residues/linkers | `src/abby_api/services/simulation.py` `parameterize_non_standard_residues()`; auto-selects antechamber → LigParGen → stub fallback |
 | `[x]` | `P2 / M` | Capture run-time simulation provenance and store outputs in object storage | `run_gromacs_cif_simulation()` persists provenance JSON, trajectory (`.trr`), and energy (`.edr`) artifacts under `projects/{id}/predictions/{id}/simulation/`; provenance written back to `PredictionResult` |
 

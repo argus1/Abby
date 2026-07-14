@@ -109,7 +109,11 @@ def _build_descriptor_hash(payload: dict[str, object]) -> str:
 
 
 def _residue_name(residue: Any) -> str:
-    value = residue.get_resname() if hasattr(residue, "get_resname") else getattr(residue, "resname", "UNK")
+    value = (
+        residue.get_resname()
+        if hasattr(residue, "get_resname")
+        else getattr(residue, "resname", "UNK")
+    )
     return str(value).strip().upper()
 
 
@@ -203,7 +207,9 @@ def _antibody_chain_candidate_count(chains: list[str]) -> int:
     This is acceptable for initial bookkeeping and should not be used for definitive
     antibody-chain identification.
     """
-    return len([chain_id for chain_id in chains if len(chain_id) == 1 and chain_id.upper() in {"H", "L"}])
+    return len(
+        [chain_id for chain_id in chains if len(chain_id) == 1 and chain_id.upper() in {"H", "L"}]
+    )
 
 
 def _to_contact_letter(residue_class: str) -> str:
@@ -290,8 +296,12 @@ def calculate_inter_partner_contacts(
 
             residue_1_id = getattr(residue_1, "id", (id(residue_1),))
             residue_2_id = getattr(residue_2, "id", (id(residue_2),))
-            interface_partner_1.add(tuple(residue_1_id) if isinstance(residue_1_id, tuple) else (residue_1_id,))
-            interface_partner_2.add(tuple(residue_2_id) if isinstance(residue_2_id, tuple) else (residue_2_id,))
+            interface_partner_1.add(
+                tuple(residue_1_id) if isinstance(residue_1_id, tuple) else (residue_1_id,)
+            )
+            interface_partner_2.add(
+                tuple(residue_2_id) if isinstance(residue_2_id, tuple) else (residue_2_id,)
+            )
 
     total_contacts = sum(contact_bins.values())
     notes: list[str] = []
@@ -619,10 +629,15 @@ def build_descriptor_bundle(
     residue_class_fractions = _fractions(global_counts, total_residues)
 
     fallback_paired_apolar = min(partner_1_class_counts["apolar"], partner_2_class_counts["apolar"])
-    fallback_paired_charged = min(partner_1_class_counts["charged"], partner_2_class_counts["charged"])
+    fallback_paired_charged = min(
+        partner_1_class_counts["charged"], partner_2_class_counts["charged"]
+    )
     fallback_paired_polar = min(partner_1_class_counts["polar"], partner_2_class_counts["polar"])
     fallback_contact_proxy = round(
-        min(smaller_partner * 1.5, fallback_paired_apolar + fallback_paired_charged + fallback_paired_polar + 1),
+        min(
+            smaller_partner * 1.5,
+            fallback_paired_apolar + fallback_paired_charged + fallback_paired_polar + 1,
+        ),
         4,
     )
 
@@ -644,8 +659,7 @@ def build_descriptor_bundle(
             + contact_observation.interface_residue_counts.get("partner_2", 0)
         )
         contact_bins = {
-            key: float(value)
-            for key, value in contact_observation.contact_bins.items()
+            key: float(value) for key, value in contact_observation.contact_bins.items()
         }
         contact_notes = list(contact_observation.notes)
 
@@ -664,9 +678,13 @@ def build_descriptor_bundle(
         sasa_partner_1 = float(solvent_accessibility.partner_sasa.get("partner_1", 0.0))
         sasa_partner_2 = float(solvent_accessibility.partner_sasa.get("partner_2", 0.0))
         sasa_apolar_fraction = float(solvent_accessibility.class_sasa_fractions.get("apolar", 0.0))
-        sasa_charged_fraction = float(solvent_accessibility.class_sasa_fractions.get("charged", 0.0))
+        sasa_charged_fraction = float(
+            solvent_accessibility.class_sasa_fractions.get("charged", 0.0)
+        )
         sasa_polar_fraction = float(solvent_accessibility.class_sasa_fractions.get("polar", 0.0))
-        sasa_aromatic_fraction = float(solvent_accessibility.class_sasa_fractions.get("aromatic", 0.0))
+        sasa_aromatic_fraction = float(
+            solvent_accessibility.class_sasa_fractions.get("aromatic", 0.0)
+        )
         accessible_residue_count = float(solvent_accessibility.accessible_residue_count)
         sasa_notes = list(solvent_accessibility.notes)
         if sasa_total > 0.0:
@@ -732,7 +750,9 @@ def build_descriptor_bundle(
         "sasa_total": sasa_total,
         "sasa_partner_1": sasa_partner_1,
         "sasa_partner_2": sasa_partner_2,
-        "sasa_partner_ratio": round(min(sasa_partner_1, sasa_partner_2) / max(max(sasa_partner_1, sasa_partner_2), 1.0), 4),
+        "sasa_partner_ratio": round(
+            min(sasa_partner_1, sasa_partner_2) / max(max(sasa_partner_1, sasa_partner_2), 1.0), 4
+        ),
         "sasa_apolar_fraction": sasa_apolar_fraction,
         "sasa_charged_fraction": sasa_charged_fraction,
         "sasa_polar_fraction": sasa_polar_fraction,
@@ -773,7 +793,10 @@ def build_descriptor_bundle(
     # Phase 5B: thread trajectory-derived summaries into descriptor generation.
     if trajectory_summary is not None:
         from abby_api.services.trajectory import enrich_descriptors_from_trajectory
-        descriptors, trajectory_notes = enrich_descriptors_from_trajectory(descriptors, trajectory_summary)
+
+        descriptors, trajectory_notes = enrich_descriptors_from_trajectory(
+            descriptors, trajectory_summary
+        )
         notes.extend(trajectory_notes)
 
     notes = sorted(set(notes))

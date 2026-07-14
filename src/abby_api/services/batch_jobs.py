@@ -103,8 +103,12 @@ def _collect_export_rows(job_id: UUID) -> tuple[list[dict[str, str]], list[dict[
                 "delta_g_kcal_mol": ""
                 if prediction.consensus is None
                 else str(prediction.consensus.delta_g_kcal_mol),
-                "confidence": "" if prediction.consensus is None else prediction.consensus.confidence,
-                "ood_flag": "" if prediction.consensus is None else str(prediction.consensus.ood_flag),
+                "confidence": ""
+                if prediction.consensus is None
+                else prediction.consensus.confidence,
+                "ood_flag": ""
+                if prediction.consensus is None
+                else str(prediction.consensus.ood_flag),
                 "descriptor_hash": ""
                 if prediction.provenance is None
                 else prediction.provenance.descriptor_hash,
@@ -138,7 +142,9 @@ def _collect_export_rows(job_id: UUID) -> tuple[list[dict[str, str]], list[dict[
 
 def create_batch_job(request: BatchJobRequest) -> BatchJobQueuedResponse:
     if not request.structure_ids:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one structure is required.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="At least one structure is required."
+        )
     now = _now_utc()
     job = BatchJob(
         job_id=uuid4(),
@@ -236,7 +242,7 @@ def list_jobs(project_id: UUID) -> list[BatchJob]:
 
 
 def get_results(job_id: UUID, page: int, page_size: int) -> BatchResultsPage:
-    job = get_job(job_id)
+    _ = get_job(job_id)
     execution = get_batch_job_execution(job_id)
     all_predictions = []
     if execution is not None:
@@ -266,11 +272,15 @@ def export_results(job_id: UUID, export_format: str) -> ExportResponse:
                 "status": job.status,
                 "counts": job.counts.model_dump(),
                 "predictions": prediction_payloads,
-                "failures": get_batch_job_execution(job_id).failures if get_batch_job_execution(job_id) else [],
+                "failures": get_batch_job_execution(job_id).failures
+                if get_batch_job_execution(job_id)
+                else [],
                 "rows": rows,
             },
         )
     else:
         object_store.put_bytes(artifact_key, _build_csv_export_payload(job, rows))
 
-    return ExportResponse(format=export_format, download_url=object_store.signed_download_url(artifact_key))
+    return ExportResponse(
+        format=export_format, download_url=object_store.signed_download_url(artifact_key)
+    )

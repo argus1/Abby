@@ -76,7 +76,9 @@ def score_surface_balance_baseline(descriptors: dict[str, float]) -> BaselineSco
     return BaselineScore(model_id="surface_balance_v1", log_k=round(log_k, 2), r_validation=0.73)
 
 
-def score_mixed_baseline(descriptors: dict[str, float], linear: BaselineScore, surface: BaselineScore) -> BaselineScore:
+def score_mixed_baseline(
+    descriptors: dict[str, float], linear: BaselineScore, surface: BaselineScore
+) -> BaselineScore:
     correction = -0.08 * _feature(descriptors, "paired_apolar_proxy")
     log_k = (0.65 * linear.log_k) + (0.35 * surface.log_k) + correction
     return BaselineScore(model_id="mixed_baseline_v1", log_k=round(log_k, 2), r_validation=0.85)
@@ -95,7 +97,9 @@ def run_baseline_affinity_models(descriptors: dict[str, float]) -> BaselineScori
 
     total_residues = _feature(descriptors, "total_residues", default=0.0)
     interface_density = _feature(descriptors, "interface_density_proxy")
-    confidence: ConfidenceClass = "high" if total_residues >= 2 and interface_density >= 0.01 else "medium"
+    confidence: ConfidenceClass = (
+        "high" if total_residues >= 2 and interface_density >= 0.01 else "medium"
+    )
     ood_flag = total_residues < 1
 
     return BaselineScoringResult(
@@ -114,10 +118,12 @@ def derive_delta_g_kcal_mol(log_k: float, temperature_kelvin: float = 298.15) ->
 
 
 def derive_k_from_log_k(log_k: float) -> float:
-    return round(10 ** log_k, 10)
+    return round(10**log_k, 10)
 
 
-def derive_thermodynamic_outputs(log_k: float, temperature_kelvin: float = 298.15) -> dict[str, float]:
+def derive_thermodynamic_outputs(
+    log_k: float, temperature_kelvin: float = 298.15
+) -> dict[str, float]:
     return {
         "log_k": round(log_k, 2),
         "delta_g_kcal_mol": derive_delta_g_kcal_mol(log_k, temperature_kelvin),

@@ -1,10 +1,10 @@
-from __future__ import annotations
-
 """Worker task submission helpers.
 
 These wrappers expose a backend-agnostic async interface so service code can
 submit tasks without knowing worker runtime details.
 """
+
+from __future__ import annotations
 
 from collections.abc import Callable
 
@@ -60,7 +60,9 @@ def initialize_simulation_worker_backend(
 
     settings = get_settings()
     resolved_type: WorkerBackendType = backend_type or settings.simulation_worker_backend
-    resolved_count = worker_count if worker_count is not None else settings.simulation_worker_threads
+    resolved_count = (
+        worker_count if worker_count is not None else settings.simulation_worker_threads
+    )
 
     if _simulation_backend is not None and _simulation_backend_type != resolved_type:
         _simulation_backend.stop()
@@ -68,6 +70,7 @@ def initialize_simulation_worker_backend(
 
     if _simulation_backend is None:
         from abby_api.workers.backend import _make_backend
+
         _simulation_backend = _make_backend(backend_type=resolved_type, worker_count=resolved_count)
         _simulation_backend_type = resolved_type
 
@@ -106,4 +109,3 @@ def submit_simulation_task(runner: Callable[[], None]) -> str:
     except RuntimeError:
         backend = initialize_simulation_worker_backend()
     return backend.submit(task_name="simulation", run=runner)
-

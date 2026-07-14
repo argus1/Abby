@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Optional GROMACS-CIF simulation execution service.
 
 Phase 5A of the Abby roadmap: Simulation worker enablement.
@@ -14,7 +12,8 @@ functions return explicit ``SimulationUnavailableError`` or stub results rather
 than silently failing, so callers can branch on availability.
 """
 
-import json
+from __future__ import annotations
+
 import re
 import shutil
 import subprocess
@@ -161,6 +160,7 @@ def parameterize_non_standard_residues(
     method:
         One of ``"auto"``, ``"antechamber"``, ``"ligpargen"``, ``"stub"``.
     """
+
     def _sanitize(name: str) -> str:
         if not _SAFE_RESIDUE_NAME_RE.match(name):
             raise ValueError(
@@ -190,7 +190,9 @@ def parameterize_non_standard_residues(
         )
 
     use_antechamber = method in {"auto", "antechamber"} and is_antechamber_available()
-    use_ligpargen = (not use_antechamber) and method in {"auto", "ligpargen"} and is_ligpargen_available()
+    use_ligpargen = (
+        (not use_antechamber) and method in {"auto", "ligpargen"} and is_ligpargen_available()
+    )
 
     notes: list[str] = []
 
@@ -229,12 +231,18 @@ def _parameterize_with_antechamber(
         out_mol2 = base_dir / f"{residue_name}.mol2"
         cmd = [
             ANTECHAMBER_EXECUTABLE,
-            "-i", f"{residue_name}.pdb",
-            "-fi", "pdb",
-            "-o", str(out_mol2),
-            "-fo", "mol2",
-            "-c", "bcc",
-            "-s", "2",
+            "-i",
+            f"{residue_name}.pdb",
+            "-fi",
+            "pdb",
+            "-o",
+            str(out_mol2),
+            "-fo",
+            "mol2",
+            "-c",
+            "bcc",
+            "-s",
+            "2",
         ]
         try:
             subprocess.run(cmd, cwd=str(base_dir), capture_output=True, timeout=120, check=True)
@@ -270,8 +278,10 @@ def _parameterize_with_ligpargen(
         out_itp = base_dir / f"{residue_name}.itp"
         cmd = [
             LIGPARGEN_EXECUTABLE,
-            "-r", residue_name,
-            "-o", str(out_itp),
+            "-r",
+            residue_name,
+            "-o",
+            str(out_itp),
         ]
         try:
             subprocess.run(cmd, cwd=str(base_dir), capture_output=True, timeout=120, check=True)
@@ -478,12 +488,18 @@ def _execute_gromacs_workflow(
     topol_path = work_dir / "topol.top"
     conf_path = work_dir / "conf.gro"
     pdb2gmx_cmd = [
-        gmx_exe, "pdb2gmx",
-        "-f", str(local_struct),
-        "-o", str(conf_path),
-        "-p", str(topol_path),
-        "-ff", config.force_field,
-        "-water", config.water_model,
+        gmx_exe,
+        "pdb2gmx",
+        "-f",
+        str(local_struct),
+        "-o",
+        str(conf_path),
+        "-p",
+        str(topol_path),
+        "-ff",
+        config.force_field,
+        "-water",
+        config.water_model,
         "-nointer",
     ]
     subprocess.run(pdb2gmx_cmd, cwd=str(work_dir), capture_output=True, timeout=120, check=True)
@@ -491,11 +507,16 @@ def _execute_gromacs_workflow(
     # grompp: assemble TPR.
     tpr_path = work_dir / "em.tpr"
     grompp_cmd = [
-        gmx_exe, "grompp",
-        "-f", str(mdp_path),
-        "-c", str(conf_path),
-        "-p", str(topol_path),
-        "-o", str(tpr_path),
+        gmx_exe,
+        "grompp",
+        "-f",
+        str(mdp_path),
+        "-c",
+        str(conf_path),
+        "-p",
+        str(topol_path),
+        "-o",
+        str(tpr_path),
         *config.extra_grompp_flags,
     ]
     subprocess.run(grompp_cmd, cwd=str(work_dir), capture_output=True, timeout=60, check=True)
@@ -503,9 +524,11 @@ def _execute_gromacs_workflow(
     # mdrun: run energy minimization.
     em_prefix = work_dir / "em"
     mdrun_cmd = [
-        gmx_exe, "mdrun",
+        gmx_exe,
+        "mdrun",
         "-v",
-        "-deffnm", str(em_prefix),
+        "-deffnm",
+        str(em_prefix),
     ]
     subprocess.run(mdrun_cmd, cwd=str(work_dir), capture_output=True, timeout=600, check=True)
 
@@ -526,9 +549,7 @@ def _execute_gromacs_workflow(
         engine_version=engine_version,
         notes=notes,
     )
-    provenance_key = (
-        f"projects/{project_id}/predictions/{prediction_id}/simulation/provenance.json"
-    )
+    provenance_key = f"projects/{project_id}/predictions/{prediction_id}/simulation/provenance.json"
     object_store.put_json(
         provenance_key,
         {

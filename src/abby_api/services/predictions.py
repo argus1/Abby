@@ -7,7 +7,12 @@ from uuid import UUID, uuid4
 from fastapi import HTTPException, status
 
 from abby_api.core.config import get_settings
-from abby_api.repositories.memory import get_structure, get_structure_file, save_feature_summary_artifact, save_prediction
+from abby_api.repositories.memory import (
+    get_structure,
+    get_structure_file,
+    save_feature_summary_artifact,
+    save_prediction,
+)
 from abby_api.schemas.common import (
     ArtifactReference,
     ArtifactRegistry,
@@ -115,7 +120,10 @@ def _project_id_from_prediction(prediction: PredictionResult) -> UUID:
     if not artifact_key:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Prediction does not include project artifact metadata required for simulation import.",
+            detail=(
+                "Prediction does not include project artifact metadata required "
+                "for simulation import."
+            ),
         )
     prefix = "projects/"
     if not artifact_key.startswith(prefix):
@@ -123,7 +131,7 @@ def _project_id_from_prediction(prediction: PredictionResult) -> UUID:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Unable to derive project scope from artifact key.",
         )
-    remainder = artifact_key[len(prefix):]
+    remainder = artifact_key[len(prefix) :]
     segments = remainder.split("/")
     if len(segments) < 2 or not segments[0]:
         raise HTTPException(
@@ -208,7 +216,9 @@ def create_prediction(request: PredictionRequest) -> PredictionQueuedResponse:
         ModelPrediction(
             model_id=item.model_id,
             log_k=item.log_k,
-            delta_g_kcal_mol=derive_delta_g_kcal_mol(item.log_k, request.options.temperature_kelvin),
+            delta_g_kcal_mol=derive_delta_g_kcal_mol(
+                item.log_k, request.options.temperature_kelvin
+            ),
             r_validation=item.r_validation,
         )
         for item in scoring.scores
@@ -253,12 +263,16 @@ def create_prediction(request: PredictionRequest) -> PredictionQueuedResponse:
         best_model=ModelPrediction(
             model_id=best.model_id,
             log_k=best.log_k,
-            delta_g_kcal_mol=derive_delta_g_kcal_mol(best.log_k, request.options.temperature_kelvin),
+            delta_g_kcal_mol=derive_delta_g_kcal_mol(
+                best.log_k, request.options.temperature_kelvin
+            ),
             r_validation=best.r_validation,
         ),
         all_models=all_model_predictions if request.options.return_all_models else [],
         feature_summary=feature_summary,
-        explainability=make_explainability_summary(bundle) if request.options.include_explainability else None,
+        explainability=make_explainability_summary(bundle)
+        if request.options.include_explainability
+        else None,
         provenance=Provenance(
             model_bundle_version=settings.model_bundle_version,
             preprocess_version=settings.preprocess_version,
@@ -419,6 +433,7 @@ def run_simulation(
             raw = object_store.get_bytes(artifact_key)
             if raw is not None:
                 import tempfile
+
                 suffix = f".{artifact_key.rsplit('.', 1)[-1]}" if "." in artifact_key else ".pdb"
                 tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
                 tmp.write(raw)
@@ -438,8 +453,8 @@ def run_simulation(
     notes: list[str] = []
 
     def _run() -> None:
-        import tempfile as _tempfile
         import os as _os
+        import tempfile as _tempfile
 
         created_tmp: Path | None = None
         if structure_file_path is not None:

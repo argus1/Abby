@@ -35,7 +35,9 @@ def _normalize_format(filename: str) -> str:
         return "mmcif"
     if lowered.endswith(".pdb"):
         return "pdb"
-    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported structure format.")
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported structure format."
+    )
 
 
 async def upload_structure(file: UploadFile, mode: PredictionMode) -> StructureInput:
@@ -161,7 +163,9 @@ def build_md_handoff_plan(chains: ChainMapping) -> dict[str, object]:
         {
             chain_id
             for chain_id in selected_chains
-            if len(chain_id) != 1 or (not chain_id.isalnum()) or (chain_id.isalpha() and chain_id != chain_id.upper())
+            if len(chain_id) != 1
+            or (not chain_id.isalnum())
+            or (chain_id.isalpha() and chain_id != chain_id.upper())
         }
     )
 
@@ -170,7 +174,10 @@ def build_md_handoff_plan(chains: ChainMapping) -> dict[str, object]:
         issues.append(
             {
                 "code": "CHAIN_ID_CAPACITY_EXCEEDED",
-                "message": "Selected chains exceed supported canonical chain ID capacity for MD handoff.",
+                "message": (
+                    "Selected chains exceed supported canonical chain ID "
+                    "capacity for MD handoff."
+                ),
                 "details": {
                     "selected_chain_count": len(selected_chains),
                     "supported_capacity": len(MD_CANONICAL_CHAIN_IDS),
@@ -181,7 +188,10 @@ def build_md_handoff_plan(chains: ChainMapping) -> dict[str, object]:
         issues.append(
             {
                 "code": "CHAIN_CANONICALIZATION_REQUIRED",
-                "message": "Selected chains require remapping to canonical single-character IDs for MD handoff.",
+                "message": (
+                    "Selected chains require remapping to canonical "
+                    "single-character IDs for MD handoff."
+                ),
                 "details": {"canonical_chain_map": canonical_chain_map},
             }
         )
@@ -189,7 +199,10 @@ def build_md_handoff_plan(chains: ChainMapping) -> dict[str, object]:
         issues.append(
             {
                 "code": "SOURCE_CHAIN_IDS_NONCANONICAL",
-                "message": "One or more source chain IDs are non-canonical for pdb2gmx style workflows.",
+                "message": (
+                    "One or more source chain IDs are non-canonical for "
+                    "pdb2gmx style workflows."
+                ),
                 "details": {"source_chain_ids_noncanonical": source_chain_ids_noncanonical},
             }
         )
@@ -200,8 +213,12 @@ def build_md_handoff_plan(chains: ChainMapping) -> dict[str, object]:
         "renaming_required": renaming_required,
         "source_chain_ids_noncanonical": source_chain_ids_noncanonical,
         "canonical_chain_map": canonical_chain_map,
-        "canonical_partner_1": [canonical_chain_map.get(chain_id, "") for chain_id in chains.partner_1],
-        "canonical_partner_2": [canonical_chain_map.get(chain_id, "") for chain_id in chains.partner_2],
+        "canonical_partner_1": [
+            canonical_chain_map.get(chain_id, "") for chain_id in chains.partner_1
+        ],
+        "canonical_partner_2": [
+            canonical_chain_map.get(chain_id, "") for chain_id in chains.partner_2
+        ],
         "issues": issues,
         "ready_for_md_handoff": capacity_ok,
     }
@@ -210,7 +227,9 @@ def build_md_handoff_plan(chains: ChainMapping) -> dict[str, object]:
 def summarize_structure_detail(structure_id: UUID) -> StructureSummary:
     detail = get_structure(structure_id)
     if detail is None or detail.summary is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Structure summary not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Structure summary not found."
+        )
     return detail.summary
 
 
@@ -221,7 +240,9 @@ def validate_structure(request: StructureValidationRequest) -> StructureValidati
     if detail.summary is None:
         file_path = get_structure_file(request.structure_id)
         if file_path is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Structure file not found.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Structure file not found."
+            )
         normalized_format = "mmcif" if detail.format in {"mmcif", "cif"} else "pdb"
         parsed_structure, parser_name = parse_structure_file(file_path, normalized_format)
         set_structure_summary(
@@ -235,12 +256,17 @@ def validate_structure(request: StructureValidationRequest) -> StructureValidati
         )
         detail = get_structure(request.structure_id)
         if detail is None or detail.summary is None:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Unable to summarize structure.")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Unable to summarize structure.",
+            )
 
     normalized_groups = normalize_chain_groups(request.chains)
-    warnings, errors, partner_residue_counts, warning_details, error_details = validate_partner_mapping(
-        detail.summary,
-        normalized_groups,
+    warnings, errors, partner_residue_counts, warning_details, error_details = (
+        validate_partner_mapping(
+            detail.summary,
+            normalized_groups,
+        )
     )
     md_handoff = build_md_handoff_plan(normalized_groups)
     if md_handoff["issues"]:
@@ -248,7 +274,10 @@ def validate_structure(request: StructureValidationRequest) -> StructureValidati
         warning_details.append(
             StructureValidationIssue(
                 code="MD_CHAIN_CANONICALIZATION_SUGGESTED",
-                message="MD handoff chain canonicalization guidance is available for selected chains.",
+                message=(
+                    "MD handoff chain canonicalization guidance is available "
+                    "for selected chains."
+                ),
                 details={"md_handoff": md_handoff},
             )
         )

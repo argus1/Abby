@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from importlib.util import find_spec
 from datetime import datetime, timezone
+from importlib.util import find_spec
 
 from abby_api import __version__
 from abby_api.core.config import get_settings
@@ -14,7 +14,9 @@ from abby_api.schemas.system import (
 )
 
 
-def _dependency_status(name: str, *, required: bool = False, import_name: str | None = None, detail: str | None = None) -> DependencyStatus:
+def _dependency_status(
+    name: str, *, required: bool = False, import_name: str | None = None, detail: str | None = None
+) -> DependencyStatus:
     module_name = import_name or name
     available = find_spec(module_name) is not None
     return DependencyStatus(name=name, available=available, required=required, detail=detail)
@@ -22,11 +24,22 @@ def _dependency_status(name: str, *, required: bool = False, import_name: str | 
 
 def _health_dependencies() -> list[DependencyStatus]:
     return [
-        _dependency_status("BioPython", required=True, import_name="Bio.PDB", detail="Structure parsing and connectivity preservation"),
+        _dependency_status(
+            "BioPython",
+            required=True,
+            import_name="Bio.PDB",
+            detail="Structure parsing and connectivity preservation",
+        ),
         _dependency_status("Gemmi", import_name="gemmi", detail="PDB→mmCIF conversion helper"),
-        _dependency_status("MDAnalysis", import_name="MDAnalysis", detail="Optional trajectory aggregation"),
+        _dependency_status(
+            "MDAnalysis", import_name="MDAnalysis", detail="Optional trajectory aggregation"
+        ),
         _dependency_status("freesasa", import_name="freesasa", detail="Optional SASA acceleration"),
-        _dependency_status("Gromacs-CIF", import_name="gmx", detail="Optional CIF-aware simulation backend / gmx CLI"),
+        _dependency_status(
+            "Gromacs-CIF",
+            import_name="gmx",
+            detail="Optional CIF-aware simulation backend / gmx CLI",
+        ),
     ]
 
 

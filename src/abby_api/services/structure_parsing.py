@@ -88,7 +88,7 @@ def _parse_pdb_without_biopython(file_path: Path) -> _SimpleStructure:
             if record not in {"ATOM", "HETATM"}:
                 continue
 
-            chain_id = (line[21:22].strip() or "")
+            chain_id = line[21:22].strip() or ""
             resname = line[17:20].strip().upper() or "UNK"
             residue_number_text = line[22:26].strip()
             insertion_code = line[26:27].strip() or " "
@@ -231,9 +231,8 @@ def _extract_mmcif_connectivity(file_path: Path) -> dict[str, Any]:
         p2_comp = ptnr2_comp[index].strip().upper() if index < len(ptnr2_comp) else ""
 
         is_disulfide = conn_type_norm == "disulf"
-        is_glycan_link = (
-            conn_type_norm in {"covale", "modres"}
-            and (p1_comp in glycan_residue_names or p2_comp in glycan_residue_names)
+        is_glycan_link = conn_type_norm in {"covale", "modres"} and (
+            p1_comp in glycan_residue_names or p2_comp in glycan_residue_names
         )
 
         record = {
@@ -354,7 +353,10 @@ def summarize_structure(
         warning_details.append(
             StructureValidationIssue(
                 code="MULTI_MODEL_INPUT",
-                message="Input contains multiple models; the workflow will preserve model-level metadata.",
+                message=(
+                    "Input contains multiple models; the workflow will preserve "
+                    "model-level metadata."
+                ),
                 details={"model_count": model_count},
             )
         )
@@ -374,7 +376,10 @@ def summarize_structure(
         warning_details.append(
             StructureValidationIssue(
                 code="CHAIN_SEQUENCE_GAPS",
-                message="One or more chains include sequence index discontinuities that may indicate missing residues.",
+                message=(
+                    "One or more chains include sequence index discontinuities "
+                    "that may indicate missing residues."
+                ),
                 details={"chain_gap_details": chain_gap_details},
             )
         )
@@ -384,7 +389,10 @@ def summarize_structure(
         pdb2gmx_preflight_issues.append(
             {
                 "code": "NON_STANDARD_RESIDUES",
-                "message": "Non-standard residues may require parameterization or renaming before pdb2gmx.",
+                "message": (
+                    "Non-standard residues may require parameterization or "
+                    "renaming before pdb2gmx."
+                ),
                 "details": {"unsupported_residue_counts": unsupported_residue_counts},
             }
         )
@@ -392,7 +400,10 @@ def summarize_structure(
         pdb2gmx_preflight_issues.append(
             {
                 "code": "CHAIN_SEQUENCE_GAPS",
-                "message": "Detected residue numbering gaps that may correspond to unresolved segments.",
+                "message": (
+                    "Detected residue numbering gaps that may correspond to "
+                    "unresolved segments."
+                ),
                 "details": {"chain_gap_details": chain_gap_details},
             }
         )

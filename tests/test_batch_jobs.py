@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from csv import DictReader
 import json
 import time
+from csv import DictReader
 from io import StringIO
 from uuid import UUID
 
@@ -80,7 +80,9 @@ def _wait_for_job_terminal(job_id: str, timeout_seconds: float = 3.0) -> dict[st
         if payload["status"] in {"completed", "failed"}:
             return payload
         time.sleep(0.05)
-    raise AssertionError(f"Batch job {job_id} did not reach a terminal state within {timeout_seconds}s")
+    raise AssertionError(
+        f"Batch job {job_id} did not reach a terminal state within {timeout_seconds}s"
+    )
 
 
 def test_batch_job_executes_predictions_and_produces_real_results_and_exports() -> None:
@@ -112,7 +114,9 @@ def test_batch_job_executes_predictions_and_produces_real_results_and_exports() 
     assert job["counts"]["completed"] == 2
     assert job["counts"]["failed"] == 0
 
-    results_response = client.get(f"/api/v1/batch-jobs/{job_id}/results?page=1&page_size=10", headers=HEADERS)
+    results_response = client.get(
+        f"/api/v1/batch-jobs/{job_id}/results?page=1&page_size=10", headers=HEADERS
+    )
     assert results_response.status_code == 200, results_response.text
     results = results_response.json()
     assert results["total"] == 2
@@ -124,8 +128,12 @@ def test_batch_job_executes_predictions_and_produces_real_results_and_exports() 
         if item.get("provenance")
     } == {6.0}
 
-    csv_export_response = client.get(f"/api/v1/batch-jobs/{job_id}/export?format=csv", headers=HEADERS)
-    json_export_response = client.get(f"/api/v1/batch-jobs/{job_id}/export?format=json", headers=HEADERS)
+    csv_export_response = client.get(
+        f"/api/v1/batch-jobs/{job_id}/export?format=csv", headers=HEADERS
+    )
+    json_export_response = client.get(
+        f"/api/v1/batch-jobs/{job_id}/export?format=json", headers=HEADERS
+    )
     assert csv_export_response.status_code == 200, csv_export_response.text
     assert json_export_response.status_code == 200, json_export_response.text
 
@@ -148,7 +156,10 @@ def test_batch_job_executes_predictions_and_produces_real_results_and_exports() 
     json_payload = json.loads(json_payload_raw.decode("utf-8"))
     assert json_payload["job_id"] == job_id
     assert len(json_payload["predictions"]) == 2
-    assert {item["structure_id"] for item in json_payload["predictions"]} == {structure_a, structure_b}
+    assert {item["structure_id"] for item in json_payload["predictions"]} == {
+        structure_a,
+        structure_b,
+    }
     assert json_payload["failures"] == []
 
 
@@ -175,7 +186,9 @@ def test_batch_job_tracks_partial_failures_without_losing_successful_results() -
     assert job["counts"]["completed"] == 1
     assert job["counts"]["failed"] == 1
 
-    results_response = client.get(f"/api/v1/batch-jobs/{job_id}/results?page=1&page_size=10", headers=HEADERS)
+    results_response = client.get(
+        f"/api/v1/batch-jobs/{job_id}/results?page=1&page_size=10", headers=HEADERS
+    )
     assert results_response.status_code == 200, results_response.text
     results = results_response.json()
     assert results["total"] == 1
@@ -186,8 +199,12 @@ def test_batch_job_tracks_partial_failures_without_losing_successful_results() -
     assert prediction_response.status_code == 200, prediction_response.text
     assert prediction_response.json()["status"] == "completed"
 
-    csv_export_response = client.get(f"/api/v1/batch-jobs/{job_id}/export?format=csv", headers=HEADERS)
-    json_export_response = client.get(f"/api/v1/batch-jobs/{job_id}/export?format=json", headers=HEADERS)
+    csv_export_response = client.get(
+        f"/api/v1/batch-jobs/{job_id}/export?format=csv", headers=HEADERS
+    )
+    json_export_response = client.get(
+        f"/api/v1/batch-jobs/{job_id}/export?format=json", headers=HEADERS
+    )
     assert csv_export_response.status_code == 200, csv_export_response.text
     assert json_export_response.status_code == 200, json_export_response.text
 

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Trajectory-aware aggregation service using MDAnalysis (optional).
 
 Phase 5B of the Abby roadmap: Trajectory-aware aggregation.
@@ -15,10 +13,10 @@ an explicit ``MDANALYSIS_NOT_AVAILABLE`` note so callers can detect the
 fallback without branching on import errors.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
-
 
 # ---------------------------------------------------------------------------
 # Availability check
@@ -29,6 +27,7 @@ def is_mdanalysis_available() -> bool:
     """Return True if MDAnalysis is importable."""
     try:
         import MDAnalysis  # noqa: F401
+
         return True
     except ModuleNotFoundError:
         return False
@@ -145,8 +144,9 @@ def _compute_summary_with_mdanalysis(
     max_frames: int,
 ) -> TrajectorySummary:
     """Internal: use MDAnalysis to iterate frames and collect metrics."""
-    import MDAnalysis as mda  # type: ignore[import]
     from math import sqrt
+
+    import MDAnalysis as mda  # type: ignore[import]
 
     topo_arg = str(topology_path) if topology_path is not None else str(trajectory_path)
     universe = mda.Universe(topo_arg, str(trajectory_path))

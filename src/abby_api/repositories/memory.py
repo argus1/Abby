@@ -6,13 +6,16 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from abby_api.schemas.predictions import (
-    BatchCounts,
     BatchJob,
-    PredictionConsensus,
     PredictionResult,
 )
 from abby_api.schemas.projects import Project
-from abby_api.schemas.structures import StructureDetail, StructureInput, StructureSummary, StructureValidationResult
+from abby_api.schemas.structures import (
+    StructureDetail,
+    StructureInput,
+    StructureSummary,
+    StructureValidationResult,
+)
 
 
 @dataclass
@@ -21,7 +24,9 @@ class MemoryStore:
     structures: dict[UUID, StructureDetail] = field(default_factory=dict)
     structure_files: dict[UUID, Path] = field(default_factory=dict)
     predictions: dict[UUID, PredictionResult] = field(default_factory=dict)
-    feature_summary_artifacts: dict[UUID, FeatureSummaryArtifactRecord] = field(default_factory=dict)
+    feature_summary_artifacts: dict[UUID, FeatureSummaryArtifactRecord] = field(
+        default_factory=dict
+    )
     batch_jobs: dict[UUID, BatchJob] = field(default_factory=dict)
     batch_job_execution: dict[UUID, BatchJobExecutionRecord] = field(default_factory=dict)
 
@@ -78,7 +83,9 @@ def get_structure_file(structure_id: UUID) -> Path | None:
     return store.structure_files.get(structure_id)
 
 
-def set_validation(structure_id: UUID, validation: StructureValidationResult) -> StructureDetail | None:
+def set_validation(
+    structure_id: UUID, validation: StructureValidationResult
+) -> StructureDetail | None:
     detail = store.structures.get(structure_id)
     if detail is None:
         return None
@@ -127,9 +134,7 @@ def get_feature_summary_artifact(prediction_id: UUID) -> FeatureSummaryArtifactR
 
 def list_project_feature_summary_artifacts(project_id: UUID) -> list[FeatureSummaryArtifactRecord]:
     return [
-        item
-        for item in store.feature_summary_artifacts.values()
-        if item.project_id == project_id
+        item for item in store.feature_summary_artifacts.values() if item.project_id == project_id
     ]
 
 

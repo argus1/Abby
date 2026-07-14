@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from abby_api.services.feature_extraction import build_descriptor_bundle
 from abby_api.schemas.structures import ChainMapping, StructureSummary, StructureValidationResult
+from abby_api.services.feature_extraction import build_descriptor_bundle
 
 
 def test_enrichment_hook_flags_disabled_without_chain_groups() -> None:

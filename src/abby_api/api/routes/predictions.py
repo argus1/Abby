@@ -44,7 +44,9 @@ def import_simulation_summary(
     return predictions.import_simulation_summary(prediction_id, payload)
 
 
-@router.post("/{prediction_id}/simulation:run", response_model=SimulationRunResponse, status_code=202)
+@router.post(
+    "/{prediction_id}/simulation:run", response_model=SimulationRunResponse, status_code=202
+)
 def run_simulation(
     prediction_id: UUID,
     payload: SimulationRunRequest,

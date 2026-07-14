@@ -168,7 +168,9 @@ def test_structure_validation_reports_typed_error_details() -> None:
 
     error_details_by_code = {entry["code"]: entry for entry in payload["error_details"]}
     assert sorted(error_details_by_code["CHAIN_GROUP_OVERLAP"]["details"]["overlap"]) == ["A"]
-    assert sorted(error_details_by_code["UNKNOWN_CHAIN_SELECTION"]["details"]["missing_chains"]) == ["Z"]
+    assert sorted(
+        error_details_by_code["UNKNOWN_CHAIN_SELECTION"]["details"]["missing_chains"]
+    ) == ["Z"]
 
 
 def test_structure_validation_propagates_unsupported_residue_warning() -> None:
@@ -202,7 +204,12 @@ def test_structure_validation_propagates_unsupported_residue_warning() -> None:
     assert "UNSUPPORTED_RESIDUE" in payload["warnings"]
 
     warning_details_by_code = {entry["code"]: entry for entry in payload["warning_details"]}
-    assert warning_details_by_code["UNSUPPORTED_RESIDUE"]["details"]["unsupported_residue_counts"]["A"]["MSE"] == 1
+    assert (
+        warning_details_by_code["UNSUPPORTED_RESIDUE"]["details"]["unsupported_residue_counts"][
+            "A"
+        ]["MSE"]
+        == 1
+    )
 
 
 @pytest.mark.skipif(not BIOPYTHON_AVAILABLE, reason="BioPython is required for mmCIF parsing")
@@ -239,7 +246,13 @@ def test_mmcif_connectivity_metadata_persists_through_validation_flow() -> None:
     upload_response = client.post(
         "/api/v1/structures:upload",
         headers=HEADERS,
-        files={"file": ("test_connectivity_validation.mmcif", MMCIF_CONNECTIVITY_FIXTURE, "chemical/x-cif")},
+        files={
+            "file": (
+                "test_connectivity_validation.mmcif",
+                MMCIF_CONNECTIVITY_FIXTURE,
+                "chemical/x-cif",
+            )
+        },
         data={"mode": "ppi_general"},
     )
     assert upload_response.status_code == 201, upload_response.text
@@ -347,9 +360,13 @@ def test_validation_returns_md_handoff_chain_canonicalization_plan() -> None:
     assert payload["md_handoff"]["canonical_partner_2"] == ["B"]
 
     warning_by_code = {item["code"]: item for item in payload["warning_details"]}
-    handoff_details = warning_by_code["MD_CHAIN_CANONICALIZATION_SUGGESTED"]["details"]["md_handoff"]
+    handoff_details = warning_by_code["MD_CHAIN_CANONICALIZATION_SUGGESTED"]["details"][
+        "md_handoff"
+    ]
     assert handoff_details["renaming_required"] is True
-    assert any(issue["code"] == "CHAIN_CANONICALIZATION_REQUIRED" for issue in handoff_details["issues"])
+    assert any(
+        issue["code"] == "CHAIN_CANONICALIZATION_REQUIRED" for issue in handoff_details["issues"]
+    )
 
 
 def test_prediction_requires_validation_before_success() -> None:
@@ -605,12 +622,17 @@ def test_prediction_contact_cutoff_is_configurable() -> None:
     assert low_descriptors["contact_distance_cutoff_angstrom"] == 0.5
     assert high_descriptors["contact_distance_cutoff_angstrom"] == 8.0
     assert low_descriptors["interface_contact_proxy"] <= high_descriptors["interface_contact_proxy"]
-    assert low_payload["provenance"]["descriptor_hash"] != high_payload["provenance"]["descriptor_hash"]
+    assert (
+        low_payload["provenance"]["descriptor_hash"]
+        != high_payload["provenance"]["descriptor_hash"]
+    )
     assert low_payload["provenance"]["contact_distance_cutoff_angstrom"] == 0.5
     assert high_payload["provenance"]["contact_distance_cutoff_angstrom"] == 8.0
 
 
-@pytest.mark.skipif(not BIOPYTHON_AVAILABLE, reason="BioPython is required for PDB->mmCIF conversion")
+@pytest.mark.skipif(
+    not BIOPYTHON_AVAILABLE, reason="BioPython is required for PDB->mmCIF conversion"
+)
 def test_pdb_to_mmcif_conversion_regression_preserves_chain_and_residue_counts(tmp_path) -> None:
     source_path = tmp_path / "source.pdb"
     converted_path = tmp_path / "converted.mmcif"
@@ -664,7 +686,9 @@ def test_prediction_supports_external_simulation_summary_import() -> None:
     )
     assert validate_response.status_code == 200, validate_response.text
 
-    project_response = client.post("/api/v1/projects", headers=HEADERS, json={"name": "Simulation import"})
+    project_response = client.post(
+        "/api/v1/projects", headers=HEADERS, json={"name": "Simulation import"}
+    )
     assert project_response.status_code == 201, project_response.text
     project_id = project_response.json()["project_id"]
 
@@ -712,6 +736,8 @@ def test_prediction_supports_external_simulation_summary_import() -> None:
     assert prediction_fetch.status_code == 200, prediction_fetch.text
     prediction_payload = prediction_fetch.json()
     assert prediction_payload["provenance"]["simulation"]["imported"] is True
-    trajectory_key = prediction_payload["provenance"]["artifacts"]["trajectory_summary"]["artifact_key"]
+    trajectory_key = prediction_payload["provenance"]["artifacts"]["trajectory_summary"][
+        "artifact_key"
+    ]
     assert trajectory_key
     assert ObjectStore().exists(trajectory_key)

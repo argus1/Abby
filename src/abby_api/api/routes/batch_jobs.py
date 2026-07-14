@@ -37,5 +37,7 @@ def list_batch_results(
 
 
 @router.get("/{job_id}/export", response_model=ExportResponse)
-def export_batch_results(job_id: UUID, format: str = Query(..., pattern="^(csv|json)$")) -> ExportResponse:
+def export_batch_results(
+    job_id: UUID, format: str = Query(..., pattern="^(csv|json)$")
+) -> ExportResponse:
     return batch_jobs.export_results(job_id, format)

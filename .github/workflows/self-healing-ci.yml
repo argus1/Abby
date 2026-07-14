@@ -1,0 +1,122 @@
+name: Self-Healing CI
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+concurrency:
+  group: self-healing-ci-${{ github.event.workflow_run.head_branch || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  auto-remediate:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout failing branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+
+      - name: Count prior self-heal commits on branch
+        id: heal_count
+        run: |
+          count=$(git log --pretty=%s -n 50 | grep -c '^ci: self-heal failed workflow run$' || true)
+          echo "count=${count}" >> "$GITHUB_OUTPUT"
+
+      - name: Stop when self-heal cap reached
+        if: ${{ fromJSON(steps.heal_count.outputs.count) >= 2 }}
+        run: |
+          echo "Self-heal commit cap reached for this branch (>=2). Hand off to a human reviewer."
+          exit 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Run self-healing CI script (max 2 remediations)
+        if: ${{ fromJSON(steps.heal_count.outputs.count) < 2 }}
+        env:
+          MAX_REMEDIATION_ATTEMPTS: "2"
+        run: bash .github/scripts/self_heal_ci.sh
+
+      - name: Guard against CI-bypass edits
+        if: success() && fromJSON(steps.heal_count.outputs.count) < 2
+        run: |
+          changed_files="$(git diff --name-only || true)"
+          forbidden_pattern='^(\.github/workflows/|\.github/scripts/self_heal_ci\.sh$|pyproject\.toml$|frontend/package\.json$)'
+
+          if [[ -n "${changed_files}" ]] && echo "${changed_files}" | grep -Eq "${forbidden_pattern}"; then
+            echo "Self-healing run touched CI integrity files; refusing auto-commit."
+            echo "Changed files:"
+            echo "${changed_files}"
+            exit 1
+          fi
+
+      - name: Commit remediation changes
+        if: success() && fromJSON(steps.heal_count.outputs.count) < 2
+        run: |
+          if git diff --quiet; then
+            echo "No remediation changes to commit"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "ci: self-heal failed workflow run"
+          git push origin HEAD:${{ github.event.workflow_run.head_branch || github.ref_name }}
+
+      - name: Comment on PR when self-healing fails
+        if: always() && github.event_name == 'workflow_run' && job.status != 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prs = context.payload.workflow_run?.pull_requests || [];
+            if (!prs.length) {
+              core.info('No pull request attached to failed workflow_run; skipping PR comment.');
+              return;
+            }
+
+            const prNumber = prs[0].number;
+            const priorCount = Number('${{ steps.heal_count.outputs.count }}' || '0');
+            const maxAttempts = 2;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            const body = [
+              '⚠️ **Self-healing CI could not finish cleanly.**',
+              '',
+              `- Workflow: \\`Self-Healing CI\\``,
+              `- Prior self-heal commits on this branch: **${priorCount}**`,
+              `- Max allowed self-heal commit attempts: **${maxAttempts}**`,
+              `- Job status: **${{ job.status }}**`,
+              `- Logs: ${runUrl}`,
+              '',
+              'A human follow-up is recommended. Please review the failing gate(s) and apply a manual patch.'
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body,
+            });

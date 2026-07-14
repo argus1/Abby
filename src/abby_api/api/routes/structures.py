@@ -6,7 +6,12 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 
 from abby_api.core.security import require_api_key
 from abby_api.schemas.common import PredictionMode
-from abby_api.schemas.structures import StructureDetail, StructureInput, StructureValidationRequest, StructureValidationResult
+from abby_api.schemas.structures import (
+    StructureDetail,
+    StructureInput,
+    StructureValidationRequest,
+    StructureValidationResult,
+)
 from abby_api.services import structures
 
 router = APIRouter(dependencies=[Depends(require_api_key)])

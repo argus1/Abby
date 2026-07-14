@@ -27,6 +27,7 @@ The foundation of your tool must be a high-fidelity folding algorithm that can h
 Static structures are insufficient for affinity prediction because binding is a dynamic process influenced by solvent interactions and conformational flexibility.
 
 * **GROMACS / AMBER:** Use these engines to perform energy minimizations and explicit-solvent simulations.  
+* **Repository execution baseline:** for Abby development in this repo, use the mmCIF-compatible GROMACS fork [`argus1/Gromacs-CIF`](https://github.com/argus1/Gromacs-CIF). This runtime is already installed on the local machine.
 * **Parameterization:** Utilize tools like Antechamber or LigParGen to generate customized force field parameters for any non-standard residues or linkers.  
 * **Key Metrics:** From the MD trajectories, extract:  
   * **SASA (Solvent Accessible Surface Area):** To track changes in hydrophobic exposure.  
@@ -36,6 +37,8 @@ Static structures are insufficient for affinity prediction because binding is a 
 ### **2A. Phased GROMACS Adoption**
 
 To keep Abby aligned with the v1 product scope, GROMACS should be introduced in stages rather than as a hard dependency of the core upload/predict workflow.
+
+In this environment, the required mmCIF-compatible `Gromacs-CIF` build is already present locally; roadmap phases therefore focus on orchestration, provenance capture, and optional workflow exposure rather than base engine installation.
 
 * **Phase 1:** make the backend MD-ready by preserving connectivity, chain mapping, and provenance metadata during structure normalization.
 * **Phase 2:** support optional async MD workers that can run GROMACS jobs for users who explicitly request simulation-backed descriptors.

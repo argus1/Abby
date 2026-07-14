@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Phase 5 tests: simulation worker, GROMACS-CIF path, and trajectory aggregation.
 
 These tests verify the simulation and trajectory services without requiring
@@ -13,20 +11,21 @@ GROMACS or MDAnalysis to be installed.  They exercise:
 - Simulation provenance persistence in object storage.
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
 from abby_api.main import app
 from abby_api.services.simulation import (
-    SimulationRunConfig,
-    SimulationUnavailableError,
     ParameterizationResult,
-    is_gromacs_available,
+    SimulationRunConfig,
     is_antechamber_available,
+    is_gromacs_available,
     is_ligpargen_available,
     parameterize_non_standard_residues,
     run_gromacs_cif_simulation,
@@ -147,12 +146,8 @@ class TestParameterizationHooks:
 
     def test_stub_fallback_when_no_tool_available(self, monkeypatch) -> None:
         # Ensure neither antechamber nor ligpargen are available.
-        monkeypatch.setattr(
-            "abby_api.services.simulation.is_antechamber_available", lambda: False
-        )
-        monkeypatch.setattr(
-            "abby_api.services.simulation.is_ligpargen_available", lambda: False
-        )
+        monkeypatch.setattr("abby_api.services.simulation.is_antechamber_available", lambda: False)
+        monkeypatch.setattr("abby_api.services.simulation.is_ligpargen_available", lambda: False)
         result = parameterize_non_standard_residues({"MSE": {"A": 2}})
         assert result.available is False
         assert result.method == "stub"
@@ -267,7 +262,8 @@ class TestGromacsStubPath:
         config = SimulationRunConfig(seed=42, minimization_protocol="l-bfgs")
 
         result = run_gromacs_cif_simulation(
-            pdb, config,
+            pdb,
+            config,
             prediction_id=prediction_id,
             project_id=project_id,
             object_store=object_store,
@@ -407,7 +403,7 @@ class TestSimulationWorkerBackend:
         shutdown_simulation_worker_backend()
 
     def test_simulation_backend_submits_task(self) -> None:
-        backend = initialize_simulation_worker_backend(backend_type="inline")
+        initialize_simulation_worker_backend(backend_type="inline")
         ran: list[bool] = []
         task_id = submit_simulation_task(lambda: ran.append(True))
         assert task_id
@@ -416,11 +412,8 @@ class TestSimulationWorkerBackend:
 
     def test_simulation_backend_isolated_from_general_backend(self) -> None:
         from abby_api.workers.backend import get_worker_backend, initialize_worker_backend
-        from abby_api.workers.tasks import get_simulation_worker_backend
-        from abby_api.core.config import get_settings
 
         # Ensure the general backend is up so get_worker_backend() doesn't raise.
-        settings = get_settings()
         initialize_worker_backend(backend_type="inline", worker_count=1)
 
         sim_backend = initialize_simulation_worker_backend(backend_type="inline")
@@ -433,13 +426,19 @@ class TestSimulationWorkerBackend:
     def test_simulation_backend_shutdown_clears_singleton(self) -> None:
         from abby_api.workers.tasks import (
             get_simulation_worker_backend,
+        )
+        from abby_api.workers.tasks import (
             initialize_simulation_worker_backend as _init,
+        )
+        from abby_api.workers.tasks import (
             shutdown_simulation_worker_backend as _shutdown,
         )
 
         _init(backend_type="inline")
         _shutdown()
-        with pytest.raises(RuntimeError, match="Simulation worker backend has not been initialized"):
+        with pytest.raises(
+            RuntimeError, match="Simulation worker backend has not been initialized"
+        ):
             get_simulation_worker_backend()
 
 
@@ -529,8 +528,11 @@ class TestSimulationRunRoute:
         # Use inline backend for deterministic completion.
         from abby_api.workers.tasks import (
             initialize_simulation_worker_backend as _init,
+        )
+        from abby_api.workers.tasks import (
             shutdown_simulation_worker_backend as _shutdown,
         )
+
         _shutdown()
         _init(backend_type="inline")
 

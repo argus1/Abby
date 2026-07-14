@@ -7,7 +7,6 @@ from threading import Event, Lock, Thread
 from typing import Callable, Literal, Protocol
 from uuid import uuid4
 
-
 TaskCallable = Callable[[], None]
 WorkerBackendType = Literal["in_process", "inline", "celery_stub"]
 WorkerTaskStatus = Literal["queued", "running", "completed", "failed"]
@@ -190,7 +189,8 @@ class CeleryStubWorkerBackend:
     def submit(self, task_name: str, run: TaskCallable) -> str:
         _ = (task_name, run)
         raise RuntimeError(
-            "Worker backend 'celery_stub' is a placeholder. Configure a real Celery adapter before submitting tasks."
+            "Worker backend 'celery_stub' is a placeholder. Configure a real "
+            "Celery adapter before submitting tasks."
         )
 
     def get_task(self, task_id: str) -> WorkerTaskRecord | None:

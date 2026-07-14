@@ -44,6 +44,8 @@ if '_struct_conn.conn_type_id' in mmcif_dict:
 
 Before running MD simulations, you must ensure your antibody chains are properly identified and stripped of any artifacts that might crash the GROMACS topology generator (pdb2gmx).
 
+* **Repository execution baseline:** Abby uses the mmCIF-compatible GROMACS fork [`argus1/Gromacs-CIF`](https://github.com/argus1/Gromacs-CIF), and this build is already installed on the local development machine.
+
 * **Chain Segregation:** Antibodies require distinct chain IDs for heavy and light chains. BioPython allows you to programmatically rename chains if the folding algorithm outputs them generically (e.g., Chain A, B, C).  
 * **Non-Standard Residues:** Use BioPython to identify and parameterize any non-standard residues or bioconjugates identified by AlphaFold 3\.
 
@@ -75,6 +77,8 @@ Treat `validation_dataset/ANDD_pdb/` as the canonical local regression corpus fo
 ### **5. GROMACS Integration Boundary**
 
 GROMACS should be treated as an **optional simulation backend** rather than a mandatory part of Abby's core v1 upload-and-predict path, and the CIF-modified `Gromacs-CIF` build should be the preferred backend when mmCIF structures need to flow directly into topology generation.
+
+For this repository's current environment, `Gromacs-CIF` is already installed locally and should be treated as the default GROMACS runtime for mmCIF-oriented development and validation.
 
 * **v1 scope:** support MD-ready preprocessing, topology handoff metadata, and import of externally generated GROMACS outputs.
 * **v1 conversion path:** convert validation-dataset structures to `PDBx/mmCIF` first, then hand the mmCIF files to `Gromacs-CIF` for topology generation and optional simulation preparation.
