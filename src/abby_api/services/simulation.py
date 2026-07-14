@@ -15,6 +15,7 @@ than silently failing, so callers can branch on availability.
 """
 
 import json
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass, field
@@ -33,6 +34,10 @@ from abby_api.storage.object_store import ObjectStore
 GROMACS_EXECUTABLES = ("gmx", "gmx_mpi", "gmx_d")
 ANTECHAMBER_EXECUTABLE = "antechamber"
 LIGPARGEN_EXECUTABLE = "ligpargen"
+
+# Allowlist for residue names passed to external parameterization tools.
+# Only alphanumeric characters and underscores, max 10 characters.
+_SAFE_RESIDUE_NAME_RE = re.compile(r"^[A-Za-z0-9_]{1,10}$")
 
 
 class SimulationUnavailableError(RuntimeError):
@@ -156,12 +161,8 @@ def parameterize_non_standard_residues(
     method:
         One of ``"auto"``, ``"antechamber"``, ``"ligpargen"``, ``"stub"``.
     """
-    import re
-
-    _SAFE_RESIDUE_NAME = re.compile(r"^[A-Za-z0-9_]{1,10}$")
-
     def _sanitize(name: str) -> str:
-        if not _SAFE_RESIDUE_NAME.match(name):
+        if not _SAFE_RESIDUE_NAME_RE.match(name):
             raise ValueError(
                 f"Residue name {name!r} contains disallowed characters. "
                 "Only alphanumeric characters and underscores (max 10) are permitted."

@@ -182,6 +182,25 @@ class TestParameterizationHooks:
         assert result.available is False
         assert any("PARAMETERIZATION_REJECTED_INVALID_RESIDUE_NAME" in n for n in result.notes)
 
+    def test_residue_name_with_backtick_is_rejected(self) -> None:
+        result = parameterize_non_standard_residues({"`whoami`": {"A": 1}})
+        assert result.available is False
+        assert any("PARAMETERIZATION_REJECTED_INVALID_RESIDUE_NAME" in n for n in result.notes)
+
+    def test_residue_name_with_pipe_is_rejected(self) -> None:
+        result = parameterize_non_standard_residues({"MSE|cat": {"A": 1}})
+        assert result.available is False
+        assert any("PARAMETERIZATION_REJECTED_INVALID_RESIDUE_NAME" in n for n in result.notes)
+
+    def test_residue_name_with_redirect_is_rejected(self) -> None:
+        result = parameterize_non_standard_residues({"MSE>/tmp/x": {"A": 1}})
+        assert result.available is False
+        assert any("PARAMETERIZATION_REJECTED_INVALID_RESIDUE_NAME" in n for n in result.notes)
+
+    def test_valid_residue_name_passes_sanitization(self) -> None:
+        result = parameterize_non_standard_residues({"MSE": {"A": 1}}, method="stub")
+        assert any("PARAMETERIZATION_REJECTED_INVALID_RESIDUE_NAME" not in n for n in result.notes)
+
 
 class TestGromacsStubPath:
     """Verify the stub result returned when GROMACS is not installed."""

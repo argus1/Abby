@@ -408,7 +408,10 @@ def run_simulation(
     project_id = _project_id_from_prediction(prediction)
 
     # Resolve structure file from prediction provenance artifact registry.
+    # Write to a temp file so the simulation service receives a real Path.
+    # The file is closed after writing; cleanup happens at the end of _run().
     structure_file_path: Path | None = None
+    structure_tmp_path: Path | None = None  # tracks temp files for cleanup
     if prediction.provenance.artifacts and prediction.provenance.artifacts.normalized_structure:
         artifact_key = prediction.provenance.artifacts.normalized_structure.artifact_key
         if artifact_key:
@@ -419,8 +422,9 @@ def run_simulation(
                 suffix = f".{artifact_key.rsplit('.', 1)[-1]}" if "." in artifact_key else ".pdb"
                 tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
                 tmp.write(raw)
-                tmp.flush()
+                tmp.close()
                 structure_file_path = Path(tmp.name)
+                structure_tmp_path = structure_file_path
 
     config = SimulationRunConfig(
         force_field=payload.force_field,
@@ -435,31 +439,44 @@ def run_simulation(
 
     def _run() -> None:
         import tempfile as _tempfile
+        import os as _os
+
+        created_tmp: Path | None = None
         if structure_file_path is not None:
             _structure_path = structure_file_path
         else:
             # Create a minimal empty temp file so run_gromacs_cif_simulation
             # receives a real path (GROMACS will error, which produces a stub result).
-            _tmp = _tempfile.NamedTemporaryFile(delete=False, suffix=".pdb")
-            _tmp.close()
-            _structure_path = Path(_tmp.name)
-        result = run_gromacs_cif_simulation(
-            _structure_path,
-            config,
-            prediction_id=prediction_id,
-            project_id=project_id,
-        )
-        # Persist updated simulation provenance back to the prediction.
-        _prediction = get_prediction(prediction_id)
-        if _prediction.provenance is not None:
-            _prediction.provenance.simulation = result.provenance
-            existing = _prediction.provenance.artifacts or ArtifactRegistry()
-            if result.artifact_registry.topology_reference is not None:
-                existing.topology_reference = result.artifact_registry.topology_reference
-            if result.artifact_registry.trajectory_summary is not None:
-                existing.trajectory_summary = result.artifact_registry.trajectory_summary
-            _prediction.provenance.artifacts = existing
-            save_prediction(_prediction)
+            fd, _tmp_name = _tempfile.mkstemp(suffix=".pdb")
+            _os.close(fd)
+            created_tmp = Path(_tmp_name)
+            _structure_path = created_tmp
+
+        try:
+            result = run_gromacs_cif_simulation(
+                _structure_path,
+                config,
+                prediction_id=prediction_id,
+                project_id=project_id,
+            )
+            # Persist updated simulation provenance back to the prediction.
+            _prediction = get_prediction(prediction_id)
+            if _prediction.provenance is not None:
+                _prediction.provenance.simulation = result.provenance
+                existing = _prediction.provenance.artifacts or ArtifactRegistry()
+                if result.artifact_registry.topology_reference is not None:
+                    existing.topology_reference = result.artifact_registry.topology_reference
+                if result.artifact_registry.trajectory_summary is not None:
+                    existing.trajectory_summary = result.artifact_registry.trajectory_summary
+                _prediction.provenance.artifacts = existing
+                save_prediction(_prediction)
+        finally:
+            # Clean up temp files created by this task.
+            for tmp_path in filter(None, [created_tmp, structure_tmp_path]):
+                try:
+                    tmp_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
     task_id = submit_simulation_task(_run)
     return SimulationRunResponse(
