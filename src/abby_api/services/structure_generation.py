@@ -221,6 +221,8 @@ def _run_alphafold3(
     notes: list[str],
 ) -> StructureGenerationResult:
     """Internal: invoke the AlphaFold 3 CLI."""
+    # Deferred imports: only loaded when this backend is actually invoked,
+    # keeping startup cost low when AF3 is not installed.
     import json
     import shutil as _shutil
     import tempfile
@@ -303,6 +305,8 @@ def _run_boltz1(
     notes: list[str],
 ) -> StructureGenerationResult:
     """Internal: invoke the Boltz-1 CLI."""
+    # Deferred imports: only loaded when this backend is actually invoked,
+    # keeping startup cost low when Boltz-1 is not installed.
     import shutil as _shutil
     import tempfile
 
@@ -665,6 +669,8 @@ def _execute_rosetta_workflow(
     command.  Callers must only pass trusted, pre-validated flag values.  Do not
     forward user-supplied strings to this argument without sanitization.
     """
+    # Deferred imports: only loaded when this backend is actually invoked,
+    # keeping startup cost low when Rosetta is not installed.
     import shutil as _shutil
     import tempfile
 

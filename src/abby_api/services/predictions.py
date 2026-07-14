@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -582,8 +584,6 @@ def run_learned_model(
             else None
         )
         if artifact_key:
-            import tempfile as _tempfile
-
             # Validate the file extension against known structure formats to
             # prevent unexpected suffix values from reaching mkstemp.
             _ALLOWED_STRUCTURE_SUFFIXES = {".pdb", ".cif", ".mmcif", ".ent"}
@@ -602,17 +602,13 @@ def run_learned_model(
             object_store_inner = ObjectStore()
             raw = object_store_inner.get_bytes(artifact_key)
             if raw is not None:
-                import os as _os
-
-                fd, tmp_name = _tempfile.mkstemp(suffix=suffix)
-                _os.close(fd)
+                fd, tmp_name = tempfile.mkstemp(suffix=suffix)
+                os.close(fd)
                 _tmp_path = Path(tmp_name)
                 _tmp_path.write_bytes(raw)
                 try:
-                    from abby_api.services.structure_parsing import parse_structure_file as _parse
-
                     fmt = "mmcif" if suffix in {".cif", ".mmcif"} else "pdb"
-                    structure, _ = _parse(_tmp_path, fmt)
+                    structure, _ = parse_structure_file(_tmp_path, fmt)
                 finally:
                     try:
                         _tmp_path.unlink(missing_ok=True)

@@ -18,6 +18,7 @@ They exercise:
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from uuid import uuid4
 
@@ -536,8 +537,6 @@ class TestLearnedModelAPIRoutes:
         # Poll until the worker has stored a result or the deadline passes.
         # The inline test backend completes synchronously so this normally
         # succeeds on the first attempt.
-        import time
-
         deadline = time.monotonic() + 2.0
         result_resp = None
         while time.monotonic() < deadline:
