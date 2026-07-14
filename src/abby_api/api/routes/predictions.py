@@ -7,6 +7,9 @@ from fastapi import APIRouter, Depends
 from abby_api.core.security import require_api_key
 from abby_api.schemas.common import Explainability
 from abby_api.schemas.predictions import (
+    LearnedModelInferenceResult,
+    LearnedModelRunRequest,
+    LearnedModelRunResponse,
     PredictionQueuedResponse,
     PredictionRequest,
     PredictionResult,
@@ -14,6 +17,8 @@ from abby_api.schemas.predictions import (
     SimulationImportResponse,
     SimulationRunRequest,
     SimulationRunResponse,
+    StructureGenerationIngestionRequest,
+    StructureGenerationIngestionResponse,
 )
 from abby_api.services import predictions
 
@@ -58,3 +63,66 @@ def run_simulation(
     ID; query the prediction provenance later to retrieve simulation outputs.
     """
     return predictions.run_simulation(prediction_id, payload)
+
+
+# ---------------------------------------------------------------------------
+# Phase 6A: Learned structural modeling endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/{prediction_id}/learned-model:run",
+    response_model=LearnedModelRunResponse,
+    status_code=202,
+)
+def run_learned_model(
+    prediction_id: UUID,
+    payload: LearnedModelRunRequest,
+) -> LearnedModelRunResponse:
+    """Submit a GNN inference task for an existing prediction.
+
+    Dispatches to the first available GNN backend (DeepFRI → ProteinMPNN →
+    stub).  The task runs asynchronously through the general worker backend.
+    Query ``GET /{prediction_id}`` provenance for the result.
+
+    Phase 6A: GNN integration path.
+    """
+    return predictions.run_learned_model(prediction_id, payload)
+
+
+@router.get(
+    "/{prediction_id}/learned-model",
+    response_model=LearnedModelInferenceResult,
+)
+def get_learned_model_result(prediction_id: UUID) -> LearnedModelInferenceResult:
+    """Return the learned-model inference result for a prediction.
+
+    Returns 404 when no learned-model run has been submitted yet.
+
+    Phase 6A: learned-model provenance retrieval.
+    """
+    return predictions.get_learned_model_result(prediction_id)
+
+
+# ---------------------------------------------------------------------------
+# Phase 6B: Structure-generation ingestion endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/{prediction_id}/structure-generation:ingest",
+    response_model=StructureGenerationIngestionResponse,
+)
+def ingest_structure_generation(
+    prediction_id: UUID,
+    payload: StructureGenerationIngestionRequest,
+) -> StructureGenerationIngestionResponse:
+    """Import an externally generated or refined structure into a prediction.
+
+    Supports AlphaFold 3, Boltz-1, Rosetta, and generic external structures.
+    Stores structured provenance metadata and an artifact reference so Abby
+    can trace the origin of each structure under analysis.
+
+    Phase 6B: upstream structure-generation ingestion contract.
+    """
+    return predictions.ingest_structure_generation(prediction_id, payload)

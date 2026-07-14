@@ -76,6 +76,44 @@ class ArtifactRegistry(AbbyBaseModel):
     topology_reference: ArtifactReference | None = None
     trajectory_summary: ArtifactReference | None = None
     feature_summary: ArtifactReference | None = None
+    structure_graph: ArtifactReference | None = None
+    learned_model_result: ArtifactReference | None = None
+    structure_generation: ArtifactReference | None = None
+
+
+class LearnedModelProvenance(AbbyBaseModel):
+    """Provenance record for a Phase 6 learned-model inference run.
+
+    Tracks which model backend was used, whether the real model was available,
+    and any model-specific metadata needed to reproduce or audit the result.
+    """
+
+    model_id: str
+    model_backend: str = "stub"
+    backend_available: bool = False
+    graph_version: str | None = None
+    framework: str | None = None
+    framework_version: str | None = None
+    checkpoint: str | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
+class StructureGenerationProvenance(AbbyBaseModel):
+    """Provenance record for externally generated or refined structure inputs.
+
+    Covers both forward-generation tools (AlphaFold 3, Boltz-1) and
+    physical-refinement tools (Rosetta ΔΔG, clash resolution).
+    """
+
+    source: str  # alphafold3 / boltz1 / rosetta / external / stub
+    tool_version: str | None = None
+    model_id: str | None = None
+    seeds: list[int] = Field(default_factory=list)
+    force_field: str | None = None
+    ddg_protocol: str | None = None
+    plddt_mean: float | None = None
+    imported: bool = False
+    notes: list[str] = Field(default_factory=list)
 
 
 class Provenance(AbbyBaseModel):
@@ -86,4 +124,6 @@ class Provenance(AbbyBaseModel):
     created_at: datetime
     topology_handoff: TopologyHandoffMetadata | None = None
     simulation: SimulationProvenance | None = None
+    learned_model: LearnedModelProvenance | None = None
+    structure_generation: StructureGenerationProvenance | None = None
     artifacts: ArtifactRegistry | None = None
