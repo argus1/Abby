@@ -58,6 +58,14 @@ The final stage uses the sampled structural data to predict the quantitative bin
 * **Validation Data:** While modern therapeutic antibodies nearly always have Surface Plasmon Resonance (SPR) data available for training, research antibodies often lack this. Your ML model should ideally be trained on SPR-validated datasets to ensure it predicts true kinetic constants ($k\_{on}, k\_{off}$) rather than just qualitative binding.  
 * **Scale Immunity:** Using PDBx/mmCIF ensures your tool can handle large antibody-antigen complexes without the atom-numbering overflows or parsing crashes common with legacy PDB files.
 
+### CDR annotation interoperability boundary (v1.1)
+
+For CDR-aware structural bookkeeping, Abby v1.1 should follow the execution path defined in `Dev_Plan_CompDetRAE.md`, including Appendix A (RepSeq interoperability profile).
+
+* **Use now:** deterministic structural CDR boundaries, explicit numbering/provenance, and typed ambiguity handling.
+* **Use later/optional:** AIRR-compliant import/export adapters and repertoire-scale analytics.
+* **Keep out of v1.1 core flow:** mandatory AIRR-seq assembly dependencies or repertoire-only boundary inference replacing structure-driven extraction.
+
 ### **Dataset-backed validation workflow**
 
 Treat `validation_dataset/ANDD_pdb/` as the canonical local regression corpus for Abby planning, implementation, and verification.

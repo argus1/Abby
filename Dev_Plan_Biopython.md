@@ -87,6 +87,14 @@ For this repository's current environment, `Gromacs-CIF` is already installed lo
 * **Provenance requirements:** record force field, water model, ion settings, equilibration protocol, and random seed alongside any MD-derived features.
 * **Artifact contract:** persist the normalized structure, topology references, trajectory summary, and feature snapshot separately so downstream ML can re-use them without rerunning simulation.
 
+### 6. CDR annotation + RepSeq interoperability boundary (v1.1)
+
+For antibody-specific CDR bookkeeping implementation details, use `Dev_Plan_CompDetRAE.md` as the canonical execution plan.
+
+* **Implementation-now focus:** structure-first CDR region extraction, numbering/provenance fields, and deterministic fallback behavior.
+* **Optional interoperability:** AIRR-oriented schema/adapter mapping may be added as a non-blocking extension.
+* **Guardrail:** do not introduce mandatory repertoire-pipeline preprocessing in the default BioPython parsing/normalization path.
+
 ## Relationship to product scope
 
 For Abby v1, this document should be treated as the implementation path for the ingestion, preprocessing, and feature-engineering layers described in [`V1_Product_Spec_Abby.md`](./V1_Product_Spec_Abby.md). In particular, it supports:
