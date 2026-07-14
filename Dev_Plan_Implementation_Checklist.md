@@ -168,7 +168,7 @@ Audit baseline: **2026-07-07**
 ### 4A. MD handoff schema and artifact design
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
-| `[-]` | `P1 / S` | Some provenance exists today, but not simulation provenance | Model bundle version, preprocess version, descriptor hash, contact cutoff |
+| `[x]` | `P1 / S` | Some provenance exists today, but not simulation provenance | `SimulationProvenance` schema and `Provenance.simulation` field exist; populated in all prediction/import/run flows in `src/abby_api/services/predictions.py` and `src/abby_api/schemas/common.py` |
 | `[x]` | `P1 / S` | Add validation-dataset PDB→mmCIF conversion regression checks | `validation_dataset/ANDD_pdb/` |
 | `[x]` | `P1 / M` | Add topology-handoff metadata schema | Suggested fields: normalized chain map, preserved connectivity, non-standard residues, preprocessing warnings |
 | `[x]` | `P1 / M` | Add simulation provenance schema placeholders | Suggested fields: force field, water model, ionization, minimization protocol, seed, engine version |
@@ -227,21 +227,21 @@ Audit baseline: **2026-07-07**
 ### 6A. Learned structural modeling hooks
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
-| `[ ]` | `P3 / L` | Define graph construction for structure-derived learned models | Learned-structure input contract |
-| `[ ]` | `P3 / L` | Add GNN integration path for DeepFRI / ProteinMPNN-style workflows | Model integration layer |
-| `[ ]` | `P3 / L` | Add training/evaluation/calibration pipeline contracts for SPR-grounded model work | Training/evaluation infrastructure |
+| `[x]` | `P3 / L` | Define graph construction for structure-derived learned models | `src/abby_api/services/graph_models.py`; `StructureGraph` with per-residue nodes, contact/backbone/covalent edges, and `build_structure_graph()` |
+| `[x]` | `P3 / L` | Add GNN integration path for DeepFRI / ProteinMPNN-style workflows | `src/abby_api/services/graph_models.py`; `run_gnn_inference()` dispatches DeepFRI → ProteinMPNN → stub; `POST /predictions/{id}/learned-model:run` and `GET /predictions/{id}/learned-model` routes |
+| `[x]` | `P3 / L` | Add training/evaluation/calibration pipeline contracts for SPR-grounded model work | `src/abby_api/services/graph_models.py`; `SPRTrainingRecord`, `run_training_pipeline()` (linear OLS built-in + GNN hook), `run_calibration()` (isotonic/temperature), `evaluate_model()` |
 
 ### 6B. Upstream structure-generation integrations
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
-| `[ ]` | `P3 / L` | Add AlphaFold 3 / Boltz-1 ingestion/orchestration contract | External structure-generation contract |
-| `[ ]` | `P3 / L` | Add Rosetta integration contract for physical refinement / clash / `ΔΔG` workflows | Physical refinement integration |
+| `[x]` | `P3 / L` | Add AlphaFold 3 / Boltz-1 ingestion/orchestration contract | `src/abby_api/services/structure_generation.py`; `run_structure_generation()` dispatches AF3 → Boltz-1 → stub; `ingest_structure_generation_artifact()` for externally generated structures; `POST /predictions/{id}/structure-generation:ingest` route |
+| `[x]` | `P3 / L` | Add Rosetta integration contract for physical refinement / clash / `ΔΔG` workflows | `src/abby_api/services/structure_generation.py`; `run_rosetta_refinement()` with `ddg_monomer` / `relax` / `score_only` protocols; graceful stub when Rosetta absent |
 
 ### Phase 6 exit criteria
 | Status | Priority / Effort | Exit criterion |
 | --- | --- | --- |
-| `[ ]` | `P3 / L` | Abby supports at least one non-baseline learned structural inference path under explicit provenance |
-| `[ ]` | `P3 / M` | External structure-generation or refinement tools can feed Abby through stable contracts |
+| `[x]` | `P3 / L` | Abby supports at least one non-baseline learned structural inference path under explicit provenance | `run_gnn_inference()` + `LearnedModelProvenance` threaded through `PredictionResult.provenance.learned_model`; `POST /predictions/{id}/learned-model:run` API route; verified by `tests/test_learned_models.py` |
+| `[x]` | `P3 / M` | External structure-generation or refinement tools can feed Abby through stable contracts | `ingest_structure_generation_artifact()` + `StructureGenerationProvenance` threaded through `PredictionResult.provenance.structure_generation`; `POST /predictions/{id}/structure-generation:ingest` API route; verified by `tests/test_learned_models.py` |
 
 ---
 
@@ -266,7 +266,7 @@ These should be advanced throughout the roadmap rather than left until the end.
 | `[x]` | `P1 / S` | Add residue-depth / new-descriptor verification tests as Phase 3 lands |
 | `[x]` | `P1 / S` | Add imported-simulation artifact tests as Phase 4 lands |
 | `[x]` | `P2 / M` | Add simulation worker / trajectory tests as Phase 5 lands | `tests/test_simulation.py` |
-| `[ ]` | `P3 / M` | Add learned-model provenance and regression tests as Phase 6 lands |
+| `[x]` | `P3 / M` | Add learned-model provenance and regression tests as Phase 6 lands | `tests/test_learned_models.py`; 52 tests covering graph construction, GNN stub path, training/calibration, structure-generation stub paths, ingestion contract, and API route integration |
 
 ---
 
@@ -308,4 +308,4 @@ If you want the highest leverage next steps, this is the shortest sensible path:
 | --- | --- | --- |
 | `[x]` | `P1 / M` | MD-ready handoff and import contracts |
 | `[x]` | `P2 / L` | Optional GROMACS / MDAnalysis execution |
-| `[ ]` | `P3 / L` | Learned structural model expansion |
+| `[x]` | `P3 / L` | Learned structural model expansion |

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import logging
+import os
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -16,12 +19,16 @@ from abby_api.repositories.memory import (
 from abby_api.schemas.common import (
     ArtifactReference,
     ArtifactRegistry,
+    LearnedModelProvenance,
     PredictionInterval,
     Provenance,
     SimulationProvenance,
     TopologyHandoffMetadata,
 )
 from abby_api.schemas.predictions import (
+    LearnedModelInferenceResult,
+    LearnedModelRunRequest,
+    LearnedModelRunResponse,
     ModelPrediction,
     PredictionConsensus,
     PredictionQueuedResponse,
@@ -31,6 +38,8 @@ from abby_api.schemas.predictions import (
     SimulationImportResponse,
     SimulationRunRequest,
     SimulationRunResponse,
+    StructureGenerationIngestionRequest,
+    StructureGenerationIngestionResponse,
 )
 from abby_api.services.baseline_models import (
     derive_delta_g_kcal_mol,
@@ -47,6 +56,8 @@ from abby_api.services.feature_extraction import (
 )
 from abby_api.services.structure_parsing import parse_structure_file
 from abby_api.storage.object_store import ObjectStore
+
+logger = logging.getLogger(__name__)
 
 
 def _persist_feature_summary_artifact(
@@ -504,3 +515,269 @@ def run_simulation(
         gromacs_available=gromacs_ready,
         notes=notes,
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 6A: Learned structural modeling – run_learned_model
+# ---------------------------------------------------------------------------
+
+
+def run_learned_model(
+    prediction_id: UUID,
+    payload: LearnedModelRunRequest,
+) -> LearnedModelRunResponse:
+    """Submit a GNN inference task for an existing prediction.
+
+    The graph is built from the prediction's structure data and dispatched to
+    the first available GNN backend (DeepFRI → ProteinMPNN → stub).  The task
+    runs asynchronously through the general worker backend so it does not block
+    the prediction queue.
+
+    Phase 6A: GNN integration path.
+    """
+    from abby_api.services.graph_models import (
+        GNNInferenceConfig,
+        is_deepfri_available,
+        is_proteinmpnn_available,
+        run_gnn_inference,
+    )
+    from abby_api.workers.tasks import submit_task
+
+    prediction = get_prediction(prediction_id)
+    if prediction.provenance is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Prediction provenance is required before running a learned model.",
+        )
+
+    project_id = _project_id_from_prediction(prediction)
+
+    # Determine which backend will be used for the response metadata.
+    if is_deepfri_available():
+        model_backend = "deepfri"
+        backend_available = True
+    elif is_proteinmpnn_available():
+        model_backend = "proteinmpnn"
+        backend_available = True
+    else:
+        model_backend = "stub"
+        backend_available = False
+
+    gnn_config = GNNInferenceConfig(
+        model_id=payload.model_id,
+        graph_contact_cutoff_angstrom=payload.graph_contact_cutoff_angstrom,
+        include_backbone_edges=payload.include_backbone_edges,
+        include_covalent_edges=payload.include_covalent_edges,
+    )
+
+    def _run() -> None:
+        """Worker closure: build graph, run GNN, persist provenance."""
+        structure = None
+        validation = None
+
+        # Re-derive structure file from the prediction artifact registry.
+        artifact_key = (
+            prediction.provenance.artifacts.normalized_structure.artifact_key
+            if prediction.provenance
+            and prediction.provenance.artifacts
+            and prediction.provenance.artifacts.normalized_structure
+            else None
+        )
+        if artifact_key:
+            # Validate the file extension against known structure formats to
+            # prevent unexpected suffix values from reaching mkstemp.
+            _ALLOWED_STRUCTURE_SUFFIXES = {".pdb", ".cif", ".mmcif", ".ent"}
+            raw_suffix = (
+                f".{artifact_key.rsplit('.', 1)[-1]}" if "." in artifact_key else ".pdb"
+            )
+            suffix = raw_suffix if raw_suffix in _ALLOWED_STRUCTURE_SUFFIXES else ".pdb"
+            if suffix != raw_suffix:
+                logger.warning(
+                    "Unrecognised structure file suffix %r for artifact %r; "
+                    "defaulting to .pdb.  Update the artifact key if this is incorrect.",
+                    raw_suffix,
+                    artifact_key,
+                )
+
+            object_store_inner = ObjectStore()
+            raw = object_store_inner.get_bytes(artifact_key)
+            if raw is not None:
+                fd, tmp_name = tempfile.mkstemp(suffix=suffix)
+                os.close(fd)
+                _tmp_path = Path(tmp_name)
+                _tmp_path.write_bytes(raw)
+                try:
+                    fmt = "mmcif" if suffix in {".cif", ".mmcif"} else "pdb"
+                    structure, _ = parse_structure_file(_tmp_path, fmt)
+                finally:
+                    try:
+                        _tmp_path.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+
+        # Run GNN inference (stub when structure unavailable).
+        gnn_result = run_gnn_inference(structure, validation, config=gnn_config)
+
+        # Persist learned-model provenance back to the prediction.
+        _prediction = get_prediction(prediction_id)
+        if _prediction.provenance is not None:
+            _prediction.provenance.learned_model = LearnedModelProvenance(
+                model_id=gnn_config.model_id,
+                model_backend=gnn_result.model_backend,
+                backend_available=gnn_result.backend_available,
+                graph_version=gnn_result.graph.graph_version if gnn_result.graph else None,
+                notes=list(gnn_result.notes),
+            )
+            # Persist graph artifact summary to object storage.
+            object_store_inner = ObjectStore()
+            graph_key = (
+                f"projects/{project_id}/predictions/{prediction_id}"
+                f"/learned_model/graph_summary.json"
+            )
+            object_store_inner.put_json(
+                graph_key,
+                {
+                    "prediction_id": str(prediction_id),
+                    "model_id": gnn_config.model_id,
+                    "model_backend": gnn_result.model_backend,
+                    "backend_available": gnn_result.backend_available,
+                    "graph_version": gnn_result.graph.graph_version if gnn_result.graph else None,
+                    "n_nodes": len(gnn_result.graph.nodes) if gnn_result.graph else 0,
+                    "n_edges": len(gnn_result.graph.edges) if gnn_result.graph else 0,
+                    "interface_node_count": (
+                        len(gnn_result.graph.interface_node_indices) if gnn_result.graph else 0
+                    ),
+                    "predictions": gnn_result.predictions,
+                    "notes": list(gnn_result.notes),
+                },
+            )
+            existing = _prediction.provenance.artifacts or ArtifactRegistry()
+            existing.structure_graph = ArtifactReference(
+                artifact_type="structure_graph",
+                artifact_key=graph_key,
+                artifact_url=object_store_inner.signed_download_url(graph_key),
+                format="json",
+            )
+            _prediction.provenance.artifacts = existing
+            save_prediction(_prediction)
+
+    task_id = submit_task("learned_model", _run)
+    return LearnedModelRunResponse(
+        prediction_id=prediction_id,
+        task_id=task_id,
+        status="queued",
+        model_backend=model_backend,
+        backend_available=backend_available,
+        notes=[],
+    )
+
+
+def get_learned_model_result(prediction_id: UUID) -> LearnedModelInferenceResult:
+    """Return the learned-model inference result for a completed prediction.
+
+    Phase 6A: retrieve learned-model provenance stored by ``run_learned_model``.
+    """
+    prediction = get_prediction(prediction_id)
+    if prediction.provenance is None or prediction.provenance.learned_model is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                "No learned-model result found for this prediction. "
+                "Submit a learned-model run first via POST .../learned-model:run"
+            ),
+        )
+    lm = prediction.provenance.learned_model
+    return LearnedModelInferenceResult(
+        prediction_id=prediction_id,
+        model_id=lm.model_id,
+        model_backend=lm.model_backend,
+        backend_available=lm.backend_available,
+        predictions={},
+        provenance=lm,
+        notes=list(lm.notes),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase 6B: Structure generation ingestion
+# ---------------------------------------------------------------------------
+
+
+def ingest_structure_generation(
+    prediction_id: UUID,
+    payload: StructureGenerationIngestionRequest,
+) -> StructureGenerationIngestionResponse:
+    """Import an externally generated or refined structure into a prediction.
+
+    Stores structured provenance metadata and an artifact reference for the
+    external structure so downstream analysis can trace back to the generation
+    tool.  Compatible with AlphaFold 3, Boltz-1, Rosetta, and generic external
+    sources.
+
+    Phase 6B: upstream structure-generation ingestion contract.
+    """
+    from abby_api.services.structure_generation import ingest_structure_generation_artifact
+
+    prediction = get_prediction(prediction_id)
+    if prediction.provenance is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Prediction provenance is required before ingesting a "
+                "structure-generation artifact."
+            ),
+        )
+
+    project_id = _project_id_from_prediction(prediction)
+    object_store = ObjectStore()
+
+    ingestion_result = ingest_structure_generation_artifact(
+        source=payload.source,
+        tool_version=payload.tool_version,
+        model_id=payload.model_id,
+        seeds=payload.seeds,
+        force_field=payload.force_field,
+        ddg_protocol=payload.ddg_protocol,
+        plddt_mean=payload.plddt_mean,
+        structure_url=payload.structure_url,
+        structure_format=payload.structure_format,
+        ddg_kcal_mol=payload.ddg_kcal_mol,
+        clash_score=payload.clash_score,
+        total_score=payload.total_score,
+        notes_extra=payload.notes,
+        prediction_id=str(prediction_id),
+        project_id=str(project_id),
+        object_store=object_store,
+    )
+
+    # Persist structure-generation provenance back to the prediction.
+    prediction.provenance.structure_generation = ingestion_result.provenance
+    existing = prediction.provenance.artifacts or ArtifactRegistry()
+    if ingestion_result.artifact_key:
+        existing.structure_generation = ArtifactReference(
+            artifact_type="structure_generation_provenance",
+            artifact_key=ingestion_result.artifact_key,
+            artifact_url=ingestion_result.artifact_url,
+            format="json",
+        )
+    prediction.provenance.artifacts = existing
+    save_prediction(prediction)
+
+    artifact_ref = (
+        ArtifactReference(
+            artifact_type="structure_generation_provenance",
+            artifact_key=ingestion_result.artifact_key,
+            artifact_url=ingestion_result.artifact_url,
+            format="json",
+        )
+        if ingestion_result.artifact_key
+        else None
+    )
+    return StructureGenerationIngestionResponse(
+        prediction_id=prediction_id,
+        status="ingested",
+        source=ingestion_result.source,
+        provenance=ingestion_result.provenance,
+        structure_generation_artifact=artifact_ref,
+    )
+
