@@ -472,6 +472,9 @@ def run_simulation(
                 save_prediction(_prediction)
         finally:
             # Clean up temp files created by this task.
+            # OSError is silenced here intentionally: cleanup is best-effort because
+            # the OS will reclaim the files on process exit even if unlink fails
+            # (e.g., due to a concurrent access or cross-filesystem restriction).
             for tmp_path in filter(None, [created_tmp, structure_tmp_path]):
                 try:
                     tmp_path.unlink(missing_ok=True)

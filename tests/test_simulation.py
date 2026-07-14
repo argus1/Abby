@@ -199,7 +199,7 @@ class TestParameterizationHooks:
 
     def test_valid_residue_name_passes_sanitization(self) -> None:
         result = parameterize_non_standard_residues({"MSE": {"A": 1}}, method="stub")
-        assert any("PARAMETERIZATION_REJECTED_INVALID_RESIDUE_NAME" not in n for n in result.notes)
+        assert all("PARAMETERIZATION_REJECTED_INVALID_RESIDUE_NAME" not in n for n in result.notes)
 
 
 class TestGromacsStubPath:
