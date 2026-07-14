@@ -172,6 +172,16 @@ class TestParameterizationHooks:
         assert hasattr(result, "artifact_keys")
         assert hasattr(result, "notes")
 
+    def test_invalid_residue_name_with_shell_chars_is_rejected(self) -> None:
+        result = parameterize_non_standard_residues({"MSE; rm -rf /": {"A": 1}})
+        assert result.available is False
+        assert any("PARAMETERIZATION_REJECTED_INVALID_RESIDUE_NAME" in n for n in result.notes)
+
+    def test_residue_name_with_path_traversal_is_rejected(self) -> None:
+        result = parameterize_non_standard_residues({"../../etc/passwd": {"A": 1}})
+        assert result.available is False
+        assert any("PARAMETERIZATION_REJECTED_INVALID_RESIDUE_NAME" in n for n in result.notes)
+
 
 class TestGromacsStubPath:
     """Verify the stub result returned when GROMACS is not installed."""
@@ -516,9 +526,13 @@ class TestSimulationRunRoute:
             f"/api/v1/predictions/{prediction_id}",
             headers=HEADERS,
         ).json()
-        # Source is either 'gromacs_stub' (stub ran) or 'none' (task still queued).
-        assert pred["provenance"]["simulation"]["source"] in (
-            "gromacs_stub", "none", "SIMULATION_NOT_YET_RUN"
+        # The inline backend executes the task synchronously, so the stub
+        # simulation has already written back "gromacs_stub" by the time we
+        # query here.  The fallback "none" covers the edge case where the
+        # object-store write succeeded but the prediction read occurred before
+        # the task completed (should not happen with inline backend).
+        assert pred["provenance"]["simulation"]["source"] in ("gromacs_stub", "none"), (
+            f"Unexpected simulation source: {pred['provenance']['simulation']['source']!r}"
         )
         _shutdown()
 

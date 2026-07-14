@@ -156,7 +156,29 @@ def parameterize_non_standard_residues(
     method:
         One of ``"auto"``, ``"antechamber"``, ``"ligpargen"``, ``"stub"``.
     """
-    residue_names = sorted(non_standard_residues.keys())
+    import re
+
+    _SAFE_RESIDUE_NAME = re.compile(r"^[A-Za-z0-9_]{1,10}$")
+
+    def _sanitize(name: str) -> str:
+        if not _SAFE_RESIDUE_NAME.match(name):
+            raise ValueError(
+                f"Residue name {name!r} contains disallowed characters. "
+                "Only alphanumeric characters and underscores (max 10) are permitted."
+            )
+        return name
+
+    try:
+        residue_names = sorted(_sanitize(name) for name in non_standard_residues.keys())
+    except ValueError as exc:
+        return ParameterizationResult(
+            available=False,
+            method="stub",
+            residues_parameterized=[],
+            artifact_keys=[],
+            notes=[f"PARAMETERIZATION_REJECTED_INVALID_RESIDUE_NAME:{exc}"],
+        )
+
     if not residue_names:
         return ParameterizationResult(
             available=False,
@@ -441,7 +463,7 @@ def _execute_gromacs_workflow(
     local_struct = work_dir / structure_file.name
     _shutil.copy2(structure_file, local_struct)
 
-    # Generate minimal MDP file for energy minimisation.
+    # Generate minimal MDP file for energy minimization.
     mdp_path = work_dir / "em.mdp"
     mdp_content = (
         f"integrator = {config.minimization_protocol}\n"

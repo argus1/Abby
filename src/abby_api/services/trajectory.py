@@ -164,7 +164,7 @@ def _compute_summary_with_mdanalysis(
         n_atoms = len(positions)
         if n_atoms == 0:
             continue
-        # Centre of mass (uniform mass approximation).
+        # Center of mass (uniform mass approximation).
         com = (
             float(positions[:, 0].mean()),
             float(positions[:, 1].mean()),

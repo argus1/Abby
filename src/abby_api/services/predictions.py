@@ -434,7 +434,15 @@ def run_simulation(
     notes: list[str] = []
 
     def _run() -> None:
-        _structure_path = structure_file_path or Path("/dev/null")
+        import tempfile as _tempfile
+        if structure_file_path is not None:
+            _structure_path = structure_file_path
+        else:
+            # Create a minimal empty temp file so run_gromacs_cif_simulation
+            # receives a real path (GROMACS will error, which produces a stub result).
+            _tmp = _tempfile.NamedTemporaryFile(delete=False, suffix=".pdb")
+            _tmp.close()
+            _structure_path = Path(_tmp.name)
         result = run_gromacs_cif_simulation(
             _structure_path,
             config,
