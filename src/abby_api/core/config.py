@@ -27,6 +27,14 @@ class Settings(BaseSettings):
         alias="ABBY_WORKER_BACKEND",
     )
     worker_threads: int = Field(default=1, ge=1, alias="ABBY_WORKER_THREADS")
+    # Phase 5: dedicated simulation worker profile.
+    # Uses the same backend types as the general worker but is isolated so that
+    # long-running GROMACS jobs don't block the default prediction queue.
+    simulation_worker_backend: Literal["in_process", "inline", "celery_stub"] = Field(
+        default="in_process",
+        alias="ABBY_SIMULATION_WORKER_BACKEND",
+    )
+    simulation_worker_threads: int = Field(default=1, ge=1, alias="ABBY_SIMULATION_WORKER_THREADS")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

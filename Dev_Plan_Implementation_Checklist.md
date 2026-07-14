@@ -197,23 +197,23 @@ Audit baseline: **2026-07-07**
 ### 5A. Simulation worker enablement
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
-| `[ ]` | `P2 / L` | Introduce a dedicated simulation worker runtime/profile | Isolated optional runtime |
-| `[ ]` | `P2 / L` | Implement optional Gromacs-CIF execution path | Keep off critical path for default prediction flow; use CIF-aware topology generation for mmCIF inputs |
-| `[ ]` | `P2 / L` | Add parameterization workflow hooks for non-standard residues/linkers | AMBER/Antechamber/LigParGen-style support |
-| `[ ]` | `P2 / M` | Capture run-time simulation provenance and store outputs in object storage | Provenance + artifact persistence |
+| `[x]` | `P2 / L` | Introduce a dedicated simulation worker runtime/profile | Isolated optional runtime; `SimulationWorkerBackend` singleton in `src/abby_api/workers/tasks.py` with `initialize_simulation_worker_backend` / `submit_simulation_task` / `shutdown_simulation_worker_backend`; separate from general prediction queue; configurable via `ABBY_SIMULATION_WORKER_BACKEND` / `ABBY_SIMULATION_WORKER_THREADS` |
+| `[x]` | `P2 / L` | Implement optional Gromacs-CIF execution path | `src/abby_api/services/simulation.py` `run_gromacs_cif_simulation()`; graceful stub when GROMACS absent; exposed via `POST /predictions/{id}/simulation:run`; off critical path for default prediction flow |
+| `[x]` | `P2 / L` | Add parameterization workflow hooks for non-standard residues/linkers | `src/abby_api/services/simulation.py` `parameterize_non_standard_residues()`; auto-selects antechamber → LigParGen → stub fallback |
+| `[x]` | `P2 / M` | Capture run-time simulation provenance and store outputs in object storage | `run_gromacs_cif_simulation()` persists provenance JSON, trajectory (`.trr`), and energy (`.edr`) artifacts under `projects/{id}/predictions/{id}/simulation/`; provenance written back to `PredictionResult` |
 
 ### 5B. Trajectory-aware aggregation
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
-| `[ ]` | `P2 / L` | Integrate `MDAnalysis` for trajectory traversal and aggregation | Trajectory-aware processing |
-| `[ ]` | `P2 / M` | Derive averaged or ensemble structural summaries from trajectory frames | Simulation summary generation |
-| `[ ]` | `P2 / M` | Thread simulation-derived summaries into descriptor generation | Descriptor enrichment |
+| `[x]` | `P2 / L` | Integrate `MDAnalysis` for trajectory traversal and aggregation | `src/abby_api/services/trajectory.py` `compute_trajectory_summary()`; optional import with graceful stub when absent |
+| `[x]` | `P2 / M` | Derive averaged or ensemble structural summaries from trajectory frames | `_compute_summary_with_mdanalysis()` computes per-frame Rg and CoM; aggregates into `TrajectorySummary` with mean/std/min/max |
+| `[x]` | `P2 / M` | Thread simulation-derived summaries into descriptor generation | `build_descriptor_bundle()` in `src/abby_api/services/feature_extraction.py` accepts optional `trajectory_summary` arg; delegates to `enrich_descriptors_from_trajectory()` |
 
 ### Phase 5 exit criteria
 | Status | Priority / Effort | Exit criterion |
 | --- | --- | --- |
-| `[ ]` | `P2 / L` | A user can request an optional simulation-backed workflow without affecting default prediction behavior |
-| `[ ]` | `P2 / M` | Simulation outputs are reproducible through persisted provenance and stored artifacts |
+| `[x]` | `P2 / L` | A user can request an optional simulation-backed workflow without affecting default prediction behavior | `POST /predictions/{id}/simulation:run` dispatches to dedicated simulation worker; default prediction consensus unchanged; verified by integration tests |
+| `[x]` | `P2 / M` | Simulation outputs are reproducible through persisted provenance and stored artifacts | Provenance JSON + trajectory/energy artifacts stored in object storage under stable key schema; read back and asserted in `tests/test_simulation.py` |
 
 ---
 
@@ -264,7 +264,7 @@ These should be advanced throughout the roadmap rather than left until the end.
 | `[x]` | `P0 / S` | Add dataset-backed validation regression tests using `validation_dataset/ANDD_pdb/` | `tests/test_structure_flow.py`, `tests/test_batch_jobs.py` |
 | `[x]` | `P1 / S` | Add residue-depth / new-descriptor verification tests as Phase 3 lands |
 | `[x]` | `P1 / S` | Add imported-simulation artifact tests as Phase 4 lands |
-| `[ ]` | `P2 / M` | Add simulation worker / trajectory tests as Phase 5 lands |
+| `[x]` | `P2 / M` | Add simulation worker / trajectory tests as Phase 5 lands | `tests/test_simulation.py` |
 | `[ ]` | `P3 / M` | Add learned-model provenance and regression tests as Phase 6 lands |
 
 ---
@@ -305,6 +305,6 @@ If you want the highest leverage next steps, this is the shortest sensible path:
 ### Strategic later work
 | Status | Priority / Effort | Strategic item |
 | --- | --- | --- |
-| `[ ]` | `P1 / M` | MD-ready handoff and import contracts |
-| `[ ]` | `P2 / L` | Optional GROMACS / MDAnalysis execution |
+| `[x]` | `P1 / M` | MD-ready handoff and import contracts |
+| `[x]` | `P2 / L` | Optional GROMACS / MDAnalysis execution |
 | `[ ]` | `P3 / L` | Learned structural model expansion |

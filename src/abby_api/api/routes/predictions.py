@@ -12,6 +12,8 @@ from abby_api.schemas.predictions import (
     PredictionResult,
     SimulationImportRequest,
     SimulationImportResponse,
+    SimulationRunRequest,
+    SimulationRunResponse,
 )
 from abby_api.services import predictions
 
@@ -40,3 +42,17 @@ def import_simulation_summary(
     payload: SimulationImportRequest,
 ) -> SimulationImportResponse:
     return predictions.import_simulation_summary(prediction_id, payload)
+
+
+@router.post("/{prediction_id}/simulation:run", response_model=SimulationRunResponse, status_code=202)
+def run_simulation(
+    prediction_id: UUID,
+    payload: SimulationRunRequest,
+) -> SimulationRunResponse:
+    """Submit an optional GROMACS-backed simulation task for this prediction.
+
+    The task is dispatched to the dedicated simulation worker backend and does
+    not affect the default prediction queue.  Returns immediately with a task
+    ID; query the prediction provenance later to retrieve simulation outputs.
+    """
+    return predictions.run_simulation(prediction_id, payload)
