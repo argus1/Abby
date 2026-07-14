@@ -581,10 +581,17 @@ def run_learned_model(
         if artifact_key:
             import tempfile as _tempfile
 
+            # Validate the file extension against known structure formats to
+            # prevent unexpected suffix values from reaching mkstemp.
+            _ALLOWED_STRUCTURE_SUFFIXES = {".pdb", ".cif", ".mmcif", ".ent"}
+            raw_suffix = (
+                f".{artifact_key.rsplit('.', 1)[-1]}" if "." in artifact_key else ".pdb"
+            )
+            suffix = raw_suffix if raw_suffix in _ALLOWED_STRUCTURE_SUFFIXES else ".pdb"
+
             object_store_inner = ObjectStore()
             raw = object_store_inner.get_bytes(artifact_key)
             if raw is not None:
-                suffix = f".{artifact_key.rsplit('.', 1)[-1]}" if "." in artifact_key else ".pdb"
                 import os as _os
 
                 fd, tmp_name = _tempfile.mkstemp(suffix=suffix)

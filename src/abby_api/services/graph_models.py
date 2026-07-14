@@ -944,36 +944,47 @@ def _train_linear(
     def _to_vec(rec: SPRTrainingRecord) -> list[float]:
         return [float(rec.descriptors.get(k, 0.0)) for k in descriptor_keys]
 
-    # Compute mean-centered OLS via normal equations (no external lib needed).
+    # Compute OLS via normal equations (no external lib needed).
+    # X has shape [n_train, n_feat]; prepend bias column → augmented X.
     x_train = [_to_vec(r) for r in train_records]
     y_train = [r.measured_log_k for r in train_records]
     n_feat = len(descriptor_keys)
 
-    # Add bias column.
+    # Add bias column: X_aug[i] = [1, x1, x2, ...]
     x_aug = [[1.0] + row for row in x_train]
-    xt_x = [[sum(x_aug[i][k] * x_aug[i][j] for i in range(n_train)) for j in range(n_feat + 1)]
-            for k in range(n_feat + 1)]
-    xt_y = [sum(x_aug[i][k] * y_train[i] for i in range(n_train)) for k in range(n_feat + 1)]
+    dim = n_feat + 1  # number of columns including bias
+
+    # Compute X^T X row by row to improve cache locality.
+    xt_x = [[0.0] * dim for _ in range(dim)]
+    for row in x_aug:
+        for k in range(dim):
+            for j in range(dim):
+                xt_x[k][j] += row[k] * row[j]
+    xt_y = [sum(x_aug[i][k] * y_train[i] for i in range(n_train)) for k in range(dim)]
 
     # Regularized pseudo-inverse (Tikhonov λ=1e-4).
     lam = 1e-4
-    for k in range(n_feat + 1):
+    for k in range(dim):
         xt_x[k][k] += lam
 
-    # Gaussian elimination.
-    aug = [xt_x[k][:] + [xt_y[k]] for k in range(n_feat + 1)]
-    for col in range(n_feat + 1):
-        pivot_row = max(range(col, n_feat + 1), key=lambda r: abs(aug[r][col]))
+    # Gaussian elimination with partial pivoting.
+    aug = [xt_x[k][:] + [xt_y[k]] for k in range(dim)]
+    for col in range(dim):
+        pivot_row = max(range(col, dim), key=lambda r: abs(aug[r][col]))
         aug[col], aug[pivot_row] = aug[pivot_row], aug[col]
         pivot = aug[col][col]
         if abs(pivot) < 1e-12:
+            # Near-zero pivot: force weight = 0 for this feature and skip elimination
+            # so the degenerate column does not corrupt the remaining system.
+            aug[col] = [0.0] * (dim + 1)
+            aug[col][col] = 1.0  # identity row → extracted weight = 0
             continue
         aug[col] = [v / pivot for v in aug[col]]
-        for row in range(n_feat + 1):
+        for row in range(dim):
             if row != col:
                 factor = aug[row][col]
-                aug[row] = [aug[row][j] - factor * aug[col][j] for j in range(n_feat + 2)]
-    weights = [aug[k][-1] for k in range(n_feat + 1)]
+                aug[row] = [aug[row][j] - factor * aug[col][j] for j in range(dim + 1)]
+    weights = [aug[k][-1] for k in range(dim)]
 
     def _predict(vec: list[float]) -> float:
         return weights[0] + sum(weights[j + 1] * vec[j] for j in range(n_feat))

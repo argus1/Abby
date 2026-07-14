@@ -222,6 +222,7 @@ def _run_alphafold3(
 ) -> StructureGenerationResult:
     """Internal: invoke the AlphaFold 3 CLI."""
     import json
+    import shutil as _shutil
     import tempfile
 
     work_dir = Path(tempfile.mkdtemp(prefix="abby_af3_"))
@@ -286,6 +287,11 @@ def _run_alphafold3(
     except Exception as exc:
         notes.append(f"ALPHAFOLD3_GENERATION_FAILED:{exc}")
         return _stub_generation_result("alphafold3", config, notes)
+    finally:
+        try:
+            _shutil.rmtree(work_dir, ignore_errors=True)
+        except OSError:
+            pass
 
 
 def _run_boltz1(
@@ -297,6 +303,7 @@ def _run_boltz1(
     notes: list[str],
 ) -> StructureGenerationResult:
     """Internal: invoke the Boltz-1 CLI."""
+    import shutil as _shutil
     import tempfile
 
     work_dir = Path(tempfile.mkdtemp(prefix="abby_boltz1_"))
@@ -312,6 +319,7 @@ def _run_boltz1(
                 sequence = seq_dict.get("sequence", "")
                 fh.write(f">{seq_id}\n{sequence}\n")
 
+        seed_arg = str(int(config.seeds[0])) if config.seeds else "42"
         cmd = [
             BOLTZ1_EXECUTABLE,
             "predict",
@@ -319,7 +327,7 @@ def _run_boltz1(
             "--out_dir",
             str(work_dir / "output"),
             "--seed",
-            str(config.seeds[0]) if config.seeds else "42",
+            seed_arg,
         ]
         subprocess.run(cmd, cwd=str(work_dir), capture_output=True, timeout=3600, check=True)
 
@@ -356,6 +364,11 @@ def _run_boltz1(
     except Exception as exc:
         notes.append(f"BOLTZ1_GENERATION_FAILED:{exc}")
         return _stub_generation_result("boltz1", config, notes)
+    finally:
+        try:
+            _shutil.rmtree(work_dir, ignore_errors=True)
+        except OSError:
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -646,7 +659,12 @@ def _execute_rosetta_workflow(
     object_store: ObjectStore,
     notes: list[str],
 ) -> RosettaRefinementResult:
-    """Internal: run the Rosetta workflow in a temporary directory."""
+    """Internal: run the Rosetta workflow in a temporary directory.
+
+    Security note: ``config.extra_flags`` is appended directly to the Rosetta
+    command.  Callers must only pass trusted, pre-validated flag values.  Do not
+    forward user-supplied strings to this argument without sanitization.
+    """
     import shutil as _shutil
     import tempfile
 
@@ -660,107 +678,113 @@ def _execute_rosetta_workflow(
     total_score: float | None = None
     refined_key: str | None = None
 
-    if config.protocol == "ddg_monomer":
-        cmd = [
-            exe,
-            "-in:file:s",
-            str(local_struct),
-            "-score:weights",
-            config.score_function,
-            "-ddg:out:file",
-            str(work_dir / "ddg.out"),
-            *config.extra_flags,
-        ]
-        subprocess.run(
-            cmd, cwd=str(work_dir), capture_output=True, text=True, timeout=600, check=True
-        )
-        ddg_kcal_mol = _parse_ddg_output(work_dir / "ddg.out")
-        notes.append("ROSETTA_DDG_MONOMER_COMPLETED")
-
-    elif config.protocol in {"relax", "score_only"}:
-        cmd = [
-            exe,
-            "-in:file:s",
-            str(local_struct),
-            "-score:weights",
-            config.score_function,
-            "-nstruct",
-            str(config.n_structures),
-            "-out:path:all",
-            str(work_dir),
-            *config.extra_flags,
-        ]
-        subprocess.run(
-            cmd, cwd=str(work_dir), capture_output=True, text=True, timeout=600, check=True
-        )
-        score_file = work_dir / "score.sc"
-        if score_file.exists():
-            clash_score, total_score = _parse_rosetta_scorefile(score_file)
-        # Find lowest-energy output structure.
-        pdb_outputs = sorted(work_dir.glob("*.pdb"))
-        if pdb_outputs:
-            out_key_prefix = (
-                f"projects/{project_id}/predictions/{prediction_id}"
-                if project_id and prediction_id
-                else f"rosetta/{uuid.uuid4()}"
+    try:
+        if config.protocol == "ddg_monomer":
+            cmd = [
+                exe,
+                "-in:file:s",
+                str(local_struct),
+                "-score:weights",
+                config.score_function,
+                "-ddg:out:file",
+                str(work_dir / "ddg.out"),
+                *config.extra_flags,
+            ]
+            subprocess.run(
+                cmd, cwd=str(work_dir), capture_output=True, text=True, timeout=600, check=True
             )
-            refined_key = f"{out_key_prefix}/rosetta/refined_structure.pdb"
-            object_store.put_bytes(refined_key, pdb_outputs[0].read_bytes())
-        notes.append(f"ROSETTA_{config.protocol.upper()}_COMPLETED")
+            ddg_kcal_mol = _parse_ddg_output(work_dir / "ddg.out")
+            notes.append("ROSETTA_DDG_MONOMER_COMPLETED")
 
-    # Persist provenance.
-    prov_key = _rosetta_provenance_key(project_id, prediction_id)
-    object_store.put_json(
-        prov_key,
-        {
-            "rosetta_available": True,
-            "protocol": config.protocol,
-            "score_function": config.score_function,
-            "ddg_kcal_mol": ddg_kcal_mol,
-            "clash_score": clash_score,
-            "total_score": total_score,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "notes": notes,
-        },
-    )
+        elif config.protocol in {"relax", "score_only"}:
+            cmd = [
+                exe,
+                "-in:file:s",
+                str(local_struct),
+                "-score:weights",
+                config.score_function,
+                "-nstruct",
+                str(config.n_structures),
+                "-out:path:all",
+                str(work_dir),
+                *config.extra_flags,
+            ]
+            subprocess.run(
+                cmd, cwd=str(work_dir), capture_output=True, text=True, timeout=600, check=True
+            )
+            score_file = work_dir / "score.sc"
+            if score_file.exists():
+                clash_score, total_score = _parse_rosetta_scorefile(score_file)
+            # Find lowest-energy output structure.
+            pdb_outputs = sorted(work_dir.glob("*.pdb"))
+            if pdb_outputs:
+                out_key_prefix = (
+                    f"projects/{project_id}/predictions/{prediction_id}"
+                    if project_id and prediction_id
+                    else f"rosetta/{uuid.uuid4()}"
+                )
+                refined_key = f"{out_key_prefix}/rosetta/refined_structure.pdb"
+                object_store.put_bytes(refined_key, pdb_outputs[0].read_bytes())
+            notes.append(f"ROSETTA_{config.protocol.upper()}_COMPLETED")
 
-    provenance = StructureGenerationProvenance(
-        source="rosetta_local",
-        ddg_protocol=config.protocol,
-        force_field=config.score_function,
-        imported=False,
-        notes=notes,
-    )
-    prov_ref = ArtifactReference(
-        artifact_type="rosetta_provenance",
-        artifact_key=prov_key,
-        artifact_url=object_store.signed_download_url(prov_key),
-        format="json",
-    )
-    refined_ref = (
-        ArtifactReference(
-            artifact_type="rosetta_refined_structure",
-            artifact_key=refined_key,
-            artifact_url=object_store.signed_download_url(refined_key),
-            format="pdb",
+        # Persist provenance.
+        prov_key = _rosetta_provenance_key(project_id, prediction_id)
+        object_store.put_json(
+            prov_key,
+            {
+                "rosetta_available": True,
+                "protocol": config.protocol,
+                "score_function": config.score_function,
+                "ddg_kcal_mol": ddg_kcal_mol,
+                "clash_score": clash_score,
+                "total_score": total_score,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "notes": notes,
+            },
         )
-        if refined_key
-        else None
-    )
-    artifact_registry = ArtifactRegistry(
-        topology_reference=prov_ref,
-        normalized_structure=refined_ref,
-    )
-    return RosettaRefinementResult(
-        rosetta_available=True,
-        ddg_kcal_mol=ddg_kcal_mol,
-        clash_score=clash_score,
-        total_score=total_score,
-        refined_structure_key=refined_key,
-        provenance=provenance,
-        artifact_registry=artifact_registry,
-        notes=notes,
-    )
+
+        provenance = StructureGenerationProvenance(
+            source="rosetta_local",
+            ddg_protocol=config.protocol,
+            force_field=config.score_function,
+            imported=False,
+            notes=notes,
+        )
+        prov_ref = ArtifactReference(
+            artifact_type="rosetta_provenance",
+            artifact_key=prov_key,
+            artifact_url=object_store.signed_download_url(prov_key),
+            format="json",
+        )
+        refined_ref = (
+            ArtifactReference(
+                artifact_type="rosetta_refined_structure",
+                artifact_key=refined_key,
+                artifact_url=object_store.signed_download_url(refined_key),
+                format="pdb",
+            )
+            if refined_key
+            else None
+        )
+        artifact_registry = ArtifactRegistry(
+            topology_reference=prov_ref,
+            normalized_structure=refined_ref,
+        )
+        return RosettaRefinementResult(
+            rosetta_available=True,
+            ddg_kcal_mol=ddg_kcal_mol,
+            clash_score=clash_score,
+            total_score=total_score,
+            refined_structure_key=refined_key,
+            provenance=provenance,
+            artifact_registry=artifact_registry,
+            notes=notes,
+        )
+    finally:
+        try:
+            _shutil.rmtree(work_dir, ignore_errors=True)
+        except OSError:
+            pass
 
 
 # ---------------------------------------------------------------------------
