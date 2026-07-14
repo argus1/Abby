@@ -668,6 +668,17 @@ def _execute_rosetta_workflow(
     import shutil as _shutil
     import tempfile
 
+    # Validate extra_flags: each token must start with '-' and must not
+    # contain shell meta-characters.  This prevents accidental command
+    # injection when internal callers inadvertently forward unsafe strings.
+    _SHELL_META = frozenset(";|&$`<>!\\\"'{}()\n\r")
+    for _flag in config.extra_flags:
+        if not _flag.startswith("-") or any(c in _SHELL_META for c in _flag):
+            raise ValueError(
+                f"Unsafe or malformed Rosetta flag rejected: {_flag!r}.  "
+                "Each flag must start with '-' and must not contain shell meta-characters."
+            )
+
     exe = _rosetta_executable()
     work_dir = Path(tempfile.mkdtemp(prefix="abby_rosetta_"))
     local_struct = work_dir / structure_file.name

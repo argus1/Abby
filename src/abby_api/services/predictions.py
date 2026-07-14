@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -53,6 +54,8 @@ from abby_api.services.feature_extraction import (
 )
 from abby_api.services.structure_parsing import parse_structure_file
 from abby_api.storage.object_store import ObjectStore
+
+logger = logging.getLogger(__name__)
 
 
 def _persist_feature_summary_artifact(
@@ -588,6 +591,13 @@ def run_learned_model(
                 f".{artifact_key.rsplit('.', 1)[-1]}" if "." in artifact_key else ".pdb"
             )
             suffix = raw_suffix if raw_suffix in _ALLOWED_STRUCTURE_SUFFIXES else ".pdb"
+            if suffix != raw_suffix:
+                logger.warning(
+                    "Unrecognised structure file suffix %r for artifact %r; "
+                    "defaulting to .pdb.  Update the artifact key if this is incorrect.",
+                    raw_suffix,
+                    artifact_key,
+                )
 
             object_store_inner = ObjectStore()
             raw = object_store_inner.get_bytes(artifact_key)

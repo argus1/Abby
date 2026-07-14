@@ -974,8 +974,11 @@ def _train_linear(
         aug[col], aug[pivot_row] = aug[pivot_row], aug[col]
         pivot = aug[col][col]
         if abs(pivot) < 1e-12:
-            # Near-zero pivot: force weight = 0 for this feature and skip elimination
-            # so the degenerate column does not corrupt the remaining system.
+            # Near-zero pivot — the corresponding feature is either linearly
+            # dependent on a previous column (multicollinearity) or has zero
+            # variance across all training records.  Force the weight for this
+            # feature to 0 via an identity row so the degenerate column does
+            # not corrupt the remaining system via division by ~0.
             aug[col] = [0.0] * (dim + 1)
             aug[col][col] = 1.0  # identity row → extracted weight = 0
             continue

@@ -533,14 +533,23 @@ class TestLearnedModelAPIRoutes:
         )
         assert run_resp.status_code == 202, run_resp.text
 
-        # Allow inline worker to complete (it runs synchronously in test mode).
+        # Poll until the worker has stored a result or the deadline passes.
+        # The inline test backend completes synchronously so this normally
+        # succeeds on the first attempt.
         import time
-        time.sleep(0.2)
 
-        result_resp = client.get(
-            f"/api/v1/predictions/{prediction_id}/learned-model",
-            headers=HEADERS,
-        )
+        deadline = time.monotonic() + 2.0
+        result_resp = None
+        while time.monotonic() < deadline:
+            result_resp = client.get(
+                f"/api/v1/predictions/{prediction_id}/learned-model",
+                headers=HEADERS,
+            )
+            if result_resp.status_code == 200:
+                break
+            time.sleep(0.05)
+
+        assert result_resp is not None
         # May be 200 (result stored) or 404 (worker not yet done in some backends).
         assert result_resp.status_code in {200, 404}, result_resp.text
         if result_resp.status_code == 200:
