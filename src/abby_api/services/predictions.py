@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
@@ -23,6 +24,8 @@ from abby_api.schemas.predictions import (
     PredictionResult,
     SimulationImportRequest,
     SimulationImportResponse,
+    SimulationRunRequest,
+    SimulationRunResponse,
 )
 from abby_api.services.baseline_models import (
     derive_delta_g_kcal_mol,
@@ -372,4 +375,89 @@ def import_simulation_summary(
         simulation=simulation,
         provenance=refreshed_prediction.provenance,
         trajectory_summary_artifact=trajectory_artifact,
+    )
+
+
+def run_simulation(
+    prediction_id: UUID,
+    payload: SimulationRunRequest,
+) -> SimulationRunResponse:
+    """Submit a GROMACS-backed simulation task for an existing prediction.
+
+    The simulation runs asynchronously via the dedicated simulation worker
+    backend so it does not block the default prediction queue.  When GROMACS
+    is not installed the task still completes immediately with a stub result
+    so the caller receives a well-formed response.
+
+    Phase 5A: optional GROMACS-CIF execution path.
+    """
+    from abby_api.services.simulation import (
+        SimulationRunConfig,
+        is_gromacs_available,
+        run_gromacs_cif_simulation,
+    )
+    from abby_api.workers.tasks import submit_simulation_task
+
+    prediction = get_prediction(prediction_id)
+    if prediction.provenance is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Prediction provenance is required before running a simulation.",
+        )
+
+    project_id = _project_id_from_prediction(prediction)
+
+    # Resolve structure file from prediction provenance artifact registry.
+    structure_file_path: Path | None = None
+    if prediction.provenance.artifacts and prediction.provenance.artifacts.normalized_structure:
+        artifact_key = prediction.provenance.artifacts.normalized_structure.artifact_key
+        if artifact_key:
+            object_store = ObjectStore()
+            raw = object_store.get_bytes(artifact_key)
+            if raw is not None:
+                import tempfile
+                suffix = f".{artifact_key.rsplit('.', 1)[-1]}" if "." in artifact_key else ".pdb"
+                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+                tmp.write(raw)
+                tmp.flush()
+                structure_file_path = Path(tmp.name)
+
+    config = SimulationRunConfig(
+        force_field=payload.force_field,
+        water_model=payload.water_model,
+        ionization=payload.ionization,
+        minimization_protocol=payload.minimization_protocol,
+        seed=payload.seed,
+        max_steps=payload.max_steps,
+    )
+    gromacs_ready = is_gromacs_available()
+    notes: list[str] = []
+
+    def _run() -> None:
+        _structure_path = structure_file_path or Path("/dev/null")
+        result = run_gromacs_cif_simulation(
+            _structure_path,
+            config,
+            prediction_id=prediction_id,
+            project_id=project_id,
+        )
+        # Persist updated simulation provenance back to the prediction.
+        _prediction = get_prediction(prediction_id)
+        if _prediction.provenance is not None:
+            _prediction.provenance.simulation = result.provenance
+            existing = _prediction.provenance.artifacts or ArtifactRegistry()
+            if result.artifact_registry.topology_reference is not None:
+                existing.topology_reference = result.artifact_registry.topology_reference
+            if result.artifact_registry.trajectory_summary is not None:
+                existing.trajectory_summary = result.artifact_registry.trajectory_summary
+            _prediction.provenance.artifacts = existing
+            save_prediction(_prediction)
+
+    task_id = submit_simulation_task(_run)
+    return SimulationRunResponse(
+        prediction_id=prediction_id,
+        task_id=task_id,
+        status="queued",
+        gromacs_available=gromacs_ready,
+        notes=notes,
     )

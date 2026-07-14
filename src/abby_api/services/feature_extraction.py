@@ -597,6 +597,7 @@ def build_descriptor_bundle(
     residue_depth_observation: ResidueDepthObservation | None = None,
     radius_of_gyration_observation: RadiusOfGyrationObservation | None = None,
     contact_distance_cutoff: float = 5.5,
+    trajectory_summary: Any | None = None,
 ) -> DescriptorBundle:
     partner_1_chains = validation.chain_groups.partner_1 if validation.chain_groups else []
     partner_2_chains = validation.chain_groups.partner_2 if validation.chain_groups else []
@@ -768,6 +769,13 @@ def build_descriptor_bundle(
     if electrostatics_hook_ready > 0.0 and surface_pka_hook_ready > 0.0:
         notes.append("ELECTROSTATICS_SURFACE_PKA_HOOKS_ENABLED")
     notes.append(f"CONTACT_DISTANCE_CUTOFF_{round(float(contact_distance_cutoff), 3)}A")
+
+    # Phase 5B: thread trajectory-derived summaries into descriptor generation.
+    if trajectory_summary is not None:
+        from abby_api.services.trajectory import enrich_descriptors_from_trajectory
+        descriptors, trajectory_notes = enrich_descriptors_from_trajectory(descriptors, trajectory_summary)
+        notes.extend(trajectory_notes)
+
     notes = sorted(set(notes))
 
     hash_payload = {

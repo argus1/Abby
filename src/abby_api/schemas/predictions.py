@@ -138,3 +138,28 @@ class SimulationImportResponse(AbbyBaseModel):
     simulation: SimulationProvenance
     provenance: Provenance
     trajectory_summary_artifact: ArtifactReference
+
+
+class SimulationRunRequest(AbbyBaseModel):
+    """Request an optional GROMACS-backed simulation run for a prediction.
+
+    The simulation is dispatched to the dedicated simulation worker so it
+    does not block the default prediction queue.
+    """
+
+    force_field: str = "amber99sb-ildn"
+    water_model: str = "tip3p"
+    ionization: str = "0.15M NaCl"
+    minimization_protocol: str = "steepest_descent"
+    seed: int | None = None
+    max_steps: int = 500
+
+
+class SimulationRunResponse(AbbyBaseModel):
+    """Immediate response confirming that a simulation task was queued."""
+
+    prediction_id: UUID
+    task_id: str
+    status: Literal["queued"]
+    gromacs_available: bool
+    notes: list[str] = Field(default_factory=list)
