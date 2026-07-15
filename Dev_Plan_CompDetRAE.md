@@ -450,6 +450,22 @@ Add lightweight statistical QA model inspired by classical logistic workflows.
 - [ ] Report calibration and ROC/AUC metrics.
 - [ ] Integrate only as QA guardrail (not mandatory inference path).
 
+### Implementation status notes (Phase 5, started)
+
+- Added the first lightweight QA slice for boundary-confidence/drift monitoring:
+  - deterministic `quality_baseline` payload attached to CDR annotation metadata and prediction provenance,
+  - heuristic score/class output (`high` / `medium` / `low`),
+  - drift flags and machine-readable reason codes for fallback, ambiguity, and partial coverage.
+- The baseline is explicitly non-blocking and does not alter core annotation decisions.
+- Current heuristic features include:
+  - boundary source,
+  - heavy-region completeness,
+  - selected heavy-chain region count,
+  - heavy candidate score margin,
+  - motif-match count,
+  - warning count / typed warning penalties.
+- This starts Phase 5 without claiming the full logistic/calibration work is complete.
+
 ### Exit criteria
 
 - [ ] Automated drift warnings for annotation confidence drops.

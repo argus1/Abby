@@ -763,6 +763,65 @@ components:
         created_at:
           type: string
           format: date-time
+        cdr_annotation:
+          type: object
+          properties:
+            available:
+              type: boolean
+            scheme:
+              type: string
+              nullable: true
+            boundary_source:
+              type: string
+              nullable: true
+            boundary_confidence:
+              type: string
+              enum: [high, medium, low]
+            selected_heavy_chain:
+              type: string
+              nullable: true
+            chains:
+              type: object
+              additionalProperties: true
+            warnings:
+              type: array
+              items:
+                type: string
+            quality_baseline:
+              type: object
+              properties:
+                available:
+                  type: boolean
+                model_name:
+                  type: string
+                predicted_confidence_class:
+                  type: string
+                  enum: [high, medium, low]
+                primary_boundary_confidence:
+                  type: string
+                  enum: [high, medium, low]
+                score:
+                  type: number
+                  format: float
+                drift_flag:
+                  type: boolean
+                drift_reason_codes:
+                  type: array
+                  items:
+                    type: string
+                feature_vector:
+                  type: object
+                  additionalProperties:
+                    type: number
+              required:
+                - available
+                - model_name
+                - predicted_confidence_class
+                - primary_boundary_confidence
+                - score
+                - drift_flag
+                - drift_reason_codes
+                - feature_vector
       required:
         [model_bundle_version, preprocess_version, descriptor_hash, contact_distance_cutoff_angstrom, created_at]
     PredictionResult:

@@ -109,6 +109,25 @@ For antibody-specific CDR bookkeeping implementation details, use `Dev_Plan_Comp
 * **VHH guardrail:** do not couple CDR readiness to light-chain presence when `antibody_format=vhh_single_domain`.
 * **Current execution status:** CompDetRAE Phase 0 contract scaffolding is now implemented in `src/abby_api/services/cdr_annotation.py` and `src/abby_api/services/cdr_numbering.py`; proceed with Phase 1 boundary extraction against this fixed contract.
 
+### 7. Aptamer support implementation boundary (v1.1+)
+
+Add aptamer support as a **v1.1+ extension lane** that reuses the existing parsing/validation/provenance architecture without broad refactors.
+
+* **Input scope:** DNA/RNA aptamer structures and aptamer-target complexes, with `PDBx/mmCIF` as the preferred canonical exchange format.
+* **Parsing parity goal:** extend normalization to preserve nucleic-acid connectivity and modified-nucleotide annotations using the same “relational metadata first” strategy used for `_struct_conn` and covalent link tracking.
+* **Validation profile:** add aptamer-aware diagnostics (nucleic-acid chain typing, residue/atom naming compatibility, ionization/preflight warnings) as typed warnings/errors rather than ad hoc strings.
+* **Descriptor tranche (initial):** add nucleic-acid-capable descriptor hooks (nucleic-acid SASA summaries, compactness/flexibility proxies, ion-contact summaries) with deterministic hashing and provenance threading.
+* **MD integration boundary:** keep GROMACS execution optional; when simulation artifacts are imported or generated, require explicit simulation provenance (force field, water model, ion settings, minimization/equilibration protocol, seed).
+* **Artifact contract:** persist normalized aptamer structure, optional topology references, trajectory summaries, and derived descriptor snapshots as separable artifacts.
+* **Interoperability guardrail:** do not make aptamer-specific structure-folding tools (for example FARFAR2 pipelines) mandatory in the default Abby v1/v1.1 request path.
+
+#### 7A. Suggested delivery slices (v1.1+)
+
+* **Slice A (contract only):** schema/mode expansion + validation issue taxonomy + provenance placeholders.
+* **Slice B (parsing/validation):** nucleic-acid-aware normalization and typed diagnostics.
+* **Slice C (feature parity):** deterministic aptamer descriptor bundle and explainability integration.
+* **Slice D (optional simulation):** simulation-backed aptamer descriptor enrichment with explicit protocol versioning.
+
 ## Relationship to product scope
 
 For Abby v1, this document should be treated as the implementation path for the ingestion, preprocessing, and feature-engineering layers described in [`V1_Product_Spec_Abby.md`](./V1_Product_Spec_Abby.md). In particular, it supports:
@@ -125,3 +144,4 @@ Sources:
 * [how does schema and failure modes compare between PDB and PDBx/mmCIF?](./schema_%26_failure_modes_PDB_vs_PDBx_mmCIF_.md)  
 * [Are there software tools that allow prediction of physical properties of bioconjugated proteins?](./prediction_properties_bioconjugated_proteins.md)  
 * [does drug conjugation change an antibody's binding affinity?](./ADC_binding_affinity.md)
+* [aptamer molecular dynamics notes](./aptamers_molecular_dynamics.md)

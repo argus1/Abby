@@ -80,6 +80,19 @@ For CDR-aware structural bookkeeping, Abby v1.1 should follow the execution path
 * **VHH profile rule:** treat heavy-only single-domain antibody inputs as first-class in this same boundary contract; do not require light-chain region resolution to report `cdr_annotation.available=true`.
 * **Current execution status:** CompDetRAE Phase 0 (contract/taxonomy foundations) is implemented; next delivery slice is Phase 1 deterministic CDR-H3 boundary extraction and provenance threading.
 
+### Aptamer support extension track (v1.1+)
+
+To expand Abby beyond protein-protein and antibody-antigen workflows, add aptamer support as a **v1.1+ extension track** with strict contract boundaries and no disruption to default v1 behavior.
+
+* **Scope intent:** support DNA/RNA aptamer-target affinity workflows under the same mmCIF-first integrity and provenance rules.
+* **Mode taxonomy extension:** add an aptamer-capable prediction mode (for example `aptamer_target`) only when API/schema updates are delivered in lockstep.
+* **Primary ingest requirement:** preserve nucleic-acid connectivity and modified-nucleotide metadata during parsing/normalization, analogous to `_struct_conn` handling for protein chemistry.
+* **Validation profile:** add nucleic-acid-aware checks (chain typing, modified residue handling, and typed warnings for unsupported chemistries) without weakening existing protein/antibody validation contracts.
+* **Descriptor profile:** introduce aptamer-oriented structural descriptors (for example, nucleic-acid SASA partitions, flexibility summaries, and ion-contact summaries) under explicit provenance/versioning.
+* **MD boundary:** keep simulation optional in user-facing flow; when simulation-backed descriptors are used, persist force field, solvent model, ion settings, protocol stages, and random seed in simulation provenance.
+* **Dataset expectation:** add a canonical local aptamer regression corpus and run conversion/validation checks in parallel with `validation_dataset/ANDD_pdb/` to avoid domain skew.
+* **Out-of-scope for this extension slice:** mandatory de novo aptamer folding orchestration in the default prediction path.
+
 ### **Dataset-backed validation workflow**
 
 Treat `validation_dataset/ANDD_pdb/` as the canonical local regression corpus for Abby planning, implementation, and verification.
@@ -107,3 +120,4 @@ Sources:
 * [does drug conjugation change an antibody's binding affinity?](./ADC_binding_affinity.md)  
 * [Surface plasmon resonance antibody characterization notes](./antibodies_SPR.md)  
 * [how does schema and failure modes compare between PDB and PDBx/mmCIF?](./schema_%26_failure_modes_PDB_vs_PDBx_mmCIF_.md)
+* [aptamer molecular dynamics notes](./aptamers_molecular_dynamics.md)

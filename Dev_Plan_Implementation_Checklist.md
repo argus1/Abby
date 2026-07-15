@@ -171,6 +171,16 @@ Audit baseline: **2026-07-07**
 | `[ ]` | `P1 / S` | Add VHH-heavy-only validation semantics | Treat missing light chain as valid in VHH mode; keep warnings typed |
 | `[ ]` | `P1 / S` | Add regression tests for VHH CDR/provenance paths | Extend `tests/test_cdr_annotation.py` and `tests/test_structure_flow.py` |
 
+### 3D. Aptamer support extension track (v1.1+)
+
+| Status | Priority / Effort | Item | Target area / notes |
+| --- | --- | --- | --- |
+| `[ ]` | `P1 / M` | Add aptamer-capable prediction mode contract (`aptamer_target`) | Keep existing modes stable; update API/spec/docs in lockstep |
+| `[ ]` | `P1 / M` | Add nucleic-acid-aware parsing/normalization diagnostics | Typed validation issues for DNA/RNA chains and modified nucleotides |
+| `[ ]` | `P1 / M` | Add aptamer descriptor tranche with deterministic provenance | Nucleic-acid SASA/flexibility/ion-contact summaries; descriptor hash coverage |
+| `[ ]` | `P1 / S` | Add aptamer regression fixtures and conversion checks | Establish canonical local aptamer corpus; verify PDB→mmCIF and validation parity |
+| `[ ]` | `P2 / M` | Add optional aptamer simulation-provenance parity | Persist protocol fields for simulation-backed descriptor runs/imports |
+
 ### Phase 3 exit criteria
 
 | Status | Priority / Effort | Exit criterion |
@@ -314,6 +324,7 @@ If you want the highest leverage next steps, this is the shortest sensible path:
 | `[x]` | `P1 / M` | Add residue-depth descriptors |
 | `[x]` | `P1 / M` | Define MD handoff + simulation provenance schema |
 | `[ ]` | `P1 / M` | Complete VHH nanobody parity (format typing, heavy-only validation semantics, and CDR readiness rules) |
+| `[ ]` | `P1 / M` | Start aptamer v1.1+ extension track (mode contract + nucleic-acid validation profile) |
 
 ---
 
@@ -344,3 +355,4 @@ If you want the highest leverage next steps, this is the shortest sensible path:
 | `[x]` | `P1 / M` | MD-ready handoff and import contracts |
 | `[x]` | `P2 / L` | Optional GROMACS / MDAnalysis execution |
 | `[x]` | `P3 / L` | Learned structural model expansion |
+| `[ ]` | `P1 / M` | Aptamer v1.1+ extension track |
