@@ -208,6 +208,84 @@ Produce stable CDR-H3 annotations with provenance, replacing placeholder semanti
 - Threaded CDR annotation summary into `PredictionResult.provenance` via typed `cdr_annotation` contract.
 - Added/updated tests in `tests/test_cdr_annotation.py` for numbered, fallback, ambiguous, deterministic, and descriptor-flag behaviors.
 
+### API payload snippet (structure + prediction)
+
+Structure detail (`GET /api/v1/structures/{structure_id}`) excerpt:
+
+```json
+{
+  "summary": {
+    "metadata": {
+      "cdr_annotation": {
+        "available": true,
+        "scheme": "kabat",
+        "boundary_source": "numbered",
+        "boundary_confidence": "high",
+        "selected_heavy_chain": "X",
+        "chains": {
+          "X": {
+            "role": "heavy",
+            "confidence": "high",
+            "regions": {
+              "CDR-H3": {
+                "start_index": 12,
+                "end_index": 20,
+                "length": 9,
+                "start_residue": {
+                  "chain_id": "X",
+                  "sequence_id": "95",
+                  "insertion_code": ""
+                },
+                "end_residue": {
+                  "chain_id": "X",
+                  "sequence_id": "102",
+                  "insertion_code": ""
+                },
+                "residue_keys": [
+                  {"chain_id": "X", "sequence_id": "95", "insertion_code": ""}
+                ]
+              }
+            }
+          }
+        },
+        "warnings": []
+      }
+    }
+  }
+}
+```
+
+Prediction provenance (`GET /api/v1/predictions/{prediction_id}`) excerpt:
+
+```json
+{
+  "provenance": {
+    "descriptor_hash": "...",
+    "cdr_annotation": {
+      "available": true,
+      "scheme": "kabat",
+      "boundary_source": "numbered",
+      "boundary_confidence": "high",
+      "selected_heavy_chain": "X",
+      "chains": {
+        "X": {
+          "role": "heavy",
+          "confidence": "high",
+          "regions": {
+            "CDR-H3": {
+              "start_index": 12,
+              "end_index": 20,
+              "length": 9
+            }
+          }
+        }
+      },
+      "warnings": []
+    }
+  }
+}
+```
+
 ---
 
 ## Phase 2 — Full CDR set (H1/H2/H3/L1/L2/L3) (P1 / M)
@@ -217,7 +295,7 @@ Generalize from CDR-H3 to full heavy/light CDR regions.
 
 ### Checklist
 
-- [ ] Add light-chain role detection (kappa/lambda-friendly, role fallback `light_unknown`).
+- [x] Add light-chain role detection (kappa/lambda-friendly, role fallback `light_unknown`).
 - [ ] Implement full region boundary extraction for H1/H2/H3 and L1/L2/L3.
 - [ ] Handle insertion codes and discontinuities explicitly.
 - [ ] Emit region completeness score per chain.
@@ -234,6 +312,14 @@ Generalize from CDR-H3 to full heavy/light CDR regions.
 
 - [ ] Full CDR map available for antibody mode when inputs permit.
 - [ ] Typed warnings correctly report partial/ambiguous regions.
+
+### Implementation status notes (Phase 2, started)
+
+- Phase 2 was started by adding light-chain role assignment in CDR metadata with deterministic role values:
+  - `light_kappa`
+  - `light_lambda`
+  - `light_unknown` (fallback)
+- Full-region boundary extraction (H1/H2/L1/L2/L3) remains pending.
 
 ---
 

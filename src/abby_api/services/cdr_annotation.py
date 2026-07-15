@@ -169,6 +169,44 @@ def _heavy_chain_score(
     return score, motif_windows
 
 
+def _infer_light_role(
+    chain_id: str,
+    residues: list[_ChainResidue],
+) -> tuple[str, CDRBoundaryConfidence]:
+    sequence = _to_chain_sequence(residues)
+    normalized_chain_id = chain_id.strip().upper()
+
+    has_light_length = 80 <= len(sequence) <= 140
+    has_backbone_markers = "C" in sequence and ("F" in sequence or "W" in sequence)
+
+    if not has_light_length and not has_backbone_markers:
+        return "unknown", "low"
+
+    if (
+        "KAPPA" in normalized_chain_id
+        or normalized_chain_id.startswith("VK")
+        or normalized_chain_id.startswith("K")
+    ):
+        return "light_kappa", "medium"
+
+    if (
+        "LAMBDA" in normalized_chain_id
+        or normalized_chain_id.startswith("VL")
+        or normalized_chain_id.startswith("LAM")
+        or normalized_chain_id.endswith("_L")
+    ):
+        return "light_lambda", "medium"
+
+    if (
+        normalized_chain_id in {"L", "LIGHT"}
+        or normalized_chain_id.startswith("L")
+        or has_light_length
+    ):
+        return "light_unknown", "medium"
+
+    return "unknown", "low"
+
+
 def _numbering_h3_window(residues: list[_ChainResidue]) -> _CDRWindow | None:
     # Prefer Kabat-like H3 window when available, then IMGT-like fallback.
     kabat = [
@@ -274,8 +312,11 @@ def annotate_cdr_h3(structure: Any) -> dict[str, Any]:
 
     chains_payload: dict[str, dict[str, Any]] = {}
     for chain_id, residues in residues_by_chain.items():
-        role = "heavy" if chain_id == selected_heavy_chain else "unknown"
-        confidence: CDRBoundaryConfidence = "high" if role == "heavy" else "low"
+        if chain_id == selected_heavy_chain:
+            role = "heavy"
+            confidence: CDRBoundaryConfidence = "high"
+        else:
+            role, confidence = _infer_light_role(chain_id, residues)
         chain_regions: dict[str, Any] = {}
 
         if chain_id == selected_heavy_chain and annotation_window is not None:

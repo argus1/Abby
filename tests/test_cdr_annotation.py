@@ -214,3 +214,36 @@ def test_cdr_bookkeeping_ready_flag_requires_actual_annotation() -> None:
     assert bundle.descriptors["cdr_bookkeeping_ready_flag"] == 1.0
     assert "CDR_H3_ANNOTATED" in bundle.notes
     assert "CDR_H3_ANNOTATED_MOTIF_FALLBACK" in bundle.notes
+
+
+def test_cdr_annotation_assigns_light_kappa_role() -> None:
+    heavy = _chain_from_sequence("H", 90, "AAAA" + "C" + "AAAAAAAA" + "W" + "AAAAAAAAAAAA")
+    light = _chain_from_sequence("K1", 1, "ACDEFGHIKLMNPQRSTVAY" * 5)
+    structure = _Structure([heavy, light])
+
+    annotation = annotate_cdr_h3(structure)
+
+    assert annotation["chains"]["K1"]["role"] == "light_kappa"
+    assert annotation["chains"]["K1"]["confidence"] == "medium"
+
+
+def test_cdr_annotation_assigns_light_unknown_fallback_role() -> None:
+    heavy = _chain_from_sequence("H", 90, "AAAA" + "C" + "AAAAAAAA" + "W" + "AAAAAAAAAAAA")
+    light = _chain_from_sequence("L2", 1, "ACDEFGHIKLMNPQRSTVAY" * 5)
+    structure = _Structure([heavy, light])
+
+    annotation = annotate_cdr_h3(structure)
+
+    assert annotation["chains"]["L2"]["role"] == "light_unknown"
+    assert annotation["chains"]["L2"]["confidence"] == "medium"
+
+
+def test_cdr_annotation_assigns_light_lambda_role() -> None:
+    heavy = _chain_from_sequence("H", 90, "AAAA" + "C" + "AAAAAAAA" + "W" + "AAAAAAAAAAAA")
+    light = _chain_from_sequence("LAM_A", 1, "ACDEFGHIKLMNPQRSTVAY" * 5)
+    structure = _Structure([heavy, light])
+
+    annotation = annotate_cdr_h3(structure)
+
+    assert annotation["chains"]["LAM_A"]["role"] == "light_lambda"
+    assert annotation["chains"]["LAM_A"]["confidence"] == "medium"
