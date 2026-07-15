@@ -104,6 +104,9 @@ _CDR_BASELINE_MODEL_CONTRACT: dict[str, Any] = {
     "feature_schema_version": _CDR_BASELINE_FEATURE_SCHEMA_VERSION,
     "supported_prediction_modes": ["antibody_antigen"],
     "output_schema_version": "cdr_boundary_quality_output_v1",
+    "calibration_scaffold_version": "cdr_boundary_quality_calibration_scaffold_v1",
+    "calibration_target_label": "observed_boundary_quality_pass",
+    "calibration_metrics_supported": ["ece", "mce", "brier", "auc_roc"],
 }
 
 _HEAVY_REGION_WINDOWS: dict[str, tuple[tuple[str, int, int], ...]] = {

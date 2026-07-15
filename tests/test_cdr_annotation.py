@@ -167,6 +167,12 @@ def test_cdr_h3_numbering_annotation_selects_heavy_chain_without_h_name() -> Non
     assert annotation["quality_baseline"]["model_contract"]["feature_schema_version"] == (
         "cdr_boundary_quality_features_v1"
     )
+    assert annotation["quality_baseline"]["model_contract"]["calibration_scaffold_version"] == (
+        "cdr_boundary_quality_calibration_scaffold_v1"
+    )
+    assert annotation["quality_baseline"]["model_contract"]["calibration_target_label"] == (
+        "observed_boundary_quality_pass"
+    )
 
 
 def test_cdr_h3_motif_fallback_annotation_records_typed_warning() -> None:
@@ -293,6 +299,12 @@ def test_full_numbered_cdr_regions_extracted_for_heavy_and_light() -> None:
     assert annotation["quality_baseline"]["model_contract"]["model_id"] == (
         "cdr_boundary_quality_heuristic"
     )
+    assert set(annotation["quality_baseline"]["model_contract"]["calibration_metrics_supported"]) == {
+        "ece",
+        "mce",
+        "brier",
+        "auc_roc",
+    }
 
 
 def test_cdr_region_payload_keeps_insertion_code_ordering() -> None:

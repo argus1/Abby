@@ -817,6 +817,16 @@ components:
                         type: string
                     output_schema_version:
                       type: string
+                    calibration_scaffold_version:
+                      type: string
+                      nullable: true
+                    calibration_target_label:
+                      type: string
+                      nullable: true
+                    calibration_metrics_supported:
+                      type: array
+                      items:
+                        type: string
                   required:
                     - model_id
                     - model_version

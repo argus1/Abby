@@ -461,6 +461,11 @@ Add lightweight statistical QA model inspired by classical logistic workflows.
   - explicit feature schema version,
   - non-blocking intended-use declaration,
   - supported prediction-mode metadata for downstream compatibility checks.
+- Started calibration scaffolding as a non-runtime utility path:
+  - equal-width reliability binning utilities,
+  - ECE/MCE/Brier calculation,
+  - optional AUC-ROC estimation when both classes are present,
+  - explicit calibration scaffold metadata in the QA model contract.
 - The baseline is explicitly non-blocking and does not alter core annotation decisions.
 - Current heuristic features include:
   - boundary source,

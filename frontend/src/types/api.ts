@@ -48,6 +48,9 @@ export interface CDRQualityBaseline {
     feature_schema_version: string;
     supported_prediction_modes: string[];
     output_schema_version: string;
+    calibration_scaffold_version?: string | null;
+    calibration_target_label?: string | null;
+    calibration_metrics_supported?: string[];
   } | null;
   predicted_confidence_class: 'high' | 'medium' | 'low';
   primary_boundary_confidence: 'high' | 'medium' | 'low';

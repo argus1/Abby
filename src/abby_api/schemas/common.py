@@ -108,6 +108,9 @@ class CDRBoundaryQualityModelContract(AbbyBaseModel):
     feature_schema_version: str
     supported_prediction_modes: list[str] = Field(default_factory=list)
     output_schema_version: str
+    calibration_scaffold_version: str | None = None
+    calibration_target_label: str | None = None
+    calibration_metrics_supported: list[str] = Field(default_factory=list)
 
 
 class CDRBoundaryQualityBaseline(AbbyBaseModel):
