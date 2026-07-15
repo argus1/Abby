@@ -847,6 +847,69 @@ def test_prediction_cdr_annotation_stays_on_source_chain_ids_after_md_remap() ->
     assert "CDR-H3" in cdr_provenance["chains"]["B"]["regions"]
 
 
+def test_antibody_prediction_response_exposes_cdr_descriptor_fields() -> None:
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                "test_antibody_cdr_descriptors.pdb",
+                PDB_ANTIBODY_CHAIN_REMAP_FIXTURE,
+                "chemical/x-pdb",
+            )
+        },
+        data={"mode": "antibody_antigen"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    structure_id = upload_response.json()["structure_id"]
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": structure_id,
+            "mode": "antibody_antigen",
+            "chains": {"partner_1": ["B"], "partner_2": ["A"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+
+    project_response = client.post(
+        "/api/v1/projects",
+        headers=HEADERS,
+        json={"name": "CDR descriptor visibility"},
+    )
+    assert project_response.status_code == 201, project_response.text
+    project_id = project_response.json()["project_id"]
+
+    prediction_response = client.post(
+        "/api/v1/predictions",
+        headers=HEADERS,
+        json={
+            "project_id": project_id,
+            "structure_id": structure_id,
+            "mode": "antibody_antigen",
+            "options": {"include_explainability": True, "return_all_models": False},
+        },
+    )
+    assert prediction_response.status_code == 202, prediction_response.text
+    prediction_id = prediction_response.json()["prediction_id"]
+
+    prediction_fetch = client.get(f"/api/v1/predictions/{prediction_id}", headers=HEADERS)
+    assert prediction_fetch.status_code == 200, prediction_fetch.text
+    prediction_payload = prediction_fetch.json()
+    descriptors = prediction_payload["feature_summary"]["descriptors"]
+    explainability_names = [
+        item["name"] for item in prediction_payload["explainability"]["top_descriptors"]
+    ]
+
+    assert prediction_payload["feature_summary"]["descriptor_version"] == "summary_features_v3"
+    assert "cdr_h3_length" in descriptors
+    assert "cdr_region_count_total" in descriptors
+    assert "cdr_heavy_completeness_mean" in descriptors
+    assert any(name.startswith("cdr_") for name in explainability_names)
+
+
 def test_antibody_multi_model_chain_remap_and_gap_combined_stress_case() -> None:
     upload_response = client.post(
         "/api/v1/structures:upload",

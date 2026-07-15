@@ -38,8 +38,21 @@ RESIDUE_CLASS_MAP = {
     "TRP": "aromatic",
 }
 
-# v2 adds residue-depth, burial, radius of gyration, and enrichment-hook bookkeeping.
-DESCRIPTOR_VERSION = "summary_features_v2"
+# v3 adds CDR-aware descriptor features while preserving existing descriptor keys.
+DESCRIPTOR_VERSION = "summary_features_v3"
+
+_CDR_REGION_KEYS: tuple[str, ...] = (
+    "CDR-H1",
+    "CDR-H2",
+    "CDR-H3",
+    "CDR-L1",
+    "CDR-L2",
+    "CDR-L3",
+)
+
+_CDR_DESCRIPTOR_PREFIXES: tuple[str, ...] = (
+    "cdr_",
+)
 
 
 def classify_residue(residue_name: str) -> str:
@@ -111,6 +124,104 @@ def _fractions(counts: dict[str, int], total: int) -> dict[str, float]:
 def _build_descriptor_hash(payload: dict[str, object]) -> str:
     serialized = dumps(payload, sort_keys=True, separators=(",", ":"))
     return sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _safe_int(value: Any) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _safe_float(value: Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _cdr_descriptor_features(
+    summary: StructureSummary,
+    validation: StructureValidationResult,
+) -> dict[str, float]:
+    cdr_annotation = summary.metadata.get("cdr_annotation", {})
+    if not isinstance(cdr_annotation, dict):
+        cdr_annotation = {}
+
+    chains_payload = cdr_annotation.get("chains", {})
+    if not isinstance(chains_payload, dict):
+        chains_payload = {}
+
+    region_lengths = {region_name: 0 for region_name in _CDR_REGION_KEYS}
+    total_region_count = 0
+    total_region_residue_count = 0
+
+    partner_1_ids = set(validation.chain_groups.partner_1 if validation.chain_groups else [])
+    partner_2_ids = set(validation.chain_groups.partner_2 if validation.chain_groups else [])
+    partner_1_region_residue_count = 0
+    partner_2_region_residue_count = 0
+
+    heavy_completeness_values: list[float] = []
+    light_completeness_values: list[float] = []
+
+    for chain_id, chain_payload in chains_payload.items():
+        if not isinstance(chain_payload, dict):
+            continue
+        role = str(chain_payload.get("role", "unknown"))
+        completeness_score = _safe_float(chain_payload.get("completeness_score", 0.0))
+        if role == "heavy":
+            heavy_completeness_values.append(completeness_score)
+        elif role.startswith("light"):
+            light_completeness_values.append(completeness_score)
+
+        regions = chain_payload.get("regions", {})
+        if not isinstance(regions, dict):
+            continue
+
+        for region_name, region_payload in regions.items():
+            if region_name not in region_lengths or not isinstance(region_payload, dict):
+                continue
+            length = max(_safe_int(region_payload.get("length", 0)), 0)
+            region_lengths[region_name] += length
+            total_region_count += 1
+            total_region_residue_count += length
+            if chain_id in partner_1_ids:
+                partner_1_region_residue_count += length
+            if chain_id in partner_2_ids:
+                partner_2_region_residue_count += length
+
+    mean_region_length = (
+        round(total_region_residue_count / total_region_count, 4) if total_region_count > 0 else 0.0
+    )
+    heavy_completeness_mean = (
+        round(sum(heavy_completeness_values) / len(heavy_completeness_values), 4)
+        if heavy_completeness_values
+        else 0.0
+    )
+    light_completeness_mean = (
+        round(sum(light_completeness_values) / len(light_completeness_values), 4)
+        if light_completeness_values
+        else 0.0
+    )
+
+    return {
+        "cdr_region_count_total": float(total_region_count),
+        "cdr_region_residue_count_total": float(total_region_residue_count),
+        "cdr_region_length_mean": float(mean_region_length),
+        "cdr_h1_length": float(region_lengths["CDR-H1"]),
+        "cdr_h2_length": float(region_lengths["CDR-H2"]),
+        "cdr_h3_length": float(region_lengths["CDR-H3"]),
+        "cdr_l1_length": float(region_lengths["CDR-L1"]),
+        "cdr_l2_length": float(region_lengths["CDR-L2"]),
+        "cdr_l3_length": float(region_lengths["CDR-L3"]),
+        "cdr_partner_1_region_residue_count": float(partner_1_region_residue_count),
+        "cdr_partner_2_region_residue_count": float(partner_2_region_residue_count),
+        "cdr_interface_overlap_proxy": float(
+            min(partner_1_region_residue_count, partner_2_region_residue_count)
+        ),
+        "cdr_heavy_completeness_mean": float(heavy_completeness_mean),
+        "cdr_light_completeness_mean": float(light_completeness_mean),
+    }
 
 
 def _residue_name(residue: Any) -> str:
@@ -784,6 +895,10 @@ def build_descriptor_bundle(
         "multi_model_flag": 1.0 if summary.model_count > 1 else 0.0,
         "antibody_mode_flag": 1.0 if mode == "antibody_antigen" else 0.0,
     }
+
+    cdr_descriptor_features = _cdr_descriptor_features(summary, validation)
+    descriptors.update(cdr_descriptor_features)
+
     notes = list(summary.warnings)
     if validation.warnings:
         notes.extend(validation.warnings)
@@ -796,6 +911,7 @@ def build_descriptor_bundle(
         notes.extend(cdr_warnings)
         if cdr_bookkeeping_ready_flag > 0.0:
             notes.append("CDR_H3_ANNOTATED")
+            notes.append("CDR_DESCRIPTOR_FEATURES_ENABLED")
             if CDR_MOTIF_FALLBACK_USED in cdr_warnings:
                 notes.append("CDR_H3_ANNOTATED_MOTIF_FALLBACK")
         else:
@@ -850,10 +966,28 @@ def make_explainability_summary(bundle: DescriptorBundle) -> Explainability:
         bundle.descriptors.items(),
         key=lambda item: abs(item[1]),
         reverse=True,
-    )[:5]
+    )
+    top_general = ranked[:5]
+    top_cdr = [
+        item
+        for item in ranked
+        if any(item[0].startswith(prefix) for prefix in _CDR_DESCRIPTOR_PREFIXES)
+        and abs(item[1]) > 0.0
+    ][:2]
+
+    explainability_items: list[tuple[str, float]] = []
+    seen_names: set[str] = set()
+    for name, value in [*top_cdr, *top_general]:
+        if name in seen_names:
+            continue
+        explainability_items.append((name, value))
+        seen_names.add(name)
+        if len(explainability_items) == 5:
+            break
+
     return Explainability(
         top_descriptors=[
             DescriptorContribution(name=name, contribution=round(value, 4))
-            for name, value in ranked
+            for name, value in explainability_items
         ]
     )
