@@ -877,6 +877,9 @@ def test_prediction_cdr_annotation_stays_on_source_chain_ids_after_md_remap() ->
         "medium",
         "high",
     }
+    assert cdr_provenance["quality_baseline"]["model_contract"]["contract_version"] == (
+        "cdr_boundary_quality_contract_v1"
+    )
 
 
 def test_antibody_prediction_response_exposes_cdr_descriptor_fields() -> None:

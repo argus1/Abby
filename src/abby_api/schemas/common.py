@@ -98,9 +98,23 @@ class LearnedModelProvenance(AbbyBaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class CDRBoundaryQualityModelContract(AbbyBaseModel):
+    model_id: str
+    model_version: str
+    contract_version: str
+    model_family: str
+    intended_use: str
+    non_blocking: bool = True
+    feature_schema_version: str
+    supported_prediction_modes: list[str] = Field(default_factory=list)
+    output_schema_version: str
+
+
 class CDRBoundaryQualityBaseline(AbbyBaseModel):
+
     available: bool = False
     model_name: str = "heuristic_v1"
+    model_contract: CDRBoundaryQualityModelContract | None = None
     predicted_confidence_class: ConfidenceClass = "low"
     primary_boundary_confidence: ConfidenceClass = "low"
     score: float = 0.0

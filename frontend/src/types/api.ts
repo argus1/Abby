@@ -38,6 +38,17 @@ export interface CDRAnnotatedChain {
 export interface CDRQualityBaseline {
   available: boolean;
   model_name: string;
+  model_contract?: {
+    model_id: string;
+    model_version: string;
+    contract_version: string;
+    model_family: string;
+    intended_use: string;
+    non_blocking: boolean;
+    feature_schema_version: string;
+    supported_prediction_modes: string[];
+    output_schema_version: string;
+  } | null;
   predicted_confidence_class: 'high' | 'medium' | 'low';
   primary_boundary_confidence: 'high' | 'medium' | 'low';
   score: number;

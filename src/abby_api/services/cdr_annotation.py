@@ -83,6 +83,29 @@ _ONE_LETTER_RESIDUE = {
 
 _H3_MOTIF = re.compile(r"C([A-Z]{4,30}?)WG[A-Z]G")
 
+_CDR_BASELINE_FEATURE_SCHEMA_VERSION = "cdr_boundary_quality_features_v1"
+_CDR_BASELINE_FEATURE_NAMES: tuple[str, ...] = (
+    "available_flag",
+    "numbering_source_flag",
+    "motif_fallback_flag",
+    "heavy_completeness_score",
+    "selected_heavy_region_count",
+    "warning_count",
+    "heavy_candidate_margin",
+    "motif_match_count",
+)
+_CDR_BASELINE_MODEL_CONTRACT: dict[str, Any] = {
+    "model_id": "cdr_boundary_quality_heuristic",
+    "model_version": "1.0.0",
+    "contract_version": "cdr_boundary_quality_contract_v1",
+    "model_family": "heuristic_baseline",
+    "intended_use": "qa_drift_monitoring_only",
+    "non_blocking": True,
+    "feature_schema_version": _CDR_BASELINE_FEATURE_SCHEMA_VERSION,
+    "supported_prediction_modes": ["antibody_antigen"],
+    "output_schema_version": "cdr_boundary_quality_output_v1",
+}
+
 _HEAVY_REGION_WINDOWS: dict[str, tuple[tuple[str, int, int], ...]] = {
     "kabat": (
         ("CDR-H1", 31, 35),
@@ -433,6 +456,10 @@ def _build_boundary_quality_baseline(
         "heavy_candidate_margin": float(max(heavy_candidate_margin, 0)),
         "motif_match_count": float(motif_match_count),
     }
+    feature_vector = {
+        feature_name: float(feature_vector.get(feature_name, 0.0))
+        for feature_name in _CDR_BASELINE_FEATURE_NAMES
+    }
 
     score = 0.1
     if available:
@@ -484,6 +511,7 @@ def _build_boundary_quality_baseline(
     return {
         "available": True,
         "model_name": "heuristic_v1",
+        "model_contract": dict(_CDR_BASELINE_MODEL_CONTRACT),
         "predicted_confidence_class": predicted_confidence,
         "primary_boundary_confidence": boundary_confidence,
         "score": score,

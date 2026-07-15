@@ -456,6 +456,11 @@ Add lightweight statistical QA model inspired by classical logistic workflows.
   - deterministic `quality_baseline` payload attached to CDR annotation metadata and prediction provenance,
   - heuristic score/class output (`high` / `medium` / `low`),
   - drift flags and machine-readable reason codes for fallback, ambiguity, and partial coverage.
+- Promoted the heuristic baseline to an explicit QA model contract:
+  - versioned model/contract identifiers,
+  - explicit feature schema version,
+  - non-blocking intended-use declaration,
+  - supported prediction-mode metadata for downstream compatibility checks.
 - The baseline is explicitly non-blocking and does not alter core annotation decisions.
 - Current heuristic features include:
   - boundary source,

@@ -161,6 +161,12 @@ def test_cdr_h3_numbering_annotation_selects_heavy_chain_without_h_name() -> Non
     assert annotation["chains"]["X"]["regions"]["CDR-H3"]["length"] >= 4
     assert annotation["quality_baseline"]["available"] is True
     assert annotation["quality_baseline"]["predicted_confidence_class"] == "medium"
+    assert annotation["quality_baseline"]["model_contract"]["contract_version"] == (
+        "cdr_boundary_quality_contract_v1"
+    )
+    assert annotation["quality_baseline"]["model_contract"]["feature_schema_version"] == (
+        "cdr_boundary_quality_features_v1"
+    )
 
 
 def test_cdr_h3_motif_fallback_annotation_records_typed_warning() -> None:
@@ -284,6 +290,9 @@ def test_full_numbered_cdr_regions_extracted_for_heavy_and_light() -> None:
     assert annotation["chains"]["L"]["completeness_score"] == 1.0
     assert annotation["quality_baseline"]["predicted_confidence_class"] == "high"
     assert annotation["quality_baseline"]["drift_flag"] is False
+    assert annotation["quality_baseline"]["model_contract"]["model_id"] == (
+        "cdr_boundary_quality_heuristic"
+    )
 
 
 def test_cdr_region_payload_keeps_insertion_code_ordering() -> None:

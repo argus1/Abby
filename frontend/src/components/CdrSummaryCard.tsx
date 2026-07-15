@@ -35,6 +35,7 @@ export function CdrSummaryCard({
   const chainEntries = Object.entries(annotation?.chains ?? {});
   const warningCount = annotation?.warnings?.length ?? 0;
   const qualityBaseline = annotation?.quality_baseline;
+  const qualityContract = qualityBaseline?.model_contract;
 
   return (
     <section className="card">
@@ -78,6 +79,12 @@ export function CdrSummaryCard({
               </div>
               <ul className="bullet-list compact">
                 <li>Baseline model: {qualityBaseline.model_name}</li>
+                <li>
+                  Contract: {qualityContract?.contract_version ?? 'unversioned'}
+                </li>
+                <li>
+                  Model ID/version: {qualityContract ? `${qualityContract.model_id}@${qualityContract.model_version}` : 'unspecified'}
+                </li>
                 <li>Score: {qualityBaseline.score.toFixed(2)}</li>
                 <li>Primary confidence: {qualityBaseline.primary_boundary_confidence}</li>
               </ul>
