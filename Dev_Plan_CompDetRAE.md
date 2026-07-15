@@ -13,12 +13,14 @@ It complements:
 ## 1) Objective and scope
 
 ### Primary objective
+
 Build a deterministic, mmCIF-first, provenance-backed CDR annotation engine that:
 
 1. Identifies antibody chains robustly (not only `H`/`L` IDs).
 2. Detects and annotates CDR boundaries (starting with CDR-H3, then H1/H2/L1/L2/L3).
 3. Persists region-level metadata for downstream validation, explainability, and optional simulation/learned-model workflows.
 4. Maintains strict backward compatibility with current Abby APIs.
+5. Supports both paired antibodies and **VHH nanobodies** (heavy-chain-only) without degrading CDR readiness semantics.
 
 ### Out-of-scope (for this plan slice)
 
@@ -36,6 +38,18 @@ From current implementation:
 - No persisted residue-level CDR map in structure summary/validation/provenance.
 - No explicit numbering-scheme support (IMGT/Kabat/Chothia/AHo) for boundary mapping.
 - No dedicated CDR tests asserting region boundaries and edge cases.
+- VHH heavy-only inputs can be misclassified as incomplete paired-antibody records when light-chain assumptions leak into readiness checks.
+
+## 2A) VHH support profile (required)
+
+CompDetRAE must treat VHH as a first-class antibody format, not a degraded edge case.
+
+Required behavior:
+
+- classify antibody format explicitly (`paired_antibody`, `vhh_single_domain`, `unknown_antibody_format`)
+- for `vhh_single_domain`, evaluate CDR readiness against heavy-chain regions only
+- encode light-chain regions as `not_applicable` (not `missing`) for VHH annotations
+- preserve numbering/fallback confidence semantics exactly as in paired-antibody mode
 
 ---
 
@@ -138,9 +152,10 @@ Abby adaptation:
 ## Phase 0 — Foundations and contracts (P0 / S)
 
 ### Milestone M0
+
 Freeze CDR annotation interface and warning/error taxonomy before feature implementation.
 
-### Checklist
+### Phase 0 checklist
 
 - [x] Define CDR annotation glossary and region naming standard.
 - [x] Define stable residue key format: `(chain_id, auth_seq_id/label_seq_id, insertion_code)`.
@@ -151,7 +166,7 @@ Freeze CDR annotation interface and warning/error taxonomy before feature implem
   - `CDR_NUMBERING_MISSING`
 - [x] Add architecture note linking CompDetRAE to `Dev_Plan_Biopython.md` and checklist roadmap.
 
-### Exit criteria
+### Phase 0 exit criteria
 
 - [x] Contract reviewed and documented.
 - [x] No API breaking changes introduced.
@@ -170,9 +185,10 @@ Freeze CDR annotation interface and warning/error taxonomy before feature implem
 ## Phase 1 — CDR-H3 deterministic annotation MVP (P0 / M)
 
 ### Milestone M1
+
 Produce stable CDR-H3 annotations with provenance, replacing placeholder semantics.
 
-### Checklist
+### Phase 1 checklist
 
 - [x] Implement heavy-chain candidate detection beyond `H`/`L` naming.
 - [x] Implement prioritized boundary pipeline:
@@ -185,14 +201,14 @@ Produce stable CDR-H3 annotations with provenance, replacing placeholder semanti
   - or fallback/ambiguity notes.
 - [x] Thread CDR-H3 summary into prediction provenance.
 
-### Tests
+### Phase 1 tests
 
 - [x] Positive: clean heavy chain with resolvable CDR-H3.
 - [x] Fallback: motif-only extraction path.
 - [x] Negative: ambiguous motif or missing anchors.
 - [x] Determinism: same input -> same CDR boundaries/hash metadata.
 
-### Exit criteria
+### Phase 1 exit criteria
 
 - [x] `cdr_bookkeeping_ready_flag` reflects actual annotation readiness, not chain-name heuristic only.
 - [x] CDR-H3 metadata appears in structure detail and prediction provenance.
@@ -291,27 +307,29 @@ Prediction provenance (`GET /api/v1/predictions/{prediction_id}`) excerpt:
 ## Phase 2 — Full CDR set (H1/H2/H3/L1/L2/L3) (P1 / M)
 
 ### Milestone M2
+
 Generalize from CDR-H3 to full heavy/light CDR regions.
 
-### Checklist
+### Phase 2 checklist
 
 - [x] Add light-chain role detection (kappa/lambda-friendly, role fallback `light_unknown`).
 - [x] Implement full region boundary extraction for H1/H2/H3 and L1/L2/L3.
 - [x] Handle insertion codes and discontinuities explicitly.
 - [x] Emit region completeness score per chain.
 - [x] Persist region maps and residue counts in structured metadata.
+- [ ] Add VHH-mode completeness semantics where heavy-only annotations can still be complete.
 
-### Tests
+### Phase 2 tests
 
 - [x] Heavy-only antibodies (single-domain edge case).
 - [x] Paired VH/VL structures.
 - [x] Multi-model input and chain remapping interactions.
 - [x] Missing residues / sequence gaps across region boundaries.
 
-### Exit criteria
+### Phase 2 exit criteria
 
-- [ ] Full CDR map available for antibody mode when inputs permit.
-- [ ] Typed warnings correctly report partial/ambiguous regions.
+- [ ] Full CDR map available for antibody mode when inputs permit (paired: H+L, VHH: H-only).
+- [x] Typed warnings correctly report partial/ambiguous regions.
 
 ### Implementation status notes (Phase 2, started)
 
@@ -331,27 +349,47 @@ Generalize from CDR-H3 to full heavy/light CDR regions.
 ## Phase 3 — CDR-aware descriptors and explainability (P1 / M)
 
 ### Milestone M3
+
 Use CDR annotations to enrich feature summaries without destabilizing baseline behavior.
 
-### Checklist
+### Phase 3 checklist
 
-- [ ] Add CDR-region descriptors:
+- [x] Add CDR-region descriptors:
   - region length
   - residue class fractions by region
   - CDR/interface overlap counts
   - optional CDR burial/contact summaries
 - [ ] Add explainability entries for top CDR-contributed descriptors.
-- [ ] Preserve deterministic hash behavior with version bump:
+- [x] Preserve deterministic hash behavior with version bump:
   - e.g., `summary_features_v3`.
 - [ ] Keep old fields intact for backward compatibility.
 
-### Tests
+### Phase 3 tests
 
-- [ ] Descriptor schema regression (old + new fields).
+- [x] Descriptor schema regression (old + new fields).
 - [ ] Explainability includes CDR fields where available.
 - [ ] Hash determinism for unchanged inputs.
 
-### Exit criteria
+### Implementation status notes (Phase 3, in progress)
+
+- Added CDR-aware descriptor features to prediction feature bundles (`summary_features_v3`) including:
+  - per-region lengths (`CDR-H1/H2/H3`, `CDR-L1/L2/L3`),
+  - total CDR region/residue counts,
+  - partner-scoped CDR residue counts,
+  - CDR interface overlap proxy,
+  - heavy/light completeness means.
+- Existing descriptor fields remain present; CDR descriptors were added additively for compatibility.
+- Added descriptor regression coverage in `tests/test_feature_extraction.py`.
+
+### Additional verification notes (Phase 2)
+
+- Added combined stress interaction coverage in `tests/test_structure_flow.py` for:
+  - multi-model input,
+  - explicit chain remap,
+  - sequence-gap handling,
+  within a single antibody-mode upload → validate → predict flow.
+
+### Phase 3 exit criteria
 
 - [ ] CDR-aware descriptors visible in prediction responses.
 - [ ] Existing non-CDR flows unaffected.
@@ -361,9 +399,10 @@ Use CDR annotations to enrich feature summaries without destabilizing baseline b
 ## Phase 4 — Validation UX, health, and observability (P1 / S)
 
 ### Milestone M4
+
 Make CDR annotation status transparent in API and frontend.
 
-### Checklist
+### Phase 4 checklist
 
 - [ ] Add validation warnings/errors surfaced via typed issues.
 - [ ] Add health capability flags for annotation backend availability.
@@ -373,7 +412,7 @@ Make CDR annotation status transparent in API and frontend.
   - `% motif-fallback`
   - `% ambiguous/failed`
 
-### Exit criteria
+### Phase 4 exit criteria
 
 - [ ] Users can tell exactly why CDR annotation succeeded/failed.
 
@@ -382,16 +421,17 @@ Make CDR annotation status transparent in API and frontend.
 ## Phase 5 — Optional confidence baseline and drift checks (P2 / M)
 
 ### Milestone M5
+
 Add lightweight statistical QA model inspired by classical logistic workflows.
 
-### Checklist
+### Phase 5 checklist
 
 - [ ] Build optional boundary-confidence baseline (logistic/multinomial).
 - [ ] Feature set includes positional, motif, and composition signals.
 - [ ] Report calibration and ROC/AUC metrics.
 - [ ] Integrate only as QA guardrail (not mandatory inference path).
 
-### Exit criteria
+### Phase 5 exit criteria
 
 - [ ] Automated drift warnings for annotation confidence drops.
 
@@ -400,16 +440,17 @@ Add lightweight statistical QA model inspired by classical logistic workflows.
 ## Phase 6 — Structural mutation stress harness for CDR loops (P2 / M)
 
 ### Milestone M6
+
 Introduce robust mutation-parser style validation harness for CDR-local stress tests.
 
-### Checklist
+### Phase 6 checklist
 
 - [ ] Add safe mutation spec parser for CDR-local perturbation tests.
 - [ ] Add residue index/range guards and clear error messages.
 - [ ] Batch-run stress tests and summarize pass/fail/fallback outcomes.
 - [ ] Keep this harness optional and off default user path.
 
-### Exit criteria
+### Phase 6 exit criteria
 
 - [ ] CDR annotation resilient to local perturbation scenarios.
 
@@ -417,7 +458,7 @@ Introduce robust mutation-parser style validation harness for CDR-local stress t
 
 ## 6) Data strategy and licensing checks
 
-### Checklist
+### Data checklist
 
 - [ ] Use OAS/paired-unpaired resources only under compatible licenses and attribution terms.
 - [ ] Track source metadata in provenance:
@@ -469,7 +510,7 @@ Additional new tests to add:
 
 CompDetRAE is considered complete for v1.1 when:
 
-- [ ] CDR-H3 and full CDR region annotation works deterministically on supported antibody inputs.
+- [ ] CDR-H3 and full CDR region annotation works deterministically on supported antibody inputs (including heavy-only VHH).
 - [ ] Boundary source and confidence are explicit in provenance.
 - [ ] Fallback/ambiguity behavior is typed, test-covered, and user-visible.
 - [ ] CDR-aware descriptors are integrated without regressions.
@@ -535,7 +576,7 @@ Add the following fields to CDR metadata/provenance contracts (names may be norm
 
 Define an optional adapter map from Abby CDR annotations to AIRR-compatible fields for exchange workflows.
 
-Checklist:
+Adapter checklist:
 
 - [ ] Add design note mapping Abby `cdr_annotation` concepts to AIRR-style annotation objects.
 - [ ] Mark adapter path as optional and disabled in default prediction flow.
@@ -545,7 +586,7 @@ Checklist:
 
 Add explicit tests to ensure RepSeq-informed metadata does not change deterministic behavior.
 
-Checklist:
+Verification checklist:
 
 - [ ] Boundary determinism test: identical input => identical CDR boundary output and provenance hash.
 - [ ] Ambiguity test: unresolved chain role sets typed warning and lowers confidence without crashing.

@@ -4,6 +4,8 @@ This document is the high-level system planning companion to [`V1_Product_Spec_A
 
 To develop a robust antibody affinity prediction tool that integrates sequence analysis, structural folding, molecular dynamics (MD), and machine learning (ML), you must establish a seamless data pipeline that prioritizes chemical detail and structural accuracy.
 
+For antibody scope, Abby must support both conventional paired-chain antibodies (`VH/VL`) and **VHH nanobodies** (single-domain heavy-chain antibodies) under the same mmCIF-first integrity rules.
+
 ## Relationship to the Abby document set
 
 Use the Abby core planning and design documents together:
@@ -54,9 +56,19 @@ The final stage uses the sampled structural data to predict the quantitative bin
 
 ### **Critical Pipeline Considerations**
 
-* **Steric Hindrance:** Ensure your model specifically monitors the Complementarity-Determining Regions (CDRs). Any structural distortion or bulky modification near these regions significantly drops affinity.  
+* **Steric Hindrance:** Ensure your model specifically monitors the Complementarity-Determining Regions (CDRs). Any structural distortion or bulky modification near these regions significantly drops affinity. For VHH nanobodies, treat long/atypical `CDR-H3` geometry as first-class rather than as an anomaly.  
 * **Validation Data:** While modern therapeutic antibodies nearly always have Surface Plasmon Resonance (SPR) data available for training, research antibodies often lack this. Your ML model should ideally be trained on SPR-validated datasets to ensure it predicts true kinetic constants ($k\_{on}, k\_{off}$) rather than just qualitative binding.  
 * **Scale Immunity:** Using PDBx/mmCIF ensures your tool can handle large antibody-antigen complexes without the atom-numbering overflows or parsing crashes common with legacy PDB files.
+
+### VHH nanobody support requirements (v1/v1.1)
+
+To make VHH support explicit and deterministic across ingest → validation → prediction:
+
+* **Antibody format typing:** classify structures as `paired_antibody`, `vhh_single_domain`, or `unknown_antibody_format` using sequence/structure evidence, not only chain IDs.
+* **Heavy-only legality:** do not emit missing-light-chain errors for VHH inputs; treat heavy-only as valid when supported by chain role confidence.
+* **CDR region expectations:** for VHH mode, require heavy-chain CDR bookkeeping (`CDR-H1/H2/H3`) and mark light-chain regions as `not_applicable` instead of `missing`.
+* **Provenance contract:** persist `antibody_format`, boundary source, numbering scheme, and confidence so downstream scoring and audits can separate VHH from paired-antibody behavior.
+* **Descriptor parity:** expose the same stable descriptor/provenance envelope for VHH predictions, with explicit flags when light-chain-dependent features are skipped.
 
 ### CDR annotation interoperability boundary (v1.1)
 
@@ -65,6 +77,7 @@ For CDR-aware structural bookkeeping, Abby v1.1 should follow the execution path
 * **Use now:** deterministic structural CDR boundaries, explicit numbering/provenance, and typed ambiguity handling.
 * **Use later/optional:** AIRR-compliant import/export adapters and repertoire-scale analytics.
 * **Keep out of v1.1 core flow:** mandatory AIRR-seq assembly dependencies or repertoire-only boundary inference replacing structure-driven extraction.
+* **VHH profile rule:** treat heavy-only single-domain antibody inputs as first-class in this same boundary contract; do not require light-chain region resolution to report `cdr_annotation.available=true`.
 * **Current execution status:** CompDetRAE Phase 0 (contract/taxonomy foundations) is implemented; next delivery slice is Phase 1 deterministic CDR-H3 boundary extraction and provenance threading.
 
 ### **Dataset-backed validation workflow**
@@ -93,4 +106,4 @@ Sources:
 * [does PDB or PDBx/mmCIF support disulfide bonds and sidechain glycosylation?](./PDB_PDBx_mmCIF_disulfide_bonds_%26_sidechain_glycosylation.md)  
 * [does drug conjugation change an antibody's binding affinity?](./ADC_binding_affinity.md)  
 * [Surface plasmon resonance antibody characterization notes](./antibodies_SPR.md)  
-* [how does schema and failure modes compare between PDB and PDBx/mmCIF?](./schema_%26_failure_modes_PDB_vs_PDBx_mmCIF_.md)  
+* [how does schema and failure modes compare between PDB and PDBx/mmCIF?](./schema_%26_failure_modes_PDB_vs_PDBx_mmCIF_.md)

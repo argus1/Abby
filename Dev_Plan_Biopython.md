@@ -14,10 +14,12 @@ This implementation plan primarily supports the following Abby v1 capabilities:
 * **Structure normalization and validation** before affinity inference
 * **Feature extraction** for interpretable affinity prediction and downstream ML
 * **Compatibility with batch workflows** for researcher-facing campaigns
+* **Antibody-format flexibility** for both paired antibodies (`VH/VL`) and heavy-only VHH nanobody inputs
 
 ### **1\. Unified PDBx/mmCIF Parsing Workflow**
 
 Because legacy PDB formats fail to handle large complexes or complex connectivity like branched glycans, your workflow should center on the MMCIFParser to preserve the \_struct\_conn relational data.  
+
 ```python
 from Bio.PDB import MMCIFParser, MMCIF2Dict
 
@@ -46,8 +48,18 @@ Before running MD simulations, you must ensure your antibody chains are properly
 
 * **Repository execution baseline:** Abby uses the mmCIF-compatible GROMACS fork [`argus1/Gromacs-CIF`](https://github.com/argus1/Gromacs-CIF), and this build is already installed on the local development machine.
 
-* **Chain Segregation:** Antibodies require distinct chain IDs for heavy and light chains. BioPython allows you to programmatically rename chains if the folding algorithm outputs them generically (e.g., Chain A, B, C).  
+* **Chain Segregation:** Paired antibodies require distinct heavy/light chain IDs; VHH nanobodies are valid heavy-only inputs and should not fail preflight due to absent light chains. BioPython allows you to programmatically rename chains if the folding algorithm outputs them generically (e.g., Chain A, B, C).  
 * **Non-Standard Residues:** Use BioPython to identify and parameterize any non-standard residues or bioconjugates identified by AlphaFold 3\.
+
+### 2A. VHH nanobody structural bookkeeping profile
+
+For VHH-supporting workflows, enforce these deterministic parsing/validation rules:
+
+* **Antibody format classification:** emit `paired_antibody`, `vhh_single_domain`, or `unknown_antibody_format` in summary metadata.
+* **CDR expectations (paired antibodies):** `CDR-H1/H2/H3` + `CDR-L1/L2/L3`.
+* **CDR expectations (VHH):** `CDR-H1/H2/H3`; light-chain CDRs must be represented as `not_applicable`.
+* **Validation semantics:** for VHH mode, treat absent light chain as expected behavior, not as a structural error.
+* **Provenance threading:** carry `antibody_format`, boundary source, and boundary confidence into prediction provenance for downstream auditability.
 
 ### **3\. Feature Extraction for ML Training**
 
@@ -94,6 +106,7 @@ For antibody-specific CDR bookkeeping implementation details, use `Dev_Plan_Comp
 * **Implementation-now focus:** structure-first CDR region extraction, numbering/provenance fields, and deterministic fallback behavior.
 * **Optional interoperability:** AIRR-oriented schema/adapter mapping may be added as a non-blocking extension.
 * **Guardrail:** do not introduce mandatory repertoire-pipeline preprocessing in the default BioPython parsing/normalization path.
+* **VHH guardrail:** do not couple CDR readiness to light-chain presence when `antibody_format=vhh_single_domain`.
 * **Current execution status:** CompDetRAE Phase 0 contract scaffolding is now implemented in `src/abby_api/services/cdr_annotation.py` and `src/abby_api/services/cdr_numbering.py`; proceed with Phase 1 boundary extraction against this fixed contract.
 
 ## Relationship to product scope
@@ -111,4 +124,4 @@ Sources:
 * [does PDB or PDBx/mmCIF support disulfide bonds and sidechain glycosylation?](./PDB_PDBx_mmCIF_disulfide_bonds_%26_sidechain_glycosylation.md)  
 * [how does schema and failure modes compare between PDB and PDBx/mmCIF?](./schema_%26_failure_modes_PDB_vs_PDBx_mmCIF_.md)  
 * [Are there software tools that allow prediction of physical properties of bioconjugated proteins?](./prediction_properties_bioconjugated_proteins.md)  
-* [does drug conjugation change an antibody's binding affinity?](./ADC_binding_affinity.md)  
+* [does drug conjugation change an antibody's binding affinity?](./ADC_binding_affinity.md)
