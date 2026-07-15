@@ -144,6 +144,33 @@ ENDMDL
 END
 """
 
+PDB_ANTIBODY_MOTIF_FALLBACK_FIXTURE = """\
+ATOM      1  N   CYS H   1      11.104  13.207   9.111  1.00 20.00           N
+ATOM      2  CA  CYS H   1      12.560  13.102   9.262  1.00 20.00           C
+ATOM      3  N   ALA H   2      13.030  11.670   9.634  1.00 20.00           N
+ATOM      4  CA  ALA H   2      12.284  10.719   9.434  1.00 20.00           C
+ATOM      5  N   ALA H   3      14.300  11.500  10.100  1.00 20.00           N
+ATOM      6  CA  ALA H   3      14.900  10.170  10.420  1.00 20.00           C
+ATOM      7  N   ALA H   4      16.350  10.200  10.900  1.00 20.00           N
+ATOM      8  CA  ALA H   4      17.020   9.180  10.810  1.00 20.00           C
+ATOM      9  N   ALA H   5      18.200  10.700  11.400  1.00 20.00           N
+ATOM     10  CA  ALA H   5      19.100  10.900  12.500  1.00 20.00           C
+ATOM     11  N   ALA H   6      19.900  12.100  12.900  1.00 20.00           N
+ATOM     12  CA  ALA H   6      20.800  12.200  13.700  1.00 20.00           C
+ATOM     13  N   TRP H   7      21.100  13.100  13.500  1.00 20.00           N
+ATOM     14  CA  TRP H   7      22.200  13.300  14.300  1.00 20.00           C
+ATOM     15  N   GLY H   8      23.100  14.400  13.700  1.00 20.00           N
+ATOM     16  CA  GLY H   8      24.200  14.200  13.200  1.00 20.00           C
+ATOM     17  N   ALA H   9      25.100  15.100  12.900  1.00 20.00           N
+ATOM     18  CA  ALA H   9      26.200  15.300  12.100  1.00 20.00           C
+ATOM     19  N   GLY H  10      27.100  16.400  11.700  1.00 20.00           N
+ATOM     20  CA  GLY H  10      28.200  16.200  11.200  1.00 20.00           C
+ATOM     21  N   ALA A   1      29.100  17.100  10.900  1.00 20.00           N
+ATOM     22  CA  ALA A   1      30.200  17.300  10.100  1.00 20.00           C
+TER
+END
+"""
+
 
 def test_structure_upload_validate_and_fetch() -> None:
     upload_response = client.post(
@@ -984,3 +1011,76 @@ def test_antibody_multi_model_chain_remap_and_gap_combined_stress_case() -> None
     assert "B" in cdr_provenance["chains"]
     assert cdr_provenance["chains"]["B"]["role"] == "heavy"
     assert "CDR-H3" in cdr_provenance["chains"]["B"]["regions"]
+
+
+def test_validation_surfaces_dedicated_cdr_motif_fallback_issue() -> None:
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                "test_antibody_motif_fallback.pdb",
+                PDB_ANTIBODY_MOTIF_FALLBACK_FIXTURE,
+                "chemical/x-pdb",
+            )
+        },
+        data={"mode": "antibody_antigen"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    structure_id = upload_response.json()["structure_id"]
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": structure_id,
+            "mode": "antibody_antigen",
+            "chains": {"partner_1": ["H"], "partner_2": ["A"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    payload = validate_response.json()
+
+    warning_details_by_code = {item["code"]: item for item in payload["warning_details"]}
+    assert "CDR_MOTIF_FALLBACK_USED" in warning_details_by_code
+    assert "CDR_NUMBERING_MISSING" in warning_details_by_code
+    fallback_issue = warning_details_by_code["CDR_MOTIF_FALLBACK_USED"]
+    assert fallback_issue["details"]["cdr_annotation_available"] is True
+    assert fallback_issue["details"]["selected_heavy_chain"] == "H"
+    assert fallback_issue["details"]["boundary_source"] == "motif_fallback"
+
+
+def test_validation_surfaces_dedicated_cdr_boundary_ambiguity_issue() -> None:
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                "test_antibody_multi_model_remap_gap_validation.pdb",
+                PDB_ANTIBODY_MULTI_MODEL_REMAP_GAP_FIXTURE,
+                "chemical/x-pdb",
+            )
+        },
+        data={"mode": "antibody_antigen"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    structure_id = upload_response.json()["structure_id"]
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": structure_id,
+            "mode": "antibody_antigen",
+            "chains": {"partner_1": ["B"], "partner_2": ["A"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    payload = validate_response.json()
+
+    warning_details_by_code = {item["code"]: item for item in payload["warning_details"]}
+    assert "CDR_BOUNDARY_AMBIGUOUS" in warning_details_by_code
+    boundary_issue = warning_details_by_code["CDR_BOUNDARY_AMBIGUOUS"]
+    assert boundary_issue["details"]["cdr_annotation_available"] is True
+    assert boundary_issue["details"]["selected_heavy_chain"] == "B"
+    assert boundary_issue["details"]["chains"]["A"]["completeness_score"] < 1.0

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 
+import { CdrSummaryCard } from '../components/CdrSummaryCard';
 import { ServiceLayerCard } from '../components/ServiceLayerCard';
 import { getPrediction } from '../lib/api-client';
 import { serviceLayerModules, stubPrediction } from '../lib/stub-data';
@@ -101,6 +102,29 @@ export function PredictionPage() {
             <button className="button">Download contact list</button>
             <button className="button secondary">Generate PyMOL script</button>
           </div>
+        </section>
+      </section>
+
+      <section className="grid two-col">
+        <CdrSummaryCard
+          title="CDR provenance summary"
+          annotation={prediction?.provenance?.cdr_annotation}
+          emptyLabel="This prediction does not currently include CDR provenance."
+        />
+        <section className="card">
+          <h3>Provenance highlights</h3>
+          {prediction?.provenance ? (
+            <ul className="bullet-list compact">
+              <li>Model bundle: {prediction.provenance.model_bundle_version}</li>
+              <li>Preprocess version: {prediction.provenance.preprocess_version}</li>
+              <li>Descriptor hash: {prediction.provenance.descriptor_hash}</li>
+              <li>
+                Contact cutoff: {prediction.provenance.contact_distance_cutoff_angstrom.toFixed(2)} Å
+              </li>
+            </ul>
+          ) : (
+            <p className="muted">Prediction provenance is not available yet.</p>
+          )}
         </section>
       </section>
 

@@ -42,7 +42,73 @@ paths:
                   version:
                     type: string
                     example: 1.0.0
-                required: [status, timestamp, version]
+                  dependencies:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        available:
+                          type: boolean
+                        required:
+                          type: boolean
+                        detail:
+                          type: string
+                          nullable: true
+                      required: [name, available, required]
+                  capabilities:
+                    type: object
+                    properties:
+                      cdr_annotation:
+                        type: object
+                        properties:
+                          backend_available:
+                            type: boolean
+                          numbering_support_available:
+                            type: boolean
+                          motif_fallback_available:
+                            type: boolean
+                          typed_validation_issues_available:
+                            type: boolean
+                          telemetry:
+                            type: object
+                            properties:
+                              total_antibody_summaries:
+                                type: integer
+                              numbering_based_count:
+                                type: integer
+                              numbering_based_percent:
+                                type: number
+                                format: float
+                              motif_fallback_count:
+                                type: integer
+                              motif_fallback_percent:
+                                type: number
+                                format: float
+                              ambiguous_or_failed_count:
+                                type: integer
+                              ambiguous_or_failed_percent:
+                                type: number
+                                format: float
+                            required:
+                              - total_antibody_summaries
+                              - numbering_based_count
+                              - numbering_based_percent
+                              - motif_fallback_count
+                              - motif_fallback_percent
+                              - ambiguous_or_failed_count
+                              - ambiguous_or_failed_percent
+                          detail:
+                            type: string
+                            nullable: true
+                        required:
+                          - backend_available
+                          - numbering_support_available
+                          - motif_fallback_available
+                          - typed_validation_issues_available
+                          - telemetry
+                required: [status, timestamp, version, dependencies, capabilities]
   /version:
     get:
       tags: [System]

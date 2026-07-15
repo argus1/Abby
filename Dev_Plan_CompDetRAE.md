@@ -386,17 +386,55 @@ Make CDR annotation status transparent in API and frontend.
 
 ### Checklist
 
-- [ ] Add validation warnings/errors surfaced via typed issues.
-- [ ] Add health capability flags for annotation backend availability.
-- [ ] Expose concise CDR summary in frontend structure/prediction views.
-- [ ] Add counters/telemetry hooks:
+- [x] Add validation warnings/errors surfaced via typed issues.
+- [x] Add health capability flags for annotation backend availability.
+- [x] Expose concise CDR summary in frontend structure/prediction views.
+- [x] Add counters/telemetry hooks:
   - `% numbering-based`
   - `% motif-fallback`
   - `% ambiguous/failed`
 
+### Implementation status notes (Phase 4, started)
+
+- Validation responses now surface dedicated CDR warning issues built from
+  `summary.metadata["cdr_annotation"]` instead of relying only on generic summary-level warning text.
+- Typed validation issue payloads currently cover:
+  - `CDR_CHAIN_ROLE_AMBIGUOUS`
+  - `CDR_BOUNDARY_AMBIGUOUS`
+  - `CDR_MOTIF_FALLBACK_USED`
+  - `CDR_NUMBERING_MISSING`
+- Each typed issue carries structured details for downstream UX work, including:
+  - `selected_heavy_chain`
+  - `scheme`
+  - `boundary_source`
+  - `boundary_confidence`
+  - per-chain CDR metadata snapshot
+- Added integration coverage in `tests/test_structure_flow.py` for:
+  - motif-fallback validation warnings,
+  - partial/ambiguous boundary validation warnings.
+- `/health` now exposes `capabilities.cdr_annotation` flags so clients can detect whether
+  the deterministic CDR annotation backend is available, including support for:
+  - numbered-boundary extraction,
+  - motif fallback,
+  - typed validation issue surfacing.
+- Added health contract coverage in `tests/test_health.py` and updated the public API
+  contract documentation in `OpenAPI_Abby_v1.yaml`.
+- Frontend structure and prediction views now render a concise CDR summary card that shows:
+  - annotation availability,
+  - confidence and boundary source,
+  - selected heavy chain,
+  - chain-level region/completeness summary,
+  - typed CDR warnings when present.
+- `/health` now exposes in-process CDR telemetry counters and percentages for antibody-mode
+  summaries, including:
+  - `% numbering-based`
+  - `% motif-fallback`
+  - `% ambiguous/failed`
+  with raw counts and total antibody summary attempts for downstream scraping or future metrics export.
+
 ### Exit criteria
 
-- [ ] Users can tell exactly why CDR annotation succeeded/failed.
+- [x] Users can tell exactly why CDR annotation succeeded/failed.
 
 ---
 

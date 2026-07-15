@@ -25,6 +25,13 @@ from abby_api.schemas.structures import (
 )
 from abby_api.services.structure_parsing import parse_structure_file, summarize_structure
 
+_CDR_VALIDATION_CODES = {
+    "CDR_CHAIN_ROLE_AMBIGUOUS",
+    "CDR_BOUNDARY_AMBIGUOUS",
+    "CDR_MOTIF_FALLBACK_USED",
+    "CDR_NUMBERING_MISSING",
+}
+
 UPLOAD_DIR = Path(__file__).resolve().parents[3] / "data" / "uploads"
 MD_CANONICAL_CHAIN_IDS = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz")
 
@@ -93,7 +100,9 @@ def validate_partner_mapping(
     list[StructureValidationIssue],
 ]:
     warnings = list(summary.warnings)
-    warning_details = list(summary.warning_details)
+    warning_details = [
+        issue for issue in summary.warning_details if issue.code not in _CDR_VALIDATION_CODES
+    ]
     errors: list[str] = []
     error_details: list[StructureValidationIssue] = []
     normalized = normalize_chain_groups(chains)
@@ -145,6 +154,64 @@ def validate_partner_mapping(
         "partner_2": sum(summary.residue_counts.get(chain, 0) for chain in normalized.partner_2),
     }
     return warnings, errors, partner_residue_counts, warning_details, error_details
+
+
+def _build_cdr_validation_issues(summary: StructureSummary) -> list[StructureValidationIssue]:
+    cdr_annotation = summary.metadata.get("cdr_annotation", {})
+    if not isinstance(cdr_annotation, dict):
+        return []
+
+    warnings = cdr_annotation.get("warnings", [])
+    if not isinstance(warnings, list):
+        return []
+
+    selected_heavy_chain = cdr_annotation.get("selected_heavy_chain")
+    scheme = cdr_annotation.get("scheme")
+    boundary_source = cdr_annotation.get("boundary_source")
+    boundary_confidence = cdr_annotation.get("boundary_confidence")
+    chains_payload = cdr_annotation.get("chains", {})
+    if not isinstance(chains_payload, dict):
+        chains_payload = {}
+
+    details_payload = {
+        "cdr_annotation_available": bool(cdr_annotation.get("available", False)),
+        "selected_heavy_chain": selected_heavy_chain,
+        "scheme": scheme,
+        "boundary_source": boundary_source,
+        "boundary_confidence": boundary_confidence,
+        "chains": chains_payload,
+    }
+
+    issue_messages = {
+        "CDR_CHAIN_ROLE_AMBIGUOUS": (
+            "CDR validation could not assign antibody chain roles with high confidence."
+        ),
+        "CDR_BOUNDARY_AMBIGUOUS": (
+            "CDR validation detected partial or ambiguous region boundaries for one or more chains."
+        ),
+        "CDR_MOTIF_FALLBACK_USED": (
+            "CDR validation used motif fallback because numbering-derived "
+            "boundaries were unavailable."
+        ),
+        "CDR_NUMBERING_MISSING": (
+            "CDR validation could not find complete numbering-derived "
+            "boundaries for one or more chains."
+        ),
+    }
+
+    issues: list[StructureValidationIssue] = []
+    for warning_code in warnings:
+        code = str(warning_code).strip()
+        if code not in _CDR_VALIDATION_CODES:
+            continue
+        issues.append(
+            StructureValidationIssue(
+                code=code,
+                message=issue_messages.get(code, "CDR validation reported a typed issue."),
+                details=details_payload,
+            )
+        )
+    return issues
 
 
 def build_md_handoff_plan(chains: ChainMapping) -> dict[str, object]:
@@ -283,6 +350,8 @@ def validate_structure(request: StructureValidationRequest) -> StructureValidati
                 details={"md_handoff": md_handoff},
             )
         )
+
+    warning_details.extend(_build_cdr_validation_issues(detail.summary))
 
     normalized = "mmcif" if detail.format in {"mmcif", "cif"} else "pdb"
     result = StructureValidationResult(

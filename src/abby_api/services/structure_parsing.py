@@ -19,6 +19,7 @@ except ModuleNotFoundError:  # pragma: no cover - exercised in environments with
 
 from abby_api.schemas.structures import StructureSummary, StructureValidationIssue
 from abby_api.services.cdr_annotation import annotate_cdr_h3
+from abby_api.services.cdr_telemetry import record_cdr_annotation_telemetry
 from abby_api.services.feature_extraction import classify_residue
 
 
@@ -440,6 +441,7 @@ def summarize_structure(
     if prediction_mode == "antibody_antigen":
         cdr_annotation = annotate_cdr_h3(structure)
         metadata["cdr_annotation"] = cdr_annotation
+        record_cdr_annotation_telemetry(cdr_annotation)
 
         for warning_code in cdr_annotation.get("warnings", []):
             warning_code_text = str(warning_code).strip()

@@ -43,6 +43,15 @@ export async function fetchHealth(): Promise<{
     required: boolean;
     detail?: string | null;
   }>;
+  capabilities?: {
+    cdr_annotation: {
+      backend_available: boolean;
+      numbering_support_available: boolean;
+      motif_fallback_available: boolean;
+      typed_validation_issues_available: boolean;
+      detail?: string | null;
+    };
+  } | null;
 }> {
   return apiFetch('/health');
 }

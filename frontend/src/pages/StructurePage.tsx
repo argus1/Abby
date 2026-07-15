@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 
+import { CdrSummaryCard } from '../components/CdrSummaryCard';
 import { getStructure } from '../lib/api-client';
 import type { StructureValidationIssue } from '../types/api';
 
@@ -78,6 +79,14 @@ export function StructurePage() {
             <li>Residue counts: {detail?.summary ? JSON.stringify(detail.summary.residue_counts) : '{"A": 1, "B": 1}'}</li>
           </ul>
         </section>
+        <CdrSummaryCard
+          title="CDR annotation summary"
+          annotation={detail?.summary?.metadata?.cdr_annotation}
+          emptyLabel="No CDR annotation summary is available for this structure yet."
+        />
+      </section>
+
+      <section className="grid two-col">
         <section className="card">
           <h3>Validation diagnostics</h3>
           {detail?.validation ? (

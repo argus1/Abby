@@ -20,6 +20,35 @@ export interface StructureInput {
   mode: 'ppi_general' | 'antibody_antigen';
 }
 
+export interface CDRRegion {
+  start_index: number;
+  end_index: number;
+  length: number;
+}
+
+export interface CDRAnnotatedChain {
+  role?: string | null;
+  confidence?: 'high' | 'medium' | 'low' | null;
+  scheme?: string | null;
+  completeness_score?: number;
+  regions?: Record<string, CDRRegion>;
+  residue_count?: number;
+}
+
+export interface CDRAnnotationSummary {
+  available: boolean;
+  scheme?: string | null;
+  boundary_source?: string | null;
+  boundary_confidence: 'high' | 'medium' | 'low';
+  selected_heavy_chain?: string | null;
+  chains: Record<string, CDRAnnotatedChain>;
+  warnings: string[];
+}
+
+export interface StructureSummaryMetadata extends Record<string, unknown> {
+  cdr_annotation?: CDRAnnotationSummary;
+}
+
 export interface StructureSummary {
   parser_name: string;
   model_count: number;
@@ -27,7 +56,7 @@ export interface StructureSummary {
   residue_counts: Record<string, number>;
   warnings: string[];
   warning_details: StructureValidationIssue[];
-  metadata: Record<string, unknown>;
+  metadata: StructureSummaryMetadata;
 }
 
 export interface StructureValidationIssue {
@@ -119,6 +148,7 @@ export interface PredictionResult {
     descriptor_hash: string;
     contact_distance_cutoff_angstrom: number;
     created_at: string;
+    cdr_annotation?: CDRAnnotationSummary | null;
   } | null;
 }
 
