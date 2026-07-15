@@ -1,0 +1,2 @@
+pdb_id,source_pdb_path,converted_mmcif_path,structure_id,prediction_id,ground_truth_row_count,status
+1A0Q,validation_dataset/ANDD_pdb/All_structures/1A0Q.pdb,/home/argus/Documents/Abby/data/validation_runs/andd_smoke_test2/converted_mmcif/1A0Q.mmcif,04d336fa-b6e6-43fb-804a-49ad69d6e0ca,,4,failed

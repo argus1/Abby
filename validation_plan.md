@@ -124,7 +124,7 @@ This validation pass is successful if:
 - failure log
 
 ## Follow-up work
-If this plan is adopted, the next practical step is to turn it into an executable validation harness and add regression tests that assert:
+This plan is now implemented as the executable harness in `src/abby_api/validation_harness.py` (runnable with `python -m abby_api.validation_harness`). The harness and tests assert:
 - PDB → mmCIF conversion succeeds for the ANDD corpus
 - Abby predictions are emitted for each successfully processed structure
 - the prediction/label join uses the ANDD workbook consistently

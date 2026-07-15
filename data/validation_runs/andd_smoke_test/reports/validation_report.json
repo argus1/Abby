@@ -1,0 +1,64 @@
+{
+  "cases": [
+    {
+      "conversion_status": "completed",
+      "converted_mmcif_path": "/home/argus/Documents/Abby/data/validation_runs/andd_smoke_test/converted_mmcif/15C8.mmcif",
+      "error": "Validation failed for 15C8: CHAIN_GROUP_OVERLAP",
+      "experimental_delta_g_kcal_mol": null,
+      "experimental_delta_g_kj_mol": null,
+      "experimental_kd_m": null,
+      "experimental_log_k": null,
+      "gromacs_cif_available": false,
+      "ground_truth_row_count": 4,
+      "md_handoff_ready": true,
+      "pdb_id": "15C8",
+      "predicted_delta_g_kcal_mol": null,
+      "predicted_log_k": null,
+      "prediction_id": null,
+      "prediction_status": "pending",
+      "prediction_warnings": [],
+      "reference_kind": null,
+      "reference_row_index": 4,
+      "reference_source": "abYbank_ab",
+      "simulation_notes": [],
+      "simulation_status": "skipped",
+      "source_pdb_path": "validation_dataset/ANDD_pdb/All_structures/15C8.pdb",
+      "status": "failed",
+      "structure_id": "2c857283-ab32-4fd9-a3b8-7a75c44f8b35",
+      "validation_errors": [
+        "CHAIN_GROUP_OVERLAP"
+      ],
+      "validation_status": "failed",
+      "validation_warnings": [
+        "CHAIN_SEQUENCE_GAPS",
+        "PDB2GMX_PRECHECK_ISSUES",
+        "MD_CHAIN_CANONICALIZATION_SUGGESTED"
+      ]
+    }
+  ],
+  "converted_structures": 1,
+  "dataset_root": "/home/argus/Documents/Abby/validation_dataset/ANDD_pdb",
+  "failed_structures": 1,
+  "generated_at": "2026-07-15T05:31:54.331794+00:00",
+  "matched_structures": 0,
+  "metrics": {
+    "mae_delta_g_kcal_mol": null,
+    "mae_log_k": null,
+    "paired_cases": 0,
+    "pearson_delta_g_kcal_mol": null,
+    "pearson_log_k": null,
+    "rmse_delta_g_kcal_mol": null,
+    "rmse_log_k": null,
+    "spearman_delta_g_kcal_mol": null,
+    "spearman_log_k": null
+  },
+  "output_dir": "/home/argus/Documents/Abby/data/validation_runs/andd_smoke_test",
+  "predicted_structures": 0,
+  "project_id": "4b41450f-e7c9-41d7-9835-efacebaa6995",
+  "simulation_attempted_structures": 0,
+  "simulation_available_structures": 0,
+  "simulation_completed_structures": 0,
+  "total_structures": 1,
+  "validated_structures": 0,
+  "workbook_path": "/home/argus/Documents/Abby/validation_dataset/ANDD_pdb/Antibody and Nanobody Design Dataset (ANDD)_v2.xlsx"
+}
