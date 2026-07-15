@@ -148,7 +148,7 @@ Audit baseline: **2026-07-07**
 ### 3B. Domain-specific structural feature ideas
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
-| `[-]` | `P1 / M` | Add CDR-aware structural bookkeeping if antibody-specific mode needs it | Initial descriptor bookkeeping flags added; full CDR extraction still pending; execute against `Dev_Plan_CompDetRAE.md` (Phases 0–2) and Appendix A RepSeq interoperability profile |
+| `[-]` | `P1 / M` | Add CDR-aware structural bookkeeping if antibody-specific mode needs it | Phase 0 contract foundation completed (`cdr_annotation.py`, `cdr_numbering.py`, `tests/test_cdr_annotation.py`); existing antibody bookkeeping now emits typed `CDR_NUMBERING_MISSING`; full CDR-H3 and full-region extraction (CompDetRAE Phases 1–2) still pending |
 | `[x]` | `P2 / M` | Add electrostatics / surface pKa integration hooks for future PlayMolecule-style enrichment | Contract/hook only is sufficient in this phase if implementation is deferred |
 
 ### Phase 3 exit criteria
