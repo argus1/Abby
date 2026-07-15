@@ -14,6 +14,7 @@ from uuid import uuid4
 
 from openpyxl import load_workbook
 
+from abby_api.cdr_calibration_runner import generate_cdr_calibration_artifacts
 from abby_api.repositories.memory import get_prediction, new_project, save_structure
 from abby_api.schemas.predictions import PredictionRequest
 from abby_api.schemas.structures import (
@@ -40,6 +41,12 @@ DEFAULT_OUTPUT_ROOT = Path("data/validation_runs/andd")
 _MISSING_VALUES = {"", "na", "n/a", "none", "null", "\\", "-"}
 _CHAIN_SEPARATORS = re.compile(r"[;,/|]+|\s+")
 _FLOAT_RE = re.compile(r"[-+]?(?:\d+\.\d*|\.\d+|\d+)(?:[eE][-+]?\d+)?")
+_CDR_QUALITY_BLOCKING_WARNING_CODES = {
+    "CDR_CHAIN_ROLE_AMBIGUOUS",
+    "CDR_BOUNDARY_AMBIGUOUS",
+    "CDR_MOTIF_FALLBACK_USED",
+    "CDR_NUMBERING_MISSING",
+}
 
 
 @dataclass
@@ -92,6 +99,10 @@ class ValidationCaseResult:
     experimental_delta_g_kcal_mol: float | None = None
     predicted_log_k: float | None = None
     predicted_delta_g_kcal_mol: float | None = None
+    cdr_quality_baseline_score: float | None = None
+    cdr_quality_baseline_class: str | None = None
+    cdr_quality_baseline_drift_flag: bool | None = None
+    cdr_quality_baseline_observed_pass: bool | None = None
     validation_warnings: list[str] = field(default_factory=list)
     validation_errors: list[str] = field(default_factory=list)
     prediction_warnings: list[str] = field(default_factory=list)
@@ -439,6 +450,30 @@ def _write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True, default=str), encoding="utf-8")
 
 
+def _extract_cdr_quality_baseline(
+    prediction: object,
+) -> tuple[float | None, str | None, bool | None]:
+    provenance = getattr(prediction, "provenance", None)
+    cdr_annotation = getattr(provenance, "cdr_annotation", None)
+    quality_baseline = getattr(cdr_annotation, "quality_baseline", None)
+    if quality_baseline is None:
+        return None, None, None
+
+    score_value = getattr(quality_baseline, "score", None)
+    score = float(score_value) if isinstance(score_value, (int, float)) else None
+    classification = getattr(quality_baseline, "classification", None)
+    drift_flag = getattr(quality_baseline, "drift_flag", None)
+    return score, classification, drift_flag if isinstance(drift_flag, bool) else None
+
+
+def _cdr_quality_observed_pass(validation: object) -> bool:
+    errors = list(getattr(validation, "errors", []) or [])
+    if errors:
+        return False
+    warnings = set(getattr(validation, "warnings", []) or [])
+    return not any(code in warnings for code in _CDR_QUALITY_BLOCKING_WARNING_CODES)
+
+
 def _serialize_case_row(case: ValidationCaseResult) -> dict[str, object]:
     return {
         "pdb_id": case.pdb_id,
@@ -469,6 +504,16 @@ def _serialize_case_row(case: ValidationCaseResult) -> dict[str, object]:
         "predicted_delta_g_kcal_mol": ""
         if case.predicted_delta_g_kcal_mol is None
         else case.predicted_delta_g_kcal_mol,
+        "cdr_quality_baseline_score": ""
+        if case.cdr_quality_baseline_score is None
+        else case.cdr_quality_baseline_score,
+        "cdr_quality_baseline_class": case.cdr_quality_baseline_class or "",
+        "cdr_quality_baseline_drift_flag": ""
+        if case.cdr_quality_baseline_drift_flag is None
+        else str(case.cdr_quality_baseline_drift_flag),
+        "cdr_quality_baseline_observed_pass": ""
+        if case.cdr_quality_baseline_observed_pass is None
+        else str(case.cdr_quality_baseline_observed_pass),
         "error": case.error or "",
     }
 
@@ -587,6 +632,12 @@ def run_andd_validation_harness(
             case.predicted_log_k = persisted_prediction.consensus.log_k
             case.predicted_delta_g_kcal_mol = persisted_prediction.consensus.delta_g_kcal_mol
             case.prediction_status = persisted_prediction.status
+            (
+                case.cdr_quality_baseline_score,
+                case.cdr_quality_baseline_class,
+                case.cdr_quality_baseline_drift_flag,
+            ) = _extract_cdr_quality_baseline(persisted_prediction)
+            case.cdr_quality_baseline_observed_pass = _cdr_quality_observed_pass(validation)
 
             if simulation_policy != "skip":
                 simulation_result = run_gromacs_cif_simulation(
@@ -638,7 +689,8 @@ def run_andd_validation_harness(
         cases=cases,
     )
 
-    _write_json(report_dir / "validation_report.json", report.to_dict())
+    report_path = report_dir / "validation_report.json"
+    _write_json(report_path, report.to_dict())
     case_rows = [_serialize_case_row(case) for case in cases]
     _write_csv(
         report_dir / "validation_cases.csv",
@@ -669,6 +721,12 @@ def run_andd_validation_harness(
             "status",
         ],
     )
+
+    try:
+        generate_cdr_calibration_artifacts(report_path)
+    except Exception as exc:  # pragma: no cover - best-effort artifact augmentation
+        print(f"Failed to generate CDR calibration artifacts: {exc}")
+
     return report
 
 

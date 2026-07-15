@@ -447,7 +447,7 @@ Add lightweight statistical QA model inspired by classical logistic workflows.
 
 - [ ] Build optional boundary-confidence baseline (logistic/multinomial).
 - [ ] Feature set includes positional, motif, and composition signals.
-- [ ] Report calibration and ROC/AUC metrics.
+- [x] Report calibration and ROC/AUC metrics.
 - [ ] Integrate only as QA guardrail (not mandatory inference path).
 
 ### Implementation status notes (Phase 5, started)
@@ -466,6 +466,11 @@ Add lightweight statistical QA model inspired by classical logistic workflows.
   - ECE/MCE/Brier calculation,
   - optional AUC-ROC estimation when both classes are present,
   - explicit calibration scaffold metadata in the QA model contract.
+- Added a tiny offline calibration runner for validation artifacts:
+  - scans `validation_report.json` artifacts,
+  - extracts `quality_baseline` score/observed label samples,
+  - emits `cdr_quality_calibration_report.json` and `cdr_quality_calibration_bins.csv`,
+  - auto-runs this export as a best-effort step at the end of the ANDD validation harness.
 - The baseline is explicitly non-blocking and does not alter core annotation decisions.
 - Current heuristic features include:
   - boundary source,
