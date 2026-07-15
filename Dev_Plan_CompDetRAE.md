@@ -296,17 +296,17 @@ Generalize from CDR-H3 to full heavy/light CDR regions.
 ### Checklist
 
 - [x] Add light-chain role detection (kappa/lambda-friendly, role fallback `light_unknown`).
-- [ ] Implement full region boundary extraction for H1/H2/H3 and L1/L2/L3.
-- [ ] Handle insertion codes and discontinuities explicitly.
-- [ ] Emit region completeness score per chain.
-- [ ] Persist region maps and residue counts in structured metadata.
+- [x] Implement full region boundary extraction for H1/H2/H3 and L1/L2/L3.
+- [x] Handle insertion codes and discontinuities explicitly.
+- [x] Emit region completeness score per chain.
+- [x] Persist region maps and residue counts in structured metadata.
 
 ### Tests
 
-- [ ] Heavy-only antibodies (single-domain edge case).
-- [ ] Paired VH/VL structures.
-- [ ] Multi-model input and chain remapping interactions.
-- [ ] Missing residues / sequence gaps across region boundaries.
+- [x] Heavy-only antibodies (single-domain edge case).
+- [x] Paired VH/VL structures.
+- [x] Multi-model input and chain remapping interactions.
+- [x] Missing residues / sequence gaps across region boundaries.
 
 ### Exit criteria
 
@@ -315,11 +315,16 @@ Generalize from CDR-H3 to full heavy/light CDR regions.
 
 ### Implementation status notes (Phase 2, started)
 
-- Phase 2 was started by adding light-chain role assignment in CDR metadata with deterministic role values:
+- Phase 2 now includes full numbered-region extraction across heavy/light chains:
+  - `CDR-H1`, `CDR-H2`, `CDR-H3`
+  - `CDR-L1`, `CDR-L2`, `CDR-L3`
+- Light-chain role assignment emits deterministic role values:
   - `light_kappa`
   - `light_lambda`
   - `light_unknown` (fallback)
-- Full-region boundary extraction (H1/H2/L1/L2/L3) remains pending.
+- Region payloads remain insertion-code-aware via residue keys:
+  - `(chain_id, sequence_id, insertion_code)`
+- Discontinuities are reflected via partial-region extraction, reduced `completeness_score`, and typed `CDR_BOUNDARY_AMBIGUOUS` warnings.
 
 ---
 

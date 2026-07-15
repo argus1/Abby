@@ -52,6 +52,14 @@ class _Structure:
         return iter([_Model(self._chains)])
 
 
+class _MultiModelStructure:
+    def __init__(self, model_chains: list[list[_Chain]]) -> None:
+        self._models = [_Model(chains) for chains in model_chains]
+
+    def get_models(self):
+        return iter(self._models)
+
+
 _ONE_TO_THREE = {
     "A": "ALA",
     "C": "CYS",
@@ -224,7 +232,7 @@ def test_cdr_annotation_assigns_light_kappa_role() -> None:
     annotation = annotate_cdr_h3(structure)
 
     assert annotation["chains"]["K1"]["role"] == "light_kappa"
-    assert annotation["chains"]["K1"]["confidence"] == "medium"
+    assert annotation["chains"]["K1"]["confidence"] == "high"
 
 
 def test_cdr_annotation_assigns_light_unknown_fallback_role() -> None:
@@ -235,7 +243,7 @@ def test_cdr_annotation_assigns_light_unknown_fallback_role() -> None:
     annotation = annotate_cdr_h3(structure)
 
     assert annotation["chains"]["L2"]["role"] == "light_unknown"
-    assert annotation["chains"]["L2"]["confidence"] == "medium"
+    assert annotation["chains"]["L2"]["confidence"] == "high"
 
 
 def test_cdr_annotation_assigns_light_lambda_role() -> None:
@@ -246,4 +254,80 @@ def test_cdr_annotation_assigns_light_lambda_role() -> None:
     annotation = annotate_cdr_h3(structure)
 
     assert annotation["chains"]["LAM_A"]["role"] == "light_lambda"
-    assert annotation["chains"]["LAM_A"]["confidence"] == "medium"
+    assert annotation["chains"]["LAM_A"]["confidence"] == "high"
+
+
+def test_full_numbered_cdr_regions_extracted_for_heavy_and_light() -> None:
+    heavy_sequence = ("A" * 9) + "C" + ("A" * 130)
+    light_sequence = ("A" * 23) + "C" + ("A" * 20) + "F" + ("A" * 81)
+    structure = _Structure(
+        [
+            _chain_from_sequence("H", 1, heavy_sequence),
+            _chain_from_sequence("L", 1, light_sequence),
+        ]
+    )
+
+    annotation = annotate_cdr_h3(structure)
+
+    heavy_regions = set(annotation["chains"]["H"]["regions"].keys())
+    light_regions = set(annotation["chains"]["L"]["regions"].keys())
+
+    assert {"CDR-H1", "CDR-H2", "CDR-H3"}.issubset(heavy_regions)
+    assert {"CDR-L1", "CDR-L2", "CDR-L3"}.issubset(light_regions)
+    assert annotation["chains"]["H"]["completeness_score"] == 1.0
+    assert annotation["chains"]["L"]["completeness_score"] == 1.0
+
+
+def test_cdr_region_payload_keeps_insertion_code_ordering() -> None:
+    heavy_residues = [_Residue(i, "ALA") for i in range(1, 111)]
+    heavy_residues.extend([
+        _Residue(31, "ALA", "A"),
+        _Residue(31, "ALA", "B"),
+    ])
+    structure = _Structure([_Chain("H", heavy_residues)])
+
+    annotation = annotate_cdr_h3(structure)
+    h1_region = annotation["chains"]["H"]["regions"]["CDR-H1"]
+    insertion_codes = [item["insertion_code"] for item in h1_region["residue_keys"]]
+
+    assert "A" in insertion_codes
+    assert "B" in insertion_codes
+    assert insertion_codes.index("") < insertion_codes.index("A") < insertion_codes.index("B")
+
+
+def test_discontinuous_numbering_yields_partial_heavy_completeness() -> None:
+    heavy_residues = [_Residue(i, "ALA") for i in range(1, 41)]
+    heavy_residues[9] = _Residue(10, "CYS")
+    heavy_residues[19] = _Residue(20, "TRP")
+    heavy_residues.extend([_Residue(i, "ALA") for i in range(95, 103)])
+    structure = _Structure([_Chain("H", heavy_residues)])
+
+    annotation = annotate_cdr_h3(structure)
+    heavy = annotation["chains"]["H"]
+
+    assert annotation["available"] is True
+    assert heavy["regions"].get("CDR-H1") is not None
+    assert heavy["regions"].get("CDR-H2") is None
+    assert heavy["regions"].get("CDR-H3") is not None
+    assert heavy["completeness_score"] == round(2 / 3, 4)
+    assert CDR_BOUNDARY_AMBIGUOUS in annotation["warnings"]
+
+
+def test_multi_model_annotation_uses_first_model_deterministically() -> None:
+    first_model_heavy = _chain_from_sequence(
+        "H",
+        95,
+        "CWAAAAAA",
+    )
+    second_model_heavy = _chain_from_sequence(
+        "H",
+        95,
+        "AAAAAAAC",
+    )
+    structure = _MultiModelStructure([[first_model_heavy], [second_model_heavy]])
+
+    annotation = annotate_cdr_h3(structure)
+
+    assert annotation["available"] is True
+    assert annotation["selected_heavy_chain"] == "H"
+    assert "CDR-H3" in annotation["chains"]["H"]["regions"]

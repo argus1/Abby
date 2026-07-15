@@ -101,6 +101,27 @@ ATOM 5 N N . ALA B 3 1 ? 12.560 13.102 9.262 1.00 20.00 ? 1 ALA B N 1
 #
 """
 
+PDB_ANTIBODY_CHAIN_REMAP_FIXTURE = """\
+ATOM      1  N   CYS B  95      11.104  13.207   9.111  1.00 20.00           N
+ATOM      2  CA  CYS B  95      12.560  13.102   9.262  1.00 20.00           C
+ATOM      3  C   CYS B  95      13.030  11.670   9.634  1.00 20.00           C
+ATOM      4  O   CYS B  95      12.284  10.719   9.434  1.00 20.00           O
+ATOM      5  N   TRP B 102      14.300  11.500  10.100  1.00 20.00           N
+ATOM      6  CA  TRP B 102      14.900  10.170  10.420  1.00 20.00           C
+ATOM      7  C   TRP B 102      16.350  10.200  10.900  1.00 20.00           C
+ATOM      8  O   TRP B 102      17.020   9.180  10.810  1.00 20.00           O
+ATOM      9  N   CYS A  24      18.200  10.700  11.400  1.00 20.00           N
+ATOM     10  CA  CYS A  24      19.100  10.900  12.500  1.00 20.00           C
+ATOM     11  C   CYS A  24      19.900  12.100  12.900  1.00 20.00           C
+ATOM     12  O   CYS A  24      20.800  12.200  13.700  1.00 20.00           O
+ATOM     13  N   PHE A  89      21.100  13.100  13.500  1.00 20.00           N
+ATOM     14  CA  PHE A  89      22.200  13.300  14.300  1.00 20.00           C
+ATOM     15  C   PHE A  89      23.100  14.400  13.700  1.00 20.00           C
+ATOM     16  O   PHE A  89      24.200  14.200  13.200  1.00 20.00           O
+TER
+END
+"""
+
 
 def test_structure_upload_validate_and_fetch() -> None:
     upload_response = client.post(
@@ -741,3 +762,64 @@ def test_prediction_supports_external_simulation_summary_import() -> None:
     ]
     assert trajectory_key
     assert ObjectStore().exists(trajectory_key)
+
+
+def test_prediction_cdr_annotation_stays_on_source_chain_ids_after_md_remap() -> None:
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                "test_antibody_chain_remap.pdb",
+                PDB_ANTIBODY_CHAIN_REMAP_FIXTURE,
+                "chemical/x-pdb",
+            )
+        },
+        data={"mode": "antibody_antigen"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    structure_id = upload_response.json()["structure_id"]
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": structure_id,
+            "mode": "antibody_antigen",
+            "chains": {"partner_1": ["B"], "partner_2": ["A"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    validation_payload = validate_response.json()
+    assert validation_payload["md_handoff"]["canonical_chain_map"]["B"] == "A"
+    assert validation_payload["md_handoff"]["canonical_chain_map"]["A"] == "B"
+
+    project_response = client.post(
+        "/api/v1/projects",
+        headers=HEADERS,
+        json={"name": "CDR remap interaction"},
+    )
+    assert project_response.status_code == 201, project_response.text
+    project_id = project_response.json()["project_id"]
+
+    prediction_response = client.post(
+        "/api/v1/predictions",
+        headers=HEADERS,
+        json={
+            "project_id": project_id,
+            "structure_id": structure_id,
+            "mode": "antibody_antigen",
+        },
+    )
+    assert prediction_response.status_code == 202, prediction_response.text
+    prediction_id = prediction_response.json()["prediction_id"]
+
+    prediction_fetch = client.get(f"/api/v1/predictions/{prediction_id}", headers=HEADERS)
+    assert prediction_fetch.status_code == 200, prediction_fetch.text
+    prediction_payload = prediction_fetch.json()
+    cdr_provenance = prediction_payload["provenance"]["cdr_annotation"]
+
+    assert cdr_provenance["selected_heavy_chain"] == "B"
+    assert "B" in cdr_provenance["chains"]
+    assert cdr_provenance["chains"]["B"]["role"] == "heavy"
+    assert "CDR-H3" in cdr_provenance["chains"]["B"]["regions"]

@@ -83,6 +83,32 @@ _ONE_LETTER_RESIDUE = {
 
 _H3_MOTIF = re.compile(r"C([A-Z]{4,30}?)WG[A-Z]G")
 
+_HEAVY_REGION_WINDOWS: dict[str, tuple[tuple[str, int, int], ...]] = {
+    "kabat": (
+        ("CDR-H1", 31, 35),
+        ("CDR-H2", 50, 65),
+        ("CDR-H3", 95, 102),
+    ),
+    "imgt": (
+        ("CDR-H1", 27, 38),
+        ("CDR-H2", 56, 65),
+        ("CDR-H3", 105, 117),
+    ),
+}
+
+_LIGHT_REGION_WINDOWS: dict[str, tuple[tuple[str, int, int], ...]] = {
+    "kabat": (
+        ("CDR-L1", 24, 34),
+        ("CDR-L2", 50, 56),
+        ("CDR-L3", 89, 97),
+    ),
+    "imgt": (
+        ("CDR-L1", 27, 38),
+        ("CDR-L2", 56, 65),
+        ("CDR-L3", 105, 117),
+    ),
+}
+
 
 def _chain_residues_from_structure(structure: Any) -> dict[str, list[_ChainResidue]]:
     models = list(structure.get_models()) if hasattr(structure, "get_models") else []
@@ -262,6 +288,100 @@ def _residue_key_payload(residue: _ChainResidue) -> dict[str, str]:
     }
 
 
+def _build_region_payload(
+    residues: list[_ChainResidue],
+    start_index: int,
+    end_index: int,
+) -> dict[str, Any]:
+    selected = residues[start_index : end_index + 1]
+    return {
+        "start_index": start_index,
+        "end_index": end_index,
+        "length": len(selected),
+        "start_residue": _residue_key_payload(selected[0]),
+        "end_residue": _residue_key_payload(selected[-1]),
+        "residue_keys": [_residue_key_payload(residue) for residue in selected],
+    }
+
+
+def _extract_regions_by_windows(
+    residues: list[_ChainResidue],
+    region_windows: tuple[tuple[str, int, int], ...],
+) -> dict[str, Any]:
+    regions: dict[str, Any] = {}
+    covered_residue_count = 0
+    for region_name, start_seq_id, end_seq_id in region_windows:
+        indices = [
+            index
+            for index, residue in enumerate(residues)
+            if start_seq_id <= residue.sequence_id <= end_seq_id
+        ]
+        if not indices:
+            continue
+        start_index = min(indices)
+        end_index = max(indices)
+        region_payload = _build_region_payload(residues, start_index, end_index)
+        regions[region_name] = region_payload
+        covered_residue_count += int(region_payload["length"])
+
+    return {
+        "regions": regions,
+        "region_count": len(regions),
+        "covered_residue_count": covered_residue_count,
+        "expected_region_count": len(region_windows),
+    }
+
+
+def _choose_best_numbered_extraction(
+    residues: list[_ChainResidue],
+    *,
+    domain: Literal["heavy", "light"],
+) -> dict[str, Any] | None:
+    window_map = _HEAVY_REGION_WINDOWS if domain == "heavy" else _LIGHT_REGION_WINDOWS
+
+    scheme_priority = {"kabat": 2, "imgt": 1}
+    candidates: list[tuple[int, int, int, str, dict[str, Any]]] = []
+    for scheme, windows in window_map.items():
+        extracted = _extract_regions_by_windows(residues, windows)
+        candidates.append(
+            (
+                int(extracted["region_count"]),
+                int(scheme_priority.get(scheme, 0)),
+                int(extracted["covered_residue_count"]),
+                scheme,
+                extracted,
+            )
+        )
+
+    if not candidates:
+        return None
+
+    best_region_count, _best_priority, _best_coverage, best_scheme, best_extracted = max(candidates)
+    if best_region_count == 0:
+        return None
+
+    completeness = round(
+        float(best_region_count) / max(float(best_extracted["expected_region_count"]), 1.0),
+        4,
+    )
+    confidence: CDRBoundaryConfidence
+    if best_region_count == best_extracted["expected_region_count"]:
+        confidence = "high"
+    elif best_region_count >= 2:
+        confidence = "medium"
+    else:
+        confidence = "low"
+
+    return {
+        "scheme": best_scheme,
+        "regions": best_extracted["regions"],
+        "region_count": best_region_count,
+        "expected_region_count": best_extracted["expected_region_count"],
+        "completeness_score": completeness,
+        "confidence": confidence,
+    }
+
+
 def annotate_cdr_h3(structure: Any) -> dict[str, Any]:
     """Annotate CDR-H3 boundaries using numbered windows first, motif fallback second."""
 
@@ -291,20 +411,58 @@ def annotate_cdr_h3(structure: Any) -> dict[str, Any]:
 
     warnings: list[str] = []
     selected_heavy_chain = top_chains[0] if highest_score >= 2 and top_chains else None
-    if selected_heavy_chain is None or len(top_chains) > 1:
+    if highest_score >= 2 and len(top_chains) > 1:
         warnings.append(CDR_CHAIN_ROLE_AMBIGUOUS)
 
     annotation_window: _CDRWindow | None = None
+    heavy_region_scheme: str | None = None
+    heavy_regions: dict[str, Any] = {}
+    heavy_completeness_score = 0.0
+    heavy_confidence: CDRBoundaryConfidence = "low"
+    boundary_source: CDRBoundarySource | None = None
+
     if selected_heavy_chain is not None:
         residues = residues_by_chain[selected_heavy_chain]
-        annotation_window = _numbering_h3_window(residues)
+        heavy_numbered = _choose_best_numbered_extraction(residues, domain="heavy")
+        if heavy_numbered is not None:
+            heavy_region_scheme = str(heavy_numbered["scheme"])
+            heavy_regions = dict(heavy_numbered["regions"])
+            heavy_completeness_score = float(heavy_numbered["completeness_score"])
+            heavy_confidence = heavy_numbered["confidence"]
+            if int(heavy_numbered["region_count"]) < int(heavy_numbered["expected_region_count"]):
+                warnings.append(CDR_BOUNDARY_AMBIGUOUS)
+            if "CDR-H3" in heavy_regions:
+                heavy_confidence = "high"
+                h3_payload = heavy_regions["CDR-H3"]
+                annotation_window = _CDRWindow(
+                    scheme=heavy_region_scheme,  # type: ignore[arg-type]
+                    source="numbered",
+                    confidence="high",
+                    start_index=int(h3_payload["start_index"]),
+                    end_index=int(h3_payload["end_index"]),
+                )
+                boundary_source = "numbered"
 
         if annotation_window is None:
             warnings.append(CDR_NUMBERING_MISSING)
             motif_windows = motif_by_chain[selected_heavy_chain]
             if len(motif_windows) > 1:
                 warnings.append(CDR_BOUNDARY_AMBIGUOUS)
-            annotation_window = _motif_h3_window(residues, motif_windows)
+            fallback_window = _motif_h3_window(residues, motif_windows)
+            annotation_window = fallback_window
+            if fallback_window is not None:
+                heavy_regions["CDR-H3"] = _build_region_payload(
+                    residues,
+                    fallback_window.start_index,
+                    fallback_window.end_index,
+                )
+                heavy_completeness_score = max(heavy_completeness_score, round(1 / 3, 4))
+                heavy_confidence = fallback_window.confidence
+                if heavy_region_scheme is None:
+                    heavy_region_scheme = fallback_window.scheme
+                    boundary_source = "motif_fallback"
+                else:
+                    boundary_source = "hybrid"
             if annotation_window is not None:
                 warnings.append(CDR_MOTIF_FALLBACK_USED)
     else:
@@ -312,41 +470,53 @@ def annotate_cdr_h3(structure: Any) -> dict[str, Any]:
 
     chains_payload: dict[str, dict[str, Any]] = {}
     for chain_id, residues in residues_by_chain.items():
+        chain_scheme: str | None = None
+        completeness_score = 0.0
         if chain_id == selected_heavy_chain:
             role = "heavy"
-            confidence: CDRBoundaryConfidence = "high"
+            confidence: CDRBoundaryConfidence = heavy_confidence
+            chain_regions = dict(heavy_regions)
+            chain_scheme = heavy_region_scheme
+            completeness_score = heavy_completeness_score
         else:
             role, confidence = _infer_light_role(chain_id, residues)
-        chain_regions: dict[str, Any] = {}
-
-        if chain_id == selected_heavy_chain and annotation_window is not None:
-            selected = residues[annotation_window.start_index : annotation_window.end_index + 1]
-            chain_regions["CDR-H3"] = {
-                "start_index": annotation_window.start_index,
-                "end_index": annotation_window.end_index,
-                "length": len(selected),
-                "start_residue": _residue_key_payload(selected[0]),
-                "end_residue": _residue_key_payload(selected[-1]),
-                "residue_keys": [_residue_key_payload(residue) for residue in selected],
-            }
+            chain_regions: dict[str, Any] = {}
+            if role.startswith("light"):
+                light_numbered = _choose_best_numbered_extraction(residues, domain="light")
+                if light_numbered is not None:
+                    chain_scheme = str(light_numbered["scheme"])
+                    chain_regions = dict(light_numbered["regions"])
+                    completeness_score = float(light_numbered["completeness_score"])
+                    if int(light_numbered["region_count"]) < int(
+                        light_numbered["expected_region_count"]
+                    ):
+                        warnings.append(CDR_BOUNDARY_AMBIGUOUS)
+                    if confidence == "medium" and light_numbered["confidence"] == "high":
+                        confidence = "high"
+                else:
+                    warnings.append(CDR_NUMBERING_MISSING)
+                    if confidence == "medium":
+                        confidence = "low"
 
         chains_payload[chain_id] = {
             "role": role,
             "confidence": confidence,
+            "scheme": chain_scheme,
+            "completeness_score": completeness_score,
             "regions": chain_regions,
             "residue_count": len(residues),
         }
 
     available = annotation_window is not None
-    if not available:
-        warnings.append(CDR_BOUNDARY_AMBIGUOUS)
 
     deduped_warnings = sorted(set(warnings))
 
     return {
         "available": available,
-        "scheme": annotation_window.scheme if annotation_window is not None else None,
-        "boundary_source": annotation_window.source if annotation_window is not None else None,
+        "scheme": (
+            annotation_window.scheme if annotation_window is not None else heavy_region_scheme
+        ),
+        "boundary_source": boundary_source,
         "boundary_confidence": (
             annotation_window.confidence if annotation_window is not None else "low"
         ),
