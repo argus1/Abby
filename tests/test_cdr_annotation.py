@@ -159,6 +159,8 @@ def test_cdr_h3_numbering_annotation_selects_heavy_chain_without_h_name() -> Non
     assert annotation["boundary_source"] == "numbered"
     assert annotation["boundary_confidence"] == "high"
     assert annotation["chains"]["X"]["regions"]["CDR-H3"]["length"] >= 4
+    assert annotation["quality_baseline"]["available"] is True
+    assert annotation["quality_baseline"]["predicted_confidence_class"] == "medium"
 
 
 def test_cdr_h3_motif_fallback_annotation_records_typed_warning() -> None:
@@ -171,6 +173,8 @@ def test_cdr_h3_motif_fallback_annotation_records_typed_warning() -> None:
     assert annotation["boundary_source"] == "motif_fallback"
     assert CDR_NUMBERING_MISSING in annotation["warnings"]
     assert CDR_MOTIF_FALLBACK_USED in annotation["warnings"]
+    assert annotation["quality_baseline"]["drift_flag"] is True
+    assert "FALLBACK_BOUNDARY_SOURCE" in annotation["quality_baseline"]["drift_reason_codes"]
 
 
 def test_cdr_h3_ambiguous_motif_returns_boundary_ambiguity_warning() -> None:
@@ -180,6 +184,8 @@ def test_cdr_h3_ambiguous_motif_returns_boundary_ambiguity_warning() -> None:
 
     assert annotation["available"] is False
     assert CDR_BOUNDARY_AMBIGUOUS in annotation["warnings"]
+    assert annotation["quality_baseline"]["predicted_confidence_class"] == "low"
+    assert "ANNOTATION_UNAVAILABLE" in annotation["quality_baseline"]["drift_reason_codes"]
 
 
 def test_cdr_h3_annotation_is_deterministic() -> None:
@@ -276,6 +282,8 @@ def test_full_numbered_cdr_regions_extracted_for_heavy_and_light() -> None:
     assert {"CDR-L1", "CDR-L2", "CDR-L3"}.issubset(light_regions)
     assert annotation["chains"]["H"]["completeness_score"] == 1.0
     assert annotation["chains"]["L"]["completeness_score"] == 1.0
+    assert annotation["quality_baseline"]["predicted_confidence_class"] == "high"
+    assert annotation["quality_baseline"]["drift_flag"] is False
 
 
 def test_cdr_region_payload_keeps_insertion_code_ordering() -> None:

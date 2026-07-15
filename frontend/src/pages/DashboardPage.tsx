@@ -9,6 +9,8 @@ import { WorkflowStepper } from '../components/WorkflowStepper';
 export function DashboardPage() {
   const navigate = useNavigate();
   const health = useQuery({ queryKey: ['health'], queryFn: fetchHealth, retry: false });
+  const cdrCapability = health.data?.capabilities?.cdr_annotation;
+  const cdrTelemetry = cdrCapability?.telemetry;
   const createProjectMutation = useMutation({
     mutationFn: () => createProject('Abby Demo Project'),
     onSuccess: (project) => {
@@ -40,6 +42,34 @@ export function DashboardPage() {
                     {dependency.required ? ' (required)' : ''}
                   </li>
                 ))}
+              </ul>
+            </div>
+          ) : null}
+          {cdrCapability ? (
+            <div className="muted small health-subpanel">
+              <div>CDR annotation runtime:</div>
+              <ul className="bullet-list compact">
+                <li>Backend: {cdrCapability.backend_available ? 'available' : 'unavailable'}</li>
+                <li>
+                  Typed validation issues:{' '}
+                  {cdrCapability.typed_validation_issues_available ? 'available' : 'unavailable'}
+                </li>
+                {cdrTelemetry ? (
+                  <>
+                    <li>
+                      Numbering-based: {cdrTelemetry.numbering_based_percent}% ({cdrTelemetry.numbering_based_count}/
+                      {cdrTelemetry.total_antibody_summaries})
+                    </li>
+                    <li>
+                      Motif fallback: {cdrTelemetry.motif_fallback_percent}% ({cdrTelemetry.motif_fallback_count}/
+                      {cdrTelemetry.total_antibody_summaries})
+                    </li>
+                    <li>
+                      Ambiguous/failed: {cdrTelemetry.ambiguous_or_failed_percent}% ({cdrTelemetry.ambiguous_or_failed_count}/
+                      {cdrTelemetry.total_antibody_summaries})
+                    </li>
+                  </>
+                ) : null}
               </ul>
             </div>
           ) : null}

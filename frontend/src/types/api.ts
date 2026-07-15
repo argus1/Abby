@@ -35,6 +35,17 @@ export interface CDRAnnotatedChain {
   residue_count?: number;
 }
 
+export interface CDRQualityBaseline {
+  available: boolean;
+  model_name: string;
+  predicted_confidence_class: 'high' | 'medium' | 'low';
+  primary_boundary_confidence: 'high' | 'medium' | 'low';
+  score: number;
+  drift_flag: boolean;
+  drift_reason_codes: string[];
+  feature_vector: Record<string, number>;
+}
+
 export interface CDRAnnotationSummary {
   available: boolean;
   scheme?: string | null;
@@ -43,6 +54,7 @@ export interface CDRAnnotationSummary {
   selected_heavy_chain?: string | null;
   chains: Record<string, CDRAnnotatedChain>;
   warnings: string[];
+  quality_baseline?: CDRQualityBaseline | null;
 }
 
 export interface StructureSummaryMetadata extends Record<string, unknown> {

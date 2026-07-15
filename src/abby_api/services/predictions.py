@@ -20,6 +20,7 @@ from abby_api.schemas.common import (
     ArtifactReference,
     ArtifactRegistry,
     CDRAnnotationProvenance,
+    CDRBoundaryQualityBaseline,
     LearnedModelProvenance,
     PredictionInterval,
     Provenance,
@@ -280,6 +281,13 @@ def create_prediction(request: PredictionRequest) -> PredictionQueuedResponse:
             ),
             chains=dict(cdr_annotation_metadata.get("chains", {})),
             warnings=[str(item) for item in cdr_annotation_metadata.get("warnings", [])],
+            quality_baseline=(
+                CDRBoundaryQualityBaseline.model_validate(
+                    cdr_annotation_metadata.get("quality_baseline", {})
+                )
+                if isinstance(cdr_annotation_metadata.get("quality_baseline"), dict)
+                else None
+            ),
         )
 
     result = PredictionResult(

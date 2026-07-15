@@ -872,6 +872,11 @@ def test_prediction_cdr_annotation_stays_on_source_chain_ids_after_md_remap() ->
     assert "B" in cdr_provenance["chains"]
     assert cdr_provenance["chains"]["B"]["role"] == "heavy"
     assert "CDR-H3" in cdr_provenance["chains"]["B"]["regions"]
+    assert cdr_provenance["quality_baseline"]["available"] is True
+    assert cdr_provenance["quality_baseline"]["predicted_confidence_class"] in {
+        "medium",
+        "high",
+    }
 
 
 def test_antibody_prediction_response_exposes_cdr_descriptor_fields() -> None:
@@ -1011,6 +1016,10 @@ def test_antibody_multi_model_chain_remap_and_gap_combined_stress_case() -> None
     assert "B" in cdr_provenance["chains"]
     assert cdr_provenance["chains"]["B"]["role"] == "heavy"
     assert "CDR-H3" in cdr_provenance["chains"]["B"]["regions"]
+    assert cdr_provenance["quality_baseline"]["predicted_confidence_class"] in {
+        "medium",
+        "high",
+    }
 
 
 def test_validation_surfaces_dedicated_cdr_motif_fallback_issue() -> None:

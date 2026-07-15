@@ -49,6 +49,15 @@ export async function fetchHealth(): Promise<{
       numbering_support_available: boolean;
       motif_fallback_available: boolean;
       typed_validation_issues_available: boolean;
+      telemetry?: {
+        total_antibody_summaries: number;
+        numbering_based_count: number;
+        numbering_based_percent: number;
+        motif_fallback_count: number;
+        motif_fallback_percent: number;
+        ambiguous_or_failed_count: number;
+        ambiguous_or_failed_percent: number;
+      } | null;
       detail?: string | null;
     };
   } | null;

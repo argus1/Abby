@@ -382,6 +382,117 @@ def _choose_best_numbered_extraction(
     }
 
 
+def _confidence_rank(confidence: CDRBoundaryConfidence | str) -> int:
+    return {"low": 0, "medium": 1, "high": 2}.get(str(confidence), 0)
+
+
+def _classify_baseline_score(score: float) -> CDRBoundaryConfidence:
+    if score >= 0.8:
+        return "high"
+    if score >= 0.35:
+        return "medium"
+    return "low"
+
+
+def _build_boundary_quality_baseline(
+    *,
+    available: bool,
+    boundary_source: CDRBoundarySource | None,
+    boundary_confidence: CDRBoundaryConfidence,
+    selected_heavy_chain: str | None,
+    chains_payload: dict[str, dict[str, Any]],
+    warnings: list[str],
+    heavy_scores: dict[str, int],
+    motif_by_chain: dict[str, list[tuple[int, int]]],
+    heavy_completeness_score: float,
+) -> dict[str, Any]:
+    warning_set = set(warnings)
+    heavy_chain_payload = (
+        chains_payload.get(selected_heavy_chain, {}) if selected_heavy_chain is not None else {}
+    )
+    heavy_region_count = len(heavy_chain_payload.get("regions", {}))
+    sorted_scores = sorted(heavy_scores.values(), reverse=True)
+    heavy_candidate_margin = (
+        sorted_scores[0] - sorted_scores[1]
+        if len(sorted_scores) > 1
+        else (sorted_scores[0] if sorted_scores else 0)
+    )
+    motif_match_count = (
+        len(motif_by_chain.get(selected_heavy_chain, [])) if selected_heavy_chain is not None else 0
+    )
+
+    feature_vector = {
+        "available_flag": 1.0 if available else 0.0,
+        "numbering_source_flag": 1.0 if boundary_source == "numbered" else 0.0,
+        "motif_fallback_flag": (
+            1.0 if boundary_source in {"motif_fallback", "hybrid"} else 0.0
+        ),
+        "heavy_completeness_score": round(float(heavy_completeness_score), 4),
+        "selected_heavy_region_count": float(heavy_region_count),
+        "warning_count": float(len(warning_set)),
+        "heavy_candidate_margin": float(max(heavy_candidate_margin, 0)),
+        "motif_match_count": float(motif_match_count),
+    }
+
+    score = 0.1
+    if available:
+        score += 0.2
+
+    if boundary_source == "numbered":
+        score += 0.35
+    elif boundary_source == "hybrid":
+        score += 0.18
+    elif boundary_source == "motif_fallback":
+        score += 0.08
+
+    score += min(0.25, float(heavy_completeness_score) * 0.25)
+    score += min(0.12, float(heavy_region_count) * 0.04)
+    score += min(0.08, float(max(heavy_candidate_margin, 0)) * 0.04)
+
+    if motif_match_count == 1:
+        score += 0.05
+
+    score -= min(0.16, float(len(warning_set)) * 0.04)
+    if CDR_NUMBERING_MISSING in warning_set:
+        score -= 0.12
+    if CDR_MOTIF_FALLBACK_USED in warning_set:
+        score -= 0.08
+    if CDR_BOUNDARY_AMBIGUOUS in warning_set:
+        score -= 0.2
+    if CDR_CHAIN_ROLE_AMBIGUOUS in warning_set:
+        score -= 0.12
+
+    score = round(min(max(score, 0.0), 1.0), 4)
+    predicted_confidence = _classify_baseline_score(score)
+
+    drift_reason_codes: list[str] = []
+    if not available:
+        drift_reason_codes.append("ANNOTATION_UNAVAILABLE")
+    if boundary_source in {"motif_fallback", "hybrid"}:
+        drift_reason_codes.append("FALLBACK_BOUNDARY_SOURCE")
+    if CDR_NUMBERING_MISSING in warning_set:
+        drift_reason_codes.append("NUMBERING_SIGNAL_MISSING")
+    if CDR_BOUNDARY_AMBIGUOUS in warning_set:
+        drift_reason_codes.append("AMBIGUOUS_BOUNDARY_WARNING")
+    if CDR_CHAIN_ROLE_AMBIGUOUS in warning_set:
+        drift_reason_codes.append("AMBIGUOUS_CHAIN_ROLE_WARNING")
+    if heavy_completeness_score < 1.0 and heavy_region_count > 0:
+        drift_reason_codes.append("PARTIAL_REGION_COVERAGE")
+    if _confidence_rank(predicted_confidence) < _confidence_rank(boundary_confidence):
+        drift_reason_codes.append("BASELINE_LOWER_THAN_PRIMARY_CONFIDENCE")
+
+    return {
+        "available": True,
+        "model_name": "heuristic_v1",
+        "predicted_confidence_class": predicted_confidence,
+        "primary_boundary_confidence": boundary_confidence,
+        "score": score,
+        "drift_flag": bool(drift_reason_codes),
+        "drift_reason_codes": drift_reason_codes,
+        "feature_vector": feature_vector,
+    }
+
+
 def annotate_cdr_h3(structure: Any) -> dict[str, Any]:
     """Annotate CDR-H3 boundaries using numbered windows first, motif fallback second."""
 
@@ -510,6 +621,19 @@ def annotate_cdr_h3(structure: Any) -> dict[str, Any]:
     available = annotation_window is not None
 
     deduped_warnings = sorted(set(warnings))
+    quality_baseline = _build_boundary_quality_baseline(
+        available=available,
+        boundary_source=boundary_source,
+        boundary_confidence=(
+            annotation_window.confidence if annotation_window is not None else "low"
+        ),
+        selected_heavy_chain=selected_heavy_chain,
+        chains_payload=chains_payload,
+        warnings=deduped_warnings,
+        heavy_scores=heavy_scores,
+        motif_by_chain=motif_by_chain,
+        heavy_completeness_score=heavy_completeness_score,
+    )
 
     return {
         "available": available,
@@ -523,6 +647,7 @@ def annotate_cdr_h3(structure: Any) -> dict[str, Any]:
         "selected_heavy_chain": selected_heavy_chain,
         "chains": chains_payload,
         "warnings": deduped_warnings,
+        "quality_baseline": quality_baseline,
     }
 
 

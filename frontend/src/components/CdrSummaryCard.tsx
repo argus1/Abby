@@ -34,6 +34,7 @@ export function CdrSummaryCard({
 }) {
   const chainEntries = Object.entries(annotation?.chains ?? {});
   const warningCount = annotation?.warnings?.length ?? 0;
+  const qualityBaseline = annotation?.quality_baseline;
 
   return (
     <section className="card">
@@ -61,6 +62,36 @@ export function CdrSummaryCard({
             <div className="muted small">Chain summary</div>
             <p>{summarizeChainRegions(annotation)}</p>
           </div>
+
+          {qualityBaseline ? (
+            <div className="cdr-summary-panel">
+              <div className="muted small">QA baseline</div>
+              <div className="status-row">
+                <span
+                  className={`status-pill cdr-confidence ${qualityBaseline.predicted_confidence_class}`}
+                >
+                  Baseline: {qualityBaseline.predicted_confidence_class}
+                </span>
+                <span className={`status-pill ${qualityBaseline.drift_flag ? 'failed' : 'completed'}`}>
+                  {qualityBaseline.drift_flag ? 'Drift flagged' : 'No drift flag'}
+                </span>
+              </div>
+              <ul className="bullet-list compact">
+                <li>Baseline model: {qualityBaseline.model_name}</li>
+                <li>Score: {qualityBaseline.score.toFixed(2)}</li>
+                <li>Primary confidence: {qualityBaseline.primary_boundary_confidence}</li>
+              </ul>
+              {qualityBaseline.drift_reason_codes.length > 0 ? (
+                <ul className="bullet-list compact">
+                  {qualityBaseline.drift_reason_codes.map((reason) => (
+                    <li key={reason}>
+                      <code>{reason}</code>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
 
           {warningCount > 0 ? (
             <div className="cdr-summary-panel">

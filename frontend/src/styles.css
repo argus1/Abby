@@ -45,6 +45,11 @@ code { background: rgba(255,255,255,0.08); padding: 0.15rem 0.35rem; border-radi
 }
 .hero { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; }
 .health-panel { min-width: 220px; text-align: right; }
+.health-subpanel {
+  margin-top: 0.9rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
 .muted { color: #a9b7d4; }
 .small { font-size: 0.85rem; }
 .card-header { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; }

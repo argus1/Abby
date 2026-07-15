@@ -98,6 +98,17 @@ class LearnedModelProvenance(AbbyBaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class CDRBoundaryQualityBaseline(AbbyBaseModel):
+    available: bool = False
+    model_name: str = "heuristic_v1"
+    predicted_confidence_class: ConfidenceClass = "low"
+    primary_boundary_confidence: ConfidenceClass = "low"
+    score: float = 0.0
+    drift_flag: bool = False
+    drift_reason_codes: list[str] = Field(default_factory=list)
+    feature_vector: dict[str, float] = Field(default_factory=dict)
+
+
 class CDRAnnotationProvenance(AbbyBaseModel):
     available: bool = False
     scheme: str | None = None
@@ -106,6 +117,7 @@ class CDRAnnotationProvenance(AbbyBaseModel):
     selected_heavy_chain: str | None = None
     chains: dict[str, dict[str, Any]] = Field(default_factory=dict)
     warnings: list[str] = Field(default_factory=list)
+    quality_baseline: CDRBoundaryQualityBaseline | None = None
 
 
 class StructureGenerationProvenance(AbbyBaseModel):
