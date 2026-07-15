@@ -55,6 +55,7 @@ async def upload_structure(file: UploadFile, mode: PredictionMode) -> StructureI
             parser_name,
             file_path=destination,
             format_name=format_name,
+            prediction_mode=mode,
         )
     except Exception as exc:  # pragma: no cover - defensive error surface
         raise HTTPException(
@@ -252,6 +253,7 @@ def validate_structure(request: StructureValidationRequest) -> StructureValidati
                 parser_name,
                 file_path=file_path,
                 format_name=normalized_format,
+                prediction_mode=detail.mode,
             ),
         )
         detail = get_structure(request.structure_id)

@@ -148,7 +148,7 @@ Audit baseline: **2026-07-07**
 ### 3B. Domain-specific structural feature ideas
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
-| `[-]` | `P1 / M` | Add CDR-aware structural bookkeeping if antibody-specific mode needs it | Phase 0 contract foundation completed (`cdr_annotation.py`, `cdr_numbering.py`, `tests/test_cdr_annotation.py`); existing antibody bookkeeping now emits typed `CDR_NUMBERING_MISSING`; full CDR-H3 and full-region extraction (CompDetRAE Phases 1–2) still pending |
+| `[x]` | `P1 / M` | Add CDR-aware structural bookkeeping if antibody-specific mode needs it | Phase 1 CDR-H3 MVP now implemented with numbering-first + motif-fallback boundaries, typed confidence/warnings, `summary.metadata["cdr_annotation"]` persistence, descriptor readiness gating, prediction provenance threading, and regression coverage in `tests/test_cdr_annotation.py` |
 | `[x]` | `P2 / M` | Add electrostatics / surface pKa integration hooks for future PlayMolecule-style enrichment | Contract/hook only is sufficient in this phase if implementation is deferred |
 
 ### Phase 3 exit criteria

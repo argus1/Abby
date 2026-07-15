@@ -98,6 +98,16 @@ class LearnedModelProvenance(AbbyBaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class CDRAnnotationProvenance(AbbyBaseModel):
+    available: bool = False
+    scheme: str | None = None
+    boundary_source: str | None = None
+    boundary_confidence: ConfidenceClass = "low"
+    selected_heavy_chain: str | None = None
+    chains: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)
+
+
 class StructureGenerationProvenance(AbbyBaseModel):
     """Provenance record for externally generated or refined structure inputs.
 
@@ -125,5 +135,6 @@ class Provenance(AbbyBaseModel):
     topology_handoff: TopologyHandoffMetadata | None = None
     simulation: SimulationProvenance | None = None
     learned_model: LearnedModelProvenance | None = None
+    cdr_annotation: CDRAnnotationProvenance | None = None
     structure_generation: StructureGenerationProvenance | None = None
     artifacts: ArtifactRegistry | None = None

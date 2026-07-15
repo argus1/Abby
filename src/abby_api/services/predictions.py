@@ -19,6 +19,7 @@ from abby_api.repositories.memory import (
 from abby_api.schemas.common import (
     ArtifactReference,
     ArtifactRegistry,
+    CDRAnnotationProvenance,
     LearnedModelProvenance,
     PredictionInterval,
     Provenance,
@@ -256,6 +257,30 @@ def create_prediction(request: PredictionRequest) -> PredictionQueuedResponse:
         structure_summary=structure.summary,
         structure_validation=structure.validation,
     )
+    cdr_annotation_metadata = structure.summary.metadata.get("cdr_annotation", {})
+    cdr_annotation_provenance = None
+    if isinstance(cdr_annotation_metadata, dict):
+        cdr_annotation_provenance = CDRAnnotationProvenance(
+            available=bool(cdr_annotation_metadata.get("available", False)),
+            scheme=(
+                str(cdr_annotation_metadata.get("scheme"))
+                if cdr_annotation_metadata.get("scheme") is not None
+                else None
+            ),
+            boundary_source=(
+                str(cdr_annotation_metadata.get("boundary_source"))
+                if cdr_annotation_metadata.get("boundary_source") is not None
+                else None
+            ),
+            boundary_confidence=str(cdr_annotation_metadata.get("boundary_confidence", "low")),
+            selected_heavy_chain=(
+                str(cdr_annotation_metadata.get("selected_heavy_chain"))
+                if cdr_annotation_metadata.get("selected_heavy_chain") is not None
+                else None
+            ),
+            chains=dict(cdr_annotation_metadata.get("chains", {})),
+            warnings=[str(item) for item in cdr_annotation_metadata.get("warnings", [])],
+        )
 
     result = PredictionResult(
         prediction_id=prediction_id,
@@ -291,6 +316,7 @@ def create_prediction(request: PredictionRequest) -> PredictionQueuedResponse:
             contact_distance_cutoff_angstrom=request.options.contact_distance_cutoff_angstrom,
             created_at=datetime.now(timezone.utc),
             topology_handoff=topology_handoff,
+            cdr_annotation=cdr_annotation_provenance,
             simulation=SimulationProvenance(
                 source="none",
                 imported=False,

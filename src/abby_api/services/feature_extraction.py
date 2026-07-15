@@ -9,7 +9,11 @@ from typing import Any
 from abby_api.schemas.common import DescriptorContribution, Explainability, PredictionMode
 from abby_api.schemas.predictions import FeatureSummary
 from abby_api.schemas.structures import StructureSummary, StructureValidationResult
-from abby_api.services.cdr_annotation import CDR_NUMBERING_MISSING
+from abby_api.services.cdr_annotation import (
+    CDR_BOUNDARY_AMBIGUOUS,
+    CDR_MOTIF_FALLBACK_USED,
+    CDR_NUMBERING_MISSING,
+)
 
 RESIDUE_CLASS_MAP = {
     "ARG": "charged",
@@ -724,8 +728,10 @@ def build_descriptor_bundle(
     antibody_candidate_count = float(
         _antibody_chain_candidate_count([*partner_1_chains, *partner_2_chains])
     )
+    cdr_annotation = summary.metadata.get("cdr_annotation", {})
+    cdr_annotation_available = bool(cdr_annotation.get("available", False))
     cdr_bookkeeping_ready_flag = (
-        1.0 if mode == "antibody_antigen" and antibody_candidate_count > 0 else 0.0
+        1.0 if mode == "antibody_antigen" and cdr_annotation_available else 0.0
     )
     electrostatics_hook_ready = 1.0 if validation.chain_groups is not None else 0.0
     surface_pka_hook_ready = 1.0 if validation.chain_groups is not None else 0.0
@@ -785,9 +791,17 @@ def build_descriptor_bundle(
     notes.extend(sasa_notes)
     notes.extend(residue_depth_notes)
     notes.extend(radius_of_gyration_notes)
-    if mode == "antibody_antigen" and cdr_bookkeeping_ready_flag > 0.0:
-        notes.append("ANTIBODY_MODE_CDR_DETECTION_PENDING")
-        notes.append(CDR_NUMBERING_MISSING)
+    if mode == "antibody_antigen":
+        cdr_warnings = [str(item) for item in cdr_annotation.get("warnings", [])]
+        notes.extend(cdr_warnings)
+        if cdr_bookkeeping_ready_flag > 0.0:
+            notes.append("CDR_H3_ANNOTATED")
+            if CDR_MOTIF_FALLBACK_USED in cdr_warnings:
+                notes.append("CDR_H3_ANNOTATED_MOTIF_FALLBACK")
+        else:
+            if CDR_BOUNDARY_AMBIGUOUS in cdr_warnings:
+                notes.append("CDR_H3_BOUNDARY_AMBIGUOUS")
+            notes.append(CDR_NUMBERING_MISSING)
     if electrostatics_hook_ready > 0.0 and surface_pka_hook_ready > 0.0:
         notes.append("ELECTROSTATICS_SURFACE_PKA_HOOKS_ENABLED")
     notes.append(f"CONTACT_DISTANCE_CUTOFF_{round(float(contact_distance_cutoff), 3)}A")

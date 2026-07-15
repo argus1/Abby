@@ -174,28 +174,39 @@ Produce stable CDR-H3 annotations with provenance, replacing placeholder semanti
 
 ### Checklist
 
-- [ ] Implement heavy-chain candidate detection beyond `H`/`L` naming.
-- [ ] Implement prioritized boundary pipeline:
+- [x] Implement heavy-chain candidate detection beyond `H`/`L` naming.
+- [x] Implement prioritized boundary pipeline:
   1. numbering-aware boundary resolver (preferred)
   2. motif fallback (`C...WGxG`-style) when numbering absent
-- [ ] Add confidence scoring levels (`high`/`medium`/`low`) with deterministic rules.
-- [ ] Persist `CDR-H3` region residue indices in `summary.metadata["cdr_annotation"]`.
-- [ ] Replace `ANTIBODY_MODE_CDR_DETECTION_PENDING` with nuanced notes:
+- [x] Add confidence scoring levels (`high`/`medium`/`low`) with deterministic rules.
+- [x] Persist `CDR-H3` region residue indices in `summary.metadata["cdr_annotation"]`.
+- [x] Replace `ANTIBODY_MODE_CDR_DETECTION_PENDING` with nuanced notes:
   - `CDR_H3_ANNOTATED`
   - or fallback/ambiguity notes.
-- [ ] Thread CDR-H3 summary into prediction provenance.
+- [x] Thread CDR-H3 summary into prediction provenance.
 
 ### Tests
 
-- [ ] Positive: clean heavy chain with resolvable CDR-H3.
-- [ ] Fallback: motif-only extraction path.
-- [ ] Negative: ambiguous motif or missing anchors.
-- [ ] Determinism: same input -> same CDR boundaries/hash metadata.
+- [x] Positive: clean heavy chain with resolvable CDR-H3.
+- [x] Fallback: motif-only extraction path.
+- [x] Negative: ambiguous motif or missing anchors.
+- [x] Determinism: same input -> same CDR boundaries/hash metadata.
 
 ### Exit criteria
 
-- [ ] `cdr_bookkeeping_ready_flag` reflects actual annotation readiness, not chain-name heuristic only.
-- [ ] CDR-H3 metadata appears in structure detail and prediction provenance.
+- [x] `cdr_bookkeeping_ready_flag` reflects actual annotation readiness, not chain-name heuristic only.
+- [x] CDR-H3 metadata appears in structure detail and prediction provenance.
+
+### Implementation status notes (Phase 1)
+
+- Implemented deterministic Phase 1 CDR-H3 pipeline:
+  - heavy-chain candidate detection no longer depends solely on `H`/`L` naming,
+  - numbering-first resolver with motif fallback,
+  - deterministic confidence assignment (`high` / `medium` / `low`).
+- Added structured CDR metadata output under `summary.metadata["cdr_annotation"]` including typed warnings and residue-key ranges.
+- Replaced placeholder antibody CDR note path with typed annotation notes (`CDR_H3_ANNOTATED`, fallback and ambiguity variants).
+- Threaded CDR annotation summary into `PredictionResult.provenance` via typed `cdr_annotation` contract.
+- Added/updated tests in `tests/test_cdr_annotation.py` for numbered, fallback, ambiguous, deterministic, and descriptor-flag behaviors.
 
 ---
 

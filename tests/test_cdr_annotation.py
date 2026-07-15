@@ -4,14 +4,85 @@ import pytest
 
 from abby_api.schemas.structures import ChainMapping, StructureSummary, StructureValidationResult
 from abby_api.services.cdr_annotation import (
+    CDR_BOUNDARY_AMBIGUOUS,
+    CDR_MOTIF_FALLBACK_USED,
+    CDR_NUMBERING_MISSING,
     CDR_REGION_GLOSSARY,
     CDR_REGION_NAMES,
     CDR_RESIDUE_KEY_FORMAT,
     CDR_WARNING_ERROR_CODES,
+    annotate_cdr_h3,
     is_valid_cdr_region_name,
 )
 from abby_api.services.cdr_numbering import ResidueKey
 from abby_api.services.feature_extraction import build_descriptor_bundle
+
+
+class _Residue:
+    def __init__(self, sequence_id: int, residue_name: str, insertion_code: str = " ") -> None:
+        self.id = (" ", sequence_id, insertion_code)
+        self._residue_name = residue_name
+
+    def get_resname(self) -> str:
+        return self._residue_name
+
+
+class _Chain:
+    def __init__(self, chain_id: str, residues: list[_Residue]) -> None:
+        self.id = chain_id
+        self._residues = residues
+
+    def get_residues(self):
+        return iter(self._residues)
+
+
+class _Model:
+    def __init__(self, chains: list[_Chain]) -> None:
+        self._chains = chains
+
+    def get_chains(self):
+        return iter(self._chains)
+
+
+class _Structure:
+    def __init__(self, chains: list[_Chain]) -> None:
+        self._chains = chains
+
+    def get_models(self):
+        return iter([_Model(self._chains)])
+
+
+_ONE_TO_THREE = {
+    "A": "ALA",
+    "C": "CYS",
+    "D": "ASP",
+    "E": "GLU",
+    "F": "PHE",
+    "G": "GLY",
+    "H": "HIS",
+    "I": "ILE",
+    "K": "LYS",
+    "L": "LEU",
+    "M": "MET",
+    "N": "ASN",
+    "P": "PRO",
+    "Q": "GLN",
+    "R": "ARG",
+    "S": "SER",
+    "T": "THR",
+    "V": "VAL",
+    "W": "TRP",
+    "Y": "TYR",
+    "X": "ALA",
+}
+
+
+def _chain_from_sequence(chain_id: str, start_seq_id: int, sequence: str) -> _Chain:
+    residues = [
+        _Residue(start_seq_id + index, _ONE_TO_THREE.get(code, "ALA"))
+        for index, code in enumerate(sequence)
+    ]
+    return _Chain(chain_id, residues)
 
 
 def test_cdr_contract_region_naming_and_glossary() -> None:
@@ -58,5 +129,88 @@ def test_antibody_bookkeeping_includes_typed_numbering_gap_note() -> None:
     )
 
     bundle = build_descriptor_bundle(summary, validation, "antibody_antigen")
-    assert "ANTIBODY_MODE_CDR_DETECTION_PENDING" in bundle.notes
+    assert "CDR_H3_ANNOTATED" not in bundle.notes
+    assert "ANTIBODY_MODE_CDR_DETECTION_PENDING" not in bundle.notes
     assert "CDR_NUMBERING_MISSING" in bundle.notes
+
+
+def test_cdr_h3_numbering_annotation_selects_heavy_chain_without_h_name() -> None:
+    heavy_sequence = "AAAA" + "C" + "AAAAAAAA" + "W" + "AAAAAAAAAAAAAAAAAAAA"
+    structure = _Structure(
+        [
+            _chain_from_sequence("X", 90, heavy_sequence),
+            _chain_from_sequence("B", 1, "AAAAAAAAAAAAAAAA"),
+        ]
+    )
+
+    annotation = annotate_cdr_h3(structure)
+
+    assert annotation["available"] is True
+    assert annotation["selected_heavy_chain"] == "X"
+    assert annotation["scheme"] == "kabat"
+    assert annotation["boundary_source"] == "numbered"
+    assert annotation["boundary_confidence"] == "high"
+    assert annotation["chains"]["X"]["regions"]["CDR-H3"]["length"] >= 4
+
+
+def test_cdr_h3_motif_fallback_annotation_records_typed_warning() -> None:
+    structure = _Structure([_chain_from_sequence("Z", 1, "AAAAACAAAAAWGQGAAAAA")])
+
+    annotation = annotate_cdr_h3(structure)
+
+    assert annotation["available"] is True
+    assert annotation["scheme"] == "motif_fallback"
+    assert annotation["boundary_source"] == "motif_fallback"
+    assert CDR_NUMBERING_MISSING in annotation["warnings"]
+    assert CDR_MOTIF_FALLBACK_USED in annotation["warnings"]
+
+
+def test_cdr_h3_ambiguous_motif_returns_boundary_ambiguity_warning() -> None:
+    structure = _Structure([_chain_from_sequence("Q", 1, "ACAAAAAWGQGAAACGGGGGWGAG")])
+
+    annotation = annotate_cdr_h3(structure)
+
+    assert annotation["available"] is False
+    assert CDR_BOUNDARY_AMBIGUOUS in annotation["warnings"]
+
+
+def test_cdr_h3_annotation_is_deterministic() -> None:
+    structure = _Structure([_chain_from_sequence("X", 1, "AAAAACAAAAAWGQGAAAAA")])
+
+    first = annotate_cdr_h3(structure)
+    second = annotate_cdr_h3(structure)
+
+    assert first == second
+
+
+def test_cdr_bookkeeping_ready_flag_requires_actual_annotation() -> None:
+    summary = StructureSummary(
+        parser_name="MMCIFParser",
+        model_count=1,
+        available_chains=["X", "A"],
+        residue_counts={"X": 20, "A": 8},
+        metadata={
+            "total_residues": 28,
+            "cdr_annotation": {
+                "available": True,
+                "scheme": "motif_fallback",
+                "boundary_source": "motif_fallback",
+                "boundary_confidence": "medium",
+                "selected_heavy_chain": "X",
+                "chains": {"X": {"role": "heavy", "regions": {"CDR-H3": {}}}},
+                "warnings": ["CDR_MOTIF_FALLBACK_USED", "CDR_NUMBERING_MISSING"],
+            },
+        },
+    )
+    validation = StructureValidationResult(
+        valid=True,
+        normalized_format="mmcif",
+        chain_groups=ChainMapping(partner_1=["X"], partner_2=["A"]),
+        partner_residue_counts={"partner_1": 20, "partner_2": 8},
+    )
+
+    bundle = build_descriptor_bundle(summary, validation, "antibody_antigen")
+
+    assert bundle.descriptors["cdr_bookkeeping_ready_flag"] == 1.0
+    assert "CDR_H3_ANNOTATED" in bundle.notes
+    assert "CDR_H3_ANNOTATED_MOTIF_FALLBACK" in bundle.notes

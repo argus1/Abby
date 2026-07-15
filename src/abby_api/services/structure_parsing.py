@@ -18,6 +18,7 @@ except ModuleNotFoundError:  # pragma: no cover - exercised in environments with
     BIOPYTHON_AVAILABLE = False
 
 from abby_api.schemas.structures import StructureSummary, StructureValidationIssue
+from abby_api.services.cdr_annotation import annotate_cdr_h3
 from abby_api.services.feature_extraction import classify_residue
 
 
@@ -275,6 +276,7 @@ def summarize_structure(
     *,
     file_path: Path | None = None,
     format_name: str | None = None,
+    prediction_mode: str | None = None,
 ) -> StructureSummary:
     model_count = len(list(structure.get_models()))
     residue_counts: dict[str, int] = {}
@@ -434,6 +436,27 @@ def summarize_structure(
 
     if format_name == "mmcif" and file_path is not None:
         metadata["connectivity"] = _extract_mmcif_connectivity(file_path)
+
+    if prediction_mode == "antibody_antigen":
+        cdr_annotation = annotate_cdr_h3(structure)
+        metadata["cdr_annotation"] = cdr_annotation
+
+        for warning_code in cdr_annotation.get("warnings", []):
+            warning_code_text = str(warning_code).strip()
+            if not warning_code_text:
+                continue
+            warnings.append(warning_code_text)
+            warning_details.append(
+                StructureValidationIssue(
+                    code=warning_code_text,
+                    message="CDR-H3 annotation emitted a typed bookkeeping warning.",
+                    details={
+                        "cdr_annotation_available": bool(cdr_annotation.get("available", False)),
+                        "selected_heavy_chain": cdr_annotation.get("selected_heavy_chain"),
+                        "scheme": cdr_annotation.get("scheme"),
+                    },
+                )
+            )
 
     return StructureSummary(
         parser_name=parser_name,
