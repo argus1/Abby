@@ -13,6 +13,21 @@ function prettyJson(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
+function readDriftReasons(issues: StructureValidationIssue[] | undefined): string[] {
+  if (!issues || issues.length === 0) {
+    return [];
+  }
+  return issues
+    .filter((issue) => issue.code === 'CDR_BASELINE_DRIFT_FLAGGED')
+    .flatMap((issue) => {
+      const raw = issue.details?.drift_reason_codes;
+      if (!Array.isArray(raw)) {
+        return [];
+      }
+      return raw.map((item) => String(item));
+    });
+}
+
 function DiagnosticList({
   title,
   issues,
@@ -57,6 +72,7 @@ export function StructurePage() {
   });
 
   const detail = structureQuery.data;
+  const baselineDriftReasons = readDriftReasons(detail?.validation?.warning_details);
 
   return (
     <div className="page-stack">
@@ -132,6 +148,19 @@ export function StructurePage() {
                   <li className="muted">No error codes.</li>
                 )}
               </ul>
+
+              <h4>CDR QA baseline drift</h4>
+              {baselineDriftReasons.length > 0 ? (
+                <ul className="bullet-list compact">
+                  {baselineDriftReasons.map((reason) => (
+                    <li key={reason}>
+                      <code>{reason}</code>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="muted">No CDR baseline drift reasons were reported.</p>
+              )}
 
               <DiagnosticList
                 title="Validation warning details"

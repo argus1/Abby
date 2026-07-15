@@ -10,6 +10,14 @@ function isUuid(value: string | undefined): boolean {
   return Boolean(value?.match(/^[0-9a-fA-F-]{36}$/));
 }
 
+function readPredictionDriftReasons(prediction: ReturnType<typeof getPrediction> extends Promise<infer T> ? T | undefined : never): string[] {
+  const reasons = prediction?.provenance?.cdr_annotation?.quality_baseline?.drift_reason_codes;
+  if (!Array.isArray(reasons)) {
+    return [];
+  }
+  return reasons.map((item) => String(item));
+}
+
 export function PredictionPage() {
   const { predictionId } = useParams();
   const predictionIsUuid = isUuid(predictionId);
@@ -22,6 +30,7 @@ export function PredictionPage() {
   });
 
   const prediction = predictionQuery.data;
+  const baselineDriftReasons = readPredictionDriftReasons(prediction);
   const status = prediction?.status ?? (predictionIsUuid ? 'queued' : 'completed');
   const isPolling = predictionIsUuid && status !== 'completed' && status !== 'failed';
   const statusClass =
@@ -114,14 +123,29 @@ export function PredictionPage() {
         <section className="card">
           <h3>Provenance highlights</h3>
           {prediction?.provenance ? (
-            <ul className="bullet-list compact">
-              <li>Model bundle: {prediction.provenance.model_bundle_version}</li>
-              <li>Preprocess version: {prediction.provenance.preprocess_version}</li>
-              <li>Descriptor hash: {prediction.provenance.descriptor_hash}</li>
-              <li>
-                Contact cutoff: {prediction.provenance.contact_distance_cutoff_angstrom.toFixed(2)} Å
-              </li>
-            </ul>
+            <>
+              <ul className="bullet-list compact">
+                <li>Model bundle: {prediction.provenance.model_bundle_version}</li>
+                <li>Preprocess version: {prediction.provenance.preprocess_version}</li>
+                <li>Descriptor hash: {prediction.provenance.descriptor_hash}</li>
+                <li>
+                  Contact cutoff: {prediction.provenance.contact_distance_cutoff_angstrom.toFixed(2)} Å
+                </li>
+              </ul>
+
+              <h4>CDR QA baseline drift</h4>
+              {baselineDriftReasons.length > 0 ? (
+                <ul className="bullet-list compact">
+                  {baselineDriftReasons.map((reason) => (
+                    <li key={reason}>
+                      <code>{reason}</code>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="muted">No CDR baseline drift reasons were reported.</p>
+              )}
+            </>
           ) : (
             <p className="muted">Prediction provenance is not available yet.</p>
           )}

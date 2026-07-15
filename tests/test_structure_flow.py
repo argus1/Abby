@@ -1053,10 +1053,16 @@ def test_validation_surfaces_dedicated_cdr_motif_fallback_issue() -> None:
     warning_details_by_code = {item["code"]: item for item in payload["warning_details"]}
     assert "CDR_MOTIF_FALLBACK_USED" in warning_details_by_code
     assert "CDR_NUMBERING_MISSING" in warning_details_by_code
+    assert "CDR_BASELINE_DRIFT_FLAGGED" in warning_details_by_code
     fallback_issue = warning_details_by_code["CDR_MOTIF_FALLBACK_USED"]
     assert fallback_issue["details"]["cdr_annotation_available"] is True
     assert fallback_issue["details"]["selected_heavy_chain"] == "H"
     assert fallback_issue["details"]["boundary_source"] == "motif_fallback"
+
+    drift_issue = warning_details_by_code["CDR_BASELINE_DRIFT_FLAGGED"]
+    assert drift_issue["details"]["quality_baseline"]["drift_flag"] is True
+    assert "FALLBACK_BOUNDARY_SOURCE" in drift_issue["details"]["drift_reason_codes"]
+    assert "CDR_BASELINE_DRIFT_FLAGGED" in payload["warnings"]
 
 
 def test_validation_surfaces_dedicated_cdr_boundary_ambiguity_issue() -> None:

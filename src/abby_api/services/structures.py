@@ -30,6 +30,7 @@ _CDR_VALIDATION_CODES = {
     "CDR_BOUNDARY_AMBIGUOUS",
     "CDR_MOTIF_FALLBACK_USED",
     "CDR_NUMBERING_MISSING",
+    "CDR_BASELINE_DRIFT_FLAGGED",
 }
 
 UPLOAD_DIR = Path(__file__).resolve().parents[3] / "data" / "uploads"
@@ -170,8 +171,11 @@ def _build_cdr_validation_issues(summary: StructureSummary) -> list[StructureVal
     boundary_source = cdr_annotation.get("boundary_source")
     boundary_confidence = cdr_annotation.get("boundary_confidence")
     chains_payload = cdr_annotation.get("chains", {})
+    quality_baseline = cdr_annotation.get("quality_baseline", {})
     if not isinstance(chains_payload, dict):
         chains_payload = {}
+    if not isinstance(quality_baseline, dict):
+        quality_baseline = {}
 
     details_payload = {
         "cdr_annotation_available": bool(cdr_annotation.get("available", False)),
@@ -180,6 +184,7 @@ def _build_cdr_validation_issues(summary: StructureSummary) -> list[StructureVal
         "boundary_source": boundary_source,
         "boundary_confidence": boundary_confidence,
         "chains": chains_payload,
+        "quality_baseline": quality_baseline,
     }
 
     issue_messages = {
@@ -209,6 +214,25 @@ def _build_cdr_validation_issues(summary: StructureSummary) -> list[StructureVal
                 code=code,
                 message=issue_messages.get(code, "CDR validation reported a typed issue."),
                 details=details_payload,
+            )
+        )
+
+    drift_flag = bool(quality_baseline.get("drift_flag", False))
+    drift_reason_codes = quality_baseline.get("drift_reason_codes", [])
+    if not isinstance(drift_reason_codes, list):
+        drift_reason_codes = []
+    if drift_flag:
+        issues.append(
+            StructureValidationIssue(
+                code="CDR_BASELINE_DRIFT_FLAGGED",
+                message=(
+                    "CDR QA baseline flagged potential confidence drift; review drift reasons "
+                    "for fallback, ambiguity, or incomplete boundary signals."
+                ),
+                details={
+                    **details_payload,
+                    "drift_reason_codes": [str(code) for code in drift_reason_codes],
+                },
             )
         )
     return issues
@@ -351,7 +375,9 @@ def validate_structure(request: StructureValidationRequest) -> StructureValidati
             )
         )
 
-    warning_details.extend(_build_cdr_validation_issues(detail.summary))
+    cdr_warning_details = _build_cdr_validation_issues(detail.summary)
+    warning_details.extend(cdr_warning_details)
+    warnings.extend(issue.code for issue in cdr_warning_details)
 
     normalized = "mmcif" if detail.format in {"mmcif", "cif"} else "pdb"
     result = StructureValidationResult(
@@ -362,7 +388,7 @@ def validate_structure(request: StructureValidationRequest) -> StructureValidati
         model_count=detail.summary.model_count,
         chain_groups=normalized_groups,
         partner_residue_counts=partner_residue_counts,
-        warnings=warnings,
+        warnings=sorted(set(warnings)),
         warning_details=warning_details,
         errors=errors,
         error_details=error_details,
