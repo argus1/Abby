@@ -534,6 +534,10 @@ Introduce robust mutation-parser style validation harness for CDR-local stress t
   - `failure_rate_within_limit`,
   - `spec_chains_present_in_structures` (structure-aware chain coverage check),
   to begin measuring resilience trajectory toward full Phase 6 exit criteria.
+- Added first mutation→annotation integration probe in
+  `run_cdr_mutation_annotation_probe(...)` with regression coverage ensuring that
+  a valid heavy-chain CDR-H3 point mutation still yields typed CDR annotation
+  output and deterministic repeated annotation results.
 - Harness remains intentionally parser-only and not wired into default prediction routes,
   preserving optional/off-default behavior for v1.
 

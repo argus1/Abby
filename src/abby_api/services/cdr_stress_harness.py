@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import copy
 import re
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
+
+from abby_api.services.cdr_annotation import annotate_cdr_h3
 
 _POINT_MUTATION_RE = re.compile(
     r"^(?P<chain>[A-Za-z0-9]+):(?P<seq_id>\d+)(?P<icode>[A-Za-z]?):"
@@ -12,6 +15,29 @@ _RANGE_MUTATION_RE = re.compile(
     r"^(?P<chain>[A-Za-z0-9]+):(?P<start>\d+)-(?P<end>\d+):(?P<to>[A-Z])$"
 )
 _MAX_RANGE_SPAN = 64
+_ONE_TO_THREE = {
+    "A": "ALA",
+    "R": "ARG",
+    "N": "ASN",
+    "D": "ASP",
+    "C": "CYS",
+    "Q": "GLN",
+    "E": "GLU",
+    "G": "GLY",
+    "H": "HIS",
+    "I": "ILE",
+    "L": "LEU",
+    "K": "LYS",
+    "M": "MET",
+    "F": "PHE",
+    "P": "PRO",
+    "S": "SER",
+    "T": "THR",
+    "W": "TRP",
+    "Y": "TYR",
+    "V": "VAL",
+}
+_THREE_TO_ONE = {value: key for key, value in _ONE_TO_THREE.items()}
 
 
 @dataclass(frozen=True)
@@ -39,6 +65,69 @@ class CDRStressBatchSummary:
     parsed_specs: int
     failed_specs: int
     results: list[CDRStressCaseResult]
+
+
+def _iter_residues(structure: Any):
+    models = list(structure.get_models()) if hasattr(structure, "get_models") else []
+    if not models:
+        return
+    for chain in models[0].get_chains():
+        chain_id = str(getattr(chain, "id", "")).strip()
+        if not chain_id:
+            continue
+        for residue in chain.get_residues():
+            yield chain_id, residue
+
+
+def _mutate_residue_name(residue: Any, new_resname: str) -> bool:
+    if hasattr(residue, "resname"):
+        setattr(residue, "resname", new_resname)
+        return True
+    if hasattr(residue, "_residue_name"):
+        setattr(residue, "_residue_name", new_resname)
+        return True
+    if hasattr(residue, "_resname"):
+        setattr(residue, "_resname", new_resname)
+        return True
+    return False
+
+
+def _apply_point_mutation(structure: Any, spec: CDRMutationSpec) -> bool:
+    target_resname = _ONE_TO_THREE.get(spec.to_residue)
+    if target_resname is None:
+        return False
+
+    for chain_id, residue in _iter_residues(structure):
+        if chain_id != spec.chain_id:
+            continue
+        residue_id = getattr(residue, "id", None)
+        if not isinstance(residue_id, tuple) or len(residue_id) < 3:
+            continue
+        if residue_id[0] != " ":
+            continue
+        try:
+            sequence_id = int(residue_id[1])
+        except (TypeError, ValueError):
+            continue
+        insertion_code = str(residue_id[2] or "").strip()
+        if insertion_code in {"?", "."}:
+            insertion_code = ""
+
+        if sequence_id != spec.start_seq_id:
+            continue
+        if insertion_code != spec.insertion_code:
+            continue
+
+        if hasattr(residue, "get_resname"):
+            current_three = residue.get_resname()
+        else:
+            current_three = getattr(residue, "resname", "")
+        current_one = _THREE_TO_ONE.get(str(current_three).strip().upper())
+        if spec.from_residue is not None and current_one != spec.from_residue:
+            return False
+        return _mutate_residue_name(residue, target_resname)
+
+    return False
 
 
 def parse_cdr_mutation_spec(text: str) -> CDRMutationSpec:
@@ -138,3 +227,34 @@ def run_cdr_mutation_stress_batch(specs: list[str]) -> CDRStressBatchSummary:
         failed_specs=failed_count,
         results=results,
     )
+
+
+def run_cdr_mutation_annotation_probe(
+    structure: Any,
+    *,
+    mutation_specs: list[str],
+) -> dict[str, Any]:
+    """Apply point mutations and probe CDR annotation resilience deterministically."""
+
+    mutated_structure = copy.deepcopy(structure)
+    applied_mutation_count = 0
+    failed_mutation_count = 0
+    for raw_spec in mutation_specs:
+        parsed_spec = parse_cdr_mutation_spec(raw_spec)
+        if parsed_spec.mode != "point_substitution":
+            failed_mutation_count += 1
+            continue
+        if _apply_point_mutation(mutated_structure, parsed_spec):
+            applied_mutation_count += 1
+        else:
+            failed_mutation_count += 1
+
+    first = annotate_cdr_h3(mutated_structure)
+    second = annotate_cdr_h3(mutated_structure)
+    return {
+        "status": "completed" if applied_mutation_count > 0 else "failed",
+        "applied_mutation_count": applied_mutation_count,
+        "failed_mutation_count": failed_mutation_count,
+        "deterministic": first == second,
+        "annotation": first,
+    }
