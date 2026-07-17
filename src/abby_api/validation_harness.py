@@ -22,6 +22,7 @@ from abby_api.schemas.structures import (
     StructureInput,
     StructureValidationRequest,
 )
+from abby_api.services.cdr_stress_harness import run_cdr_mutation_stress_batch
 from abby_api.services.predictions import create_prediction
 from abby_api.services.simulation import (
     SimulationRunConfig,
@@ -533,6 +534,46 @@ def _build_structure_input(converted_path: Path) -> tuple[StructureInput, str]:
     return structure, structure_id.hex
 
 
+def _build_cdr_stress_resilience_assertions(
+    *,
+    parsed_specs: int,
+    failed_specs: int,
+    total_specs: int,
+    parsed_spec_chains: list[str],
+    structure_available_chains: list[str],
+) -> dict[str, dict[str, object]]:
+    if total_specs <= 0:
+        failure_rate = 0.0
+    else:
+        failure_rate = failed_specs / total_specs
+    structure_chain_set = {chain.strip() for chain in structure_available_chains if chain.strip()}
+    missing_spec_chains = sorted(
+        {
+            chain.strip()
+            for chain in parsed_spec_chains
+            if chain.strip() and chain.strip() not in structure_chain_set
+        }
+    )
+
+    return {
+        "nonzero_parse_success": {
+            "passed": parsed_specs > 0,
+            "observed": parsed_specs,
+            "expected": ">=1",
+        },
+        "failure_rate_within_limit": {
+            "passed": failure_rate <= (1 / 3),
+            "observed": failure_rate,
+            "expected": "<=0.3333333333",
+        },
+        "spec_chains_present_in_structures": {
+            "passed": len(missing_spec_chains) == 0,
+            "observed_missing_chains": missing_spec_chains,
+            "expected": "all parsed spec chains present in processed structures",
+        },
+    }
+
+
 def run_andd_validation_harness(
     *,
     dataset_root: Path = DEFAULT_DATASET_ROOT,
@@ -542,6 +583,7 @@ def run_andd_validation_harness(
     limit: int | None = None,
     simulation_policy: str = "skip",
     temperature_kelvin: float = 298.15,
+    cdr_stress_specs: list[str] | None = None,
 ) -> ValidationReport:
     workbook_path = workbook_path or dataset_root / DEFAULT_WORKBOOK_NAME
     output_dir = output_dir.resolve()
@@ -561,6 +603,7 @@ def run_andd_validation_harness(
 
     project = new_project(f"ANDD validation {datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}")
     cases: list[ValidationCaseResult] = []
+    structure_chain_universe: set[str] = set()
 
     for pdb_path in all_pdb_paths:
         pdb_id = pdb_path.stem.upper()
@@ -584,6 +627,9 @@ def run_andd_validation_harness(
                 file_path=converted_path,
                 format_name="mmcif",
                 prediction_mode="antibody_antigen",
+            )
+            structure_chain_universe.update(
+                chain.strip() for chain in summary.available_chains if chain.strip()
             )
             structure_input, _ = _build_structure_input(converted_path)
             save_structure(structure_input, file_path=converted_path, summary=summary)
@@ -727,6 +773,51 @@ def run_andd_validation_harness(
     except Exception as exc:  # pragma: no cover - best-effort artifact augmentation
         print(f"Failed to generate CDR calibration artifacts: {exc}")
 
+    if cdr_stress_specs:
+        stress_summary = run_cdr_mutation_stress_batch(cdr_stress_specs)
+        parsed_spec_chains = [
+            result.parsed_spec.chain_id
+            for result in stress_summary.results
+            if result.parsed_spec is not None
+        ]
+        resilience_assertions = _build_cdr_stress_resilience_assertions(
+            parsed_specs=stress_summary.parsed_specs,
+            failed_specs=stress_summary.failed_specs,
+            total_specs=stress_summary.total_specs,
+            parsed_spec_chains=parsed_spec_chains,
+            structure_available_chains=sorted(structure_chain_universe),
+        )
+        _write_json(
+            report_dir / "cdr_mutation_stress_report.json",
+            {
+                "total_specs": stress_summary.total_specs,
+                "parsed_specs": stress_summary.parsed_specs,
+                "failed_specs": stress_summary.failed_specs,
+                "resilience_assertions": resilience_assertions,
+                "results": [
+                    {
+                        "input_spec": result.input_spec,
+                        "status": result.status,
+                        "parsed_spec": (
+                            {
+                                "chain_id": result.parsed_spec.chain_id,
+                                "start_seq_id": result.parsed_spec.start_seq_id,
+                                "end_seq_id": result.parsed_spec.end_seq_id,
+                                "insertion_code": result.parsed_spec.insertion_code,
+                                "from_residue": result.parsed_spec.from_residue,
+                                "to_residue": result.parsed_spec.to_residue,
+                                "mode": result.parsed_spec.mode,
+                            }
+                            if result.parsed_spec is not None
+                            else None
+                        ),
+                        "error": result.error,
+                    }
+                    for result in stress_summary.results
+                ],
+            },
+        )
+
     return report
 
 
@@ -742,6 +833,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
         choices=["skip", "run_if_available", "force"],
         default="skip",
     )
+    parser.add_argument(
+        "--cdr-stress-spec",
+        action="append",
+        dest="cdr_stress_specs",
+        help=(
+            "Optional CDR mutation stress specification (repeatable). "
+            "When provided, emits reports/cdr_mutation_stress_report.json."
+        ),
+    )
     return parser
 
 
@@ -755,6 +855,7 @@ def main(argv: list[str] | None = None) -> int:
         pdb_ids=args.pdb_ids,
         limit=args.limit,
         simulation_policy=args.simulation_policy,
+        cdr_stress_specs=args.cdr_stress_specs,
     )
     print(json.dumps(report.to_dict(), indent=2, sort_keys=True, default=str))
     return 0

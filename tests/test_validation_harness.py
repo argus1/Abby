@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -183,3 +184,91 @@ def test_andd_validation_harness_runs_end_to_end_on_small_fixture(tmp_path) -> N
     assert manifest_path.exists()
     assert cases_path.exists()
     assert converted_path.exists()
+
+
+def test_andd_validation_harness_optionally_writes_cdr_stress_report(tmp_path) -> None:
+    dataset_root = tmp_path / "ANDD_pdb"
+    structures_dir = dataset_root / "All_structures"
+    structures_dir.mkdir(parents=True)
+    pdb_path = structures_dir / "TEST.pdb"
+    pdb_path.write_text(PDB_FIXTURE)
+
+    workbook_path = dataset_root / "Antibody and Nanobody Design Dataset (ANDD)_v2.xlsx"
+    _build_test_workbook(workbook_path)
+
+    output_dir = tmp_path / "validation_output"
+    run_andd_validation_harness(
+        dataset_root=dataset_root,
+        workbook_path=workbook_path,
+        output_dir=output_dir,
+        pdb_ids=["TEST"],
+        simulation_policy="skip",
+        cdr_stress_specs=["H:95A:C>W", "H:102-95:W"],
+    )
+
+    stress_report_path = output_dir / "reports" / "cdr_mutation_stress_report.json"
+    assert stress_report_path.exists()
+
+    payload = json.loads(stress_report_path.read_text(encoding="utf-8"))
+    assert payload["total_specs"] == 2
+    assert payload["parsed_specs"] == 1
+    assert payload["failed_specs"] == 1
+    assert payload["results"][0]["status"] == "parsed"
+    assert payload["results"][1]["status"] == "failed"
+
+
+def test_cdr_stress_report_includes_resilience_assertions(tmp_path) -> None:
+    dataset_root = tmp_path / "ANDD_pdb"
+    structures_dir = dataset_root / "All_structures"
+    structures_dir.mkdir(parents=True)
+    pdb_path = structures_dir / "TEST.pdb"
+    pdb_path.write_text(PDB_FIXTURE)
+
+    workbook_path = dataset_root / "Antibody and Nanobody Design Dataset (ANDD)_v2.xlsx"
+    _build_test_workbook(workbook_path)
+
+    output_dir = tmp_path / "validation_output"
+    run_andd_validation_harness(
+        dataset_root=dataset_root,
+        workbook_path=workbook_path,
+        output_dir=output_dir,
+        pdb_ids=["TEST"],
+        simulation_policy="skip",
+        cdr_stress_specs=["H:95A:C>W", "H:95-97:W", "H:102-95:W"],
+    )
+
+    stress_report_path = output_dir / "reports" / "cdr_mutation_stress_report.json"
+    payload = json.loads(stress_report_path.read_text(encoding="utf-8"))
+    assertions = payload["resilience_assertions"]
+
+    assert assertions["nonzero_parse_success"]["passed"] is True
+    assert assertions["failure_rate_within_limit"]["passed"] is True
+    assert assertions["failure_rate_within_limit"]["observed"] == 1 / 3
+
+
+def test_cdr_stress_report_includes_structure_chain_coverage_assertion(tmp_path) -> None:
+    dataset_root = tmp_path / "ANDD_pdb"
+    structures_dir = dataset_root / "All_structures"
+    structures_dir.mkdir(parents=True)
+    pdb_path = structures_dir / "TEST.pdb"
+    pdb_path.write_text(PDB_FIXTURE)
+
+    workbook_path = dataset_root / "Antibody and Nanobody Design Dataset (ANDD)_v2.xlsx"
+    _build_test_workbook(workbook_path)
+
+    output_dir = tmp_path / "validation_output"
+    run_andd_validation_harness(
+        dataset_root=dataset_root,
+        workbook_path=workbook_path,
+        output_dir=output_dir,
+        pdb_ids=["TEST"],
+        simulation_policy="skip",
+        cdr_stress_specs=["A:1:G>W", "B:1:A>Y"],
+    )
+
+    stress_report_path = output_dir / "reports" / "cdr_mutation_stress_report.json"
+    payload = json.loads(stress_report_path.read_text(encoding="utf-8"))
+    assertions = payload["resilience_assertions"]
+
+    assert assertions["spec_chains_present_in_structures"]["passed"] is True
+    assert assertions["spec_chains_present_in_structures"]["observed_missing_chains"] == []

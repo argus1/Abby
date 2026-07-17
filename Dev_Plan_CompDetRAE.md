@@ -524,7 +524,17 @@ Introduce robust mutation-parser style validation harness for CDR-local stress t
 - Added parser-only batch runner scaffold with deterministic rollups:
   - total/parsed/failed counts,
   - per-spec status and machine-readable error text.
-- Harness is intentionally parser-only and not wired into default prediction routes,
+- Wired an optional CLI/report artifact path while keeping default flow unchanged:
+  - `run_andd_validation_harness(..., cdr_stress_specs=[...])` now emits
+    `reports/cdr_mutation_stress_report.json` only when specs are provided,
+  - both `src/abby_api/validation_harness.py` and `scripts/run_andd_validation.py`
+    expose repeatable `--cdr-stress-spec` flags.
+- Added initial perturbation-resilience assertions in the stress artifact payload:
+  - `nonzero_parse_success`,
+  - `failure_rate_within_limit`,
+  - `spec_chains_present_in_structures` (structure-aware chain coverage check),
+  to begin measuring resilience trajectory toward full Phase 6 exit criteria.
+- Harness remains intentionally parser-only and not wired into default prediction routes,
   preserving optional/off-default behavior for v1.
 
 ### Exit criteria

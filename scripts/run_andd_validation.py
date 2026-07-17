@@ -101,6 +101,15 @@ def build_parser() -> argparse.ArgumentParser:
         dest="pdb_ids",
         help="Limit the run to one or more specific PDB IDs.",
     )
+    parser.add_argument(
+        "--cdr-stress-spec",
+        action="append",
+        dest="cdr_stress_specs",
+        help=(
+            "Optional CDR mutation stress specification (repeatable). "
+            "Enables parser-harness report artifact generation."
+        ),
+    )
     return parser
 
 
@@ -119,6 +128,7 @@ def main(argv: list[str] | None = None) -> int:
         pdb_ids=pdb_ids or None,
         limit=args.limit,
         simulation_policy=args.simulation_policy,
+        cdr_stress_specs=args.cdr_stress_specs,
     )
     print(json.dumps(report.to_dict(), indent=2, sort_keys=True, default=str))
     return 0
