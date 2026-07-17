@@ -506,10 +506,26 @@ Introduce robust mutation-parser style validation harness for CDR-local stress t
 
 ### Checklist
 
-- [ ] Add safe mutation spec parser for CDR-local perturbation tests.
-- [ ] Add residue index/range guards and clear error messages.
-- [ ] Batch-run stress tests and summarize pass/fail/fallback outcomes.
-- [ ] Keep this harness optional and off default user path.
+- [x] Add safe mutation spec parser for CDR-local perturbation tests.
+- [x] Add residue index/range guards and clear error messages.
+- [x] Batch-run stress tests and summarize pass/fail/fallback outcomes.
+- [x] Keep this harness optional and off default user path.
+
+### Implementation status notes (Phase 6, started)
+
+- Added parser/harness scaffolding in `src/abby_api/services/cdr_stress_harness.py`:
+  - point substitution spec parser (`CHAIN:SEQ[ICODE]:FROM>TO`),
+  - range substitution spec parser (`CHAIN:START-END:TO`),
+  - typed format/range errors for safe fail-fast behavior.
+- Added explicit residue index/range guards:
+  - positive index enforcement,
+  - descending-range rejection,
+  - bounded max-range span checks.
+- Added parser-only batch runner scaffold with deterministic rollups:
+  - total/parsed/failed counts,
+  - per-spec status and machine-readable error text.
+- Harness is intentionally parser-only and not wired into default prediction routes,
+  preserving optional/off-default behavior for v1.
 
 ### Exit criteria
 
