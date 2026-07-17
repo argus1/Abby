@@ -445,10 +445,10 @@ Add lightweight statistical QA model inspired by classical logistic workflows.
 
 ### Checklist
 
-- [ ] Build optional boundary-confidence baseline (logistic/multinomial).
-- [ ] Feature set includes positional, motif, and composition signals.
+- [x] Build optional boundary-confidence baseline (logistic/multinomial).
+- [x] Feature set includes positional, motif, and composition signals.
 - [x] Report calibration and ROC/AUC metrics.
-- [ ] Integrate only as QA guardrail (not mandatory inference path).
+- [x] Integrate only as QA guardrail (not mandatory inference path).
 
 ### Implementation status notes (Phase 5, started)
 
@@ -456,6 +456,11 @@ Add lightweight statistical QA model inspired by classical logistic workflows.
   - deterministic `quality_baseline` payload attached to CDR annotation metadata and prediction provenance,
   - heuristic score/class output (`high` / `medium` / `low`),
   - drift flags and machine-readable reason codes for fallback, ambiguity, and partial coverage.
+- Upgraded the QA baseline contract from heuristic-only semantics to an explicit
+  logistic/multinomial baseline profile:
+  - `model_name=logistic_multinomial_v1`,
+  - `model_family=multinomial_logistic_baseline`,
+  - deterministic fixed-weight logistic scoring over engineered CDR signals.
 - Promoted the heuristic baseline to an explicit QA model contract:
   - versioned model/contract identifiers,
   - explicit feature schema version,
@@ -479,11 +484,18 @@ Add lightweight statistical QA model inspired by classical logistic workflows.
   - heavy candidate score margin,
   - motif-match count,
   - warning count / typed warning penalties.
-- This starts Phase 5 without claiming the full logistic/calibration work is complete.
+- Added positional/composition feature signals for the baseline feature vector (`cdr_boundary_quality_features_v2`):
+  - normalized CDR-H3 start position,
+  - normalized CDR-H3 length,
+  - CDR-H3 aromatic fraction,
+  - CDR-H3 charged fraction,
+  in addition to existing motif/source/completeness features.
+- Drift-warning automation now emits typed warning code `CDR_BASELINE_DRIFT_FLAGGED`
+  when the QA baseline indicates confidence drift conditions.
 
 ### Exit criteria
 
-- [ ] Automated drift warnings for annotation confidence drops.
+- [x] Automated drift warnings for annotation confidence drops.
 
 ---
 

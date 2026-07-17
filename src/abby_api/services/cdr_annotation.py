@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -83,7 +84,7 @@ _ONE_LETTER_RESIDUE = {
 
 _H3_MOTIF = re.compile(r"C([A-Z]{4,30}?)WG[A-Z]G")
 
-_CDR_BASELINE_FEATURE_SCHEMA_VERSION = "cdr_boundary_quality_features_v1"
+_CDR_BASELINE_FEATURE_SCHEMA_VERSION = "cdr_boundary_quality_features_v2"
 _CDR_BASELINE_FEATURE_NAMES: tuple[str, ...] = (
     "available_flag",
     "numbering_source_flag",
@@ -93,12 +94,16 @@ _CDR_BASELINE_FEATURE_NAMES: tuple[str, ...] = (
     "warning_count",
     "heavy_candidate_margin",
     "motif_match_count",
+    "h3_start_sequence_id_norm",
+    "h3_length_norm",
+    "h3_aromatic_fraction",
+    "h3_charged_fraction",
 )
 _CDR_BASELINE_MODEL_CONTRACT: dict[str, Any] = {
-    "model_id": "cdr_boundary_quality_heuristic",
+    "model_id": "cdr_boundary_quality_logistic_multinomial",
     "model_version": "1.0.0",
     "contract_version": "cdr_boundary_quality_contract_v1",
-    "model_family": "heuristic_baseline",
+    "model_family": "multinomial_logistic_baseline",
     "intended_use": "qa_drift_monitoring_only",
     "non_blocking": True,
     "feature_schema_version": _CDR_BASELINE_FEATURE_SCHEMA_VERSION,
@@ -108,6 +113,9 @@ _CDR_BASELINE_MODEL_CONTRACT: dict[str, Any] = {
     "calibration_target_label": "observed_boundary_quality_pass",
     "calibration_metrics_supported": ["ece", "mce", "brier", "auc_roc"],
 }
+
+_AROMATIC_RESIDUES = {"PHE", "TRP", "TYR", "HIS"}
+_CHARGED_RESIDUES = {"ASP", "GLU", "LYS", "ARG", "HIS"}
 
 _HEAVY_REGION_WINDOWS: dict[str, tuple[tuple[str, int, int], ...]] = {
     "kabat": (
@@ -420,6 +428,43 @@ def _classify_baseline_score(score: float) -> CDRBoundaryConfidence:
     return "low"
 
 
+def _h3_position_and_composition_features(
+    residues: list[_ChainResidue],
+    h3_region_payload: dict[str, Any] | None,
+) -> tuple[float, float, float, float]:
+    if not h3_region_payload:
+        return (0.0, 0.0, 0.0, 0.0)
+
+    try:
+        start_index = int(h3_region_payload.get("start_index", -1))
+        end_index = int(h3_region_payload.get("end_index", -2))
+    except (TypeError, ValueError):
+        return (0.0, 0.0, 0.0, 0.0)
+
+    if start_index < 0 or end_index < start_index or end_index >= len(residues):
+        return (0.0, 0.0, 0.0, 0.0)
+
+    segment = residues[start_index : end_index + 1]
+    if not segment:
+        return (0.0, 0.0, 0.0, 0.0)
+
+    start_seq_id = segment[0].sequence_id
+    length = len(segment)
+    aromatic_count = sum(1 for residue in segment if residue.residue_name in _AROMATIC_RESIDUES)
+    charged_count = sum(1 for residue in segment if residue.residue_name in _CHARGED_RESIDUES)
+
+    start_norm = min(max(float(start_seq_id) / 130.0, 0.0), 1.0)
+    length_norm = min(max(float(length) / 30.0, 0.0), 1.0)
+    aromatic_fraction = float(aromatic_count) / float(length)
+    charged_fraction = float(charged_count) / float(length)
+    return (
+        round(start_norm, 4),
+        round(length_norm, 4),
+        round(aromatic_fraction, 4),
+        round(charged_fraction, 4),
+    )
+
+
 def _build_boundary_quality_baseline(
     *,
     available: bool,
@@ -431,6 +476,10 @@ def _build_boundary_quality_baseline(
     heavy_scores: dict[str, int],
     motif_by_chain: dict[str, list[tuple[int, int]]],
     heavy_completeness_score: float,
+    h3_start_sequence_id_norm: float,
+    h3_length_norm: float,
+    h3_aromatic_fraction: float,
+    h3_charged_fraction: float,
 ) -> dict[str, Any]:
     warning_set = set(warnings)
     heavy_chain_payload = (
@@ -458,41 +507,42 @@ def _build_boundary_quality_baseline(
         "warning_count": float(len(warning_set)),
         "heavy_candidate_margin": float(max(heavy_candidate_margin, 0)),
         "motif_match_count": float(motif_match_count),
+        "h3_start_sequence_id_norm": float(h3_start_sequence_id_norm),
+        "h3_length_norm": float(h3_length_norm),
+        "h3_aromatic_fraction": float(h3_aromatic_fraction),
+        "h3_charged_fraction": float(h3_charged_fraction),
     }
     feature_vector = {
         feature_name: float(feature_vector.get(feature_name, 0.0))
         for feature_name in _CDR_BASELINE_FEATURE_NAMES
     }
 
-    score = 0.1
-    if available:
-        score += 0.2
+    # Deterministic optional QA baseline: fixed-weight logistic transform over a compact
+    # engineered feature vector. This remains non-blocking and never drives core boundaries.
+    logit = -2.8
+    logit += 1.15 * feature_vector["available_flag"]
+    logit += 1.8 * feature_vector["numbering_source_flag"]
+    logit -= 0.75 * feature_vector["motif_fallback_flag"]
+    logit += 1.05 * min(max(feature_vector["heavy_completeness_score"], 0.0), 1.0)
+    logit += 0.22 * min(feature_vector["selected_heavy_region_count"], 3.0)
+    logit -= 0.18 * min(feature_vector["warning_count"], 6.0)
+    logit += 0.16 * min(feature_vector["heavy_candidate_margin"], 6.0)
+    logit += 0.2 * min(feature_vector["motif_match_count"], 2.0)
+    logit += 0.15 * feature_vector["h3_length_norm"]
+    logit += 0.1 * feature_vector["h3_start_sequence_id_norm"]
+    logit += 0.12 * feature_vector["h3_aromatic_fraction"]
+    logit += 0.08 * feature_vector["h3_charged_fraction"]
 
-    if boundary_source == "numbered":
-        score += 0.35
-    elif boundary_source == "hybrid":
-        score += 0.18
-    elif boundary_source == "motif_fallback":
-        score += 0.08
-
-    score += min(0.25, float(heavy_completeness_score) * 0.25)
-    score += min(0.12, float(heavy_region_count) * 0.04)
-    score += min(0.08, float(max(heavy_candidate_margin, 0)) * 0.04)
-
-    if motif_match_count == 1:
-        score += 0.05
-
-    score -= min(0.16, float(len(warning_set)) * 0.04)
     if CDR_NUMBERING_MISSING in warning_set:
-        score -= 0.12
+        logit -= 0.55
     if CDR_MOTIF_FALLBACK_USED in warning_set:
-        score -= 0.08
+        logit -= 0.45
     if CDR_BOUNDARY_AMBIGUOUS in warning_set:
-        score -= 0.2
+        logit -= 0.85
     if CDR_CHAIN_ROLE_AMBIGUOUS in warning_set:
-        score -= 0.12
+        logit -= 0.5
 
-    score = round(min(max(score, 0.0), 1.0), 4)
+    score = round(1.0 / (1.0 + math.exp(-logit)), 4)
     predicted_confidence = _classify_baseline_score(score)
 
     drift_reason_codes: list[str] = []
@@ -513,7 +563,7 @@ def _build_boundary_quality_baseline(
 
     return {
         "available": True,
-        "model_name": "heuristic_v1",
+        "model_name": "logistic_multinomial_v1",
         "model_contract": dict(_CDR_BASELINE_MODEL_CONTRACT),
         "predicted_confidence_class": predicted_confidence,
         "primary_boundary_confidence": boundary_confidence,
@@ -652,6 +702,22 @@ def annotate_cdr_h3(structure: Any) -> dict[str, Any]:
     available = annotation_window is not None
 
     deduped_warnings = sorted(set(warnings))
+    h3_position_signal = 0.0
+    h3_length_signal = 0.0
+    h3_aromatic_fraction = 0.0
+    h3_charged_fraction = 0.0
+    if selected_heavy_chain is not None:
+        selected_residues = residues_by_chain.get(selected_heavy_chain, [])
+        h3_region_payload = (
+            chains_payload.get(selected_heavy_chain, {}).get("regions", {}).get("CDR-H3")
+        )
+        (
+            h3_position_signal,
+            h3_length_signal,
+            h3_aromatic_fraction,
+            h3_charged_fraction,
+        ) = _h3_position_and_composition_features(selected_residues, h3_region_payload)
+
     quality_baseline = _build_boundary_quality_baseline(
         available=available,
         boundary_source=boundary_source,
@@ -664,7 +730,14 @@ def annotate_cdr_h3(structure: Any) -> dict[str, Any]:
         heavy_scores=heavy_scores,
         motif_by_chain=motif_by_chain,
         heavy_completeness_score=heavy_completeness_score,
+        h3_start_sequence_id_norm=h3_position_signal,
+        h3_length_norm=h3_length_signal,
+        h3_aromatic_fraction=h3_aromatic_fraction,
+        h3_charged_fraction=h3_charged_fraction,
     )
+    output_warnings = set(deduped_warnings)
+    if bool(quality_baseline.get("drift_flag", False)):
+        output_warnings.add("CDR_BASELINE_DRIFT_FLAGGED")
 
     return {
         "available": available,
@@ -677,7 +750,7 @@ def annotate_cdr_h3(structure: Any) -> dict[str, Any]:
         ),
         "selected_heavy_chain": selected_heavy_chain,
         "chains": chains_payload,
-        "warnings": deduped_warnings,
+        "warnings": sorted(output_warnings),
         "quality_baseline": quality_baseline,
     }
 

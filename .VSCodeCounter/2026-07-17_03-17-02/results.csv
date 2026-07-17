@@ -1,0 +1,125 @@
+"filename", "language", "Markdown", "Ignore", "JSON", "Python", "Molecular Structure", "TypeScript JSX", "TypeScript", "Shell Script", "YAML", "Docker", "JSON with Comments", "PostCSS", "pyscript", "comment", "blank", "total"
+"/home/argus/Documents/Abby/.devcontainer/devcontainer.json", "JSON with Comments", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 25, 0, 0, 0, 1, 26
+"/home/argus/Documents/Abby/.dockerignore", "Ignore", 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 11
+"/home/argus/Documents/Abby/.github/copilot-instructions.md", "Markdown", 152, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 87, 239
+"/home/argus/Documents/Abby/.github/scripts/self_heal_ci.sh", "Shell Script", 0, 0, 0, 0, 0, 0, 0, 58, 0, 0, 0, 0, 0, 1, 17, 76
+"/home/argus/Documents/Abby/.github/workflows/ci.yml", "YAML", 0, 0, 0, 0, 0, 0, 0, 0, 44, 0, 0, 0, 0, 0, 13, 57
+"/home/argus/Documents/Abby/.github/workflows/dependency-review.yml", "YAML", 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 5, 19
+"/home/argus/Documents/Abby/.github/workflows/nightly-smoke.yml", "YAML", 0, 0, 0, 0, 0, 0, 0, 0, 48, 0, 0, 0, 0, 0, 14, 62
+"/home/argus/Documents/Abby/.github/workflows/self-healing-ci.yml", "YAML", 0, 0, 0, 0, 0, 0, 0, 0, 104, 0, 0, 0, 0, 0, 19, 123
+"/home/argus/Documents/Abby/ADC_binding_affinity.md", "Markdown", 45, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 61
+"/home/argus/Documents/Abby/Backend_Architecture_Abby.md", "Markdown", 349, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 86, 435
+"/home/argus/Documents/Abby/Dev_Plan.md", "Markdown", 85, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 39, 124
+"/home/argus/Documents/Abby/Dev_Plan_Biopython.md", "Markdown", 102, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 46, 148
+"/home/argus/Documents/Abby/Dev_Plan_CompDetRAE.md", "Markdown", 485, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 168, 653
+"/home/argus/Documents/Abby/Dev_Plan_Implementation_Checklist.md", "Markdown", 260, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 99, 359
+"/home/argus/Documents/Abby/Dockerfile", "Docker", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 8, 22
+"/home/argus/Documents/Abby/Frontend_Architecture_Abby.md", "Markdown", 174, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 55, 229
+"/home/argus/Documents/Abby/GROMACS_&_biopython.md", "Markdown", 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 22
+"/home/argus/Documents/Abby/OpenAPI_Abby_v1.yaml", "YAML", 0, 0, 0, 0, 0, 0, 0, 0, 989, 0, 0, 0, 0, 0, 1, 990
+"/home/argus/Documents/Abby/PDB_PDBx_mmCIF_disulfide_bonds_&_sidechain_glycosylation.md", "Markdown", 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 21, 81
+"/home/argus/Documents/Abby/README.md", "Markdown", 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 28
+"/home/argus/Documents/Abby/RELEASE_NOTES.md", "Markdown", 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 14
+"/home/argus/Documents/Abby/V1_Product_Spec_Abby.md", "Markdown", 330, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 394
+"/home/argus/Documents/Abby/VHH_support.md", "Markdown", 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 27
+"/home/argus/Documents/Abby/antibodies_SPR.md", "Markdown", 43, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 56
+"/home/argus/Documents/Abby/aptamers_molecular_dynamics.md", "Markdown", 29, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 41
+"/home/argus/Documents/Abby/convert_pdb_to_pdbx.md", "Markdown", 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 24
+"/home/argus/Documents/Abby/data/validation_runs/andd_smoke_test/converted_mmcif/15C8.mmcif", "Molecular Structure", 0, 0, 0, 0, 3372, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3373
+"/home/argus/Documents/Abby/data/validation_runs/andd_smoke_test/reports/validation_report.json", "JSON", 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64
+"/home/argus/Documents/Abby/data/validation_runs/andd_smoke_test2/converted_mmcif/1A0Q.mmcif", "Molecular Structure", 0, 0, 0, 0, 3323, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3324
+"/home/argus/Documents/Abby/data/validation_runs/andd_smoke_test2/reports/validation_report.json", "JSON", 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64
+"/home/argus/Documents/Abby/docker-compose.yml", "YAML", 0, 0, 0, 0, 0, 0, 0, 0, 82, 0, 0, 0, 0, 0, 7, 89
+"/home/argus/Documents/Abby/frontend/index.html", "pyscript", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 1, 13
+"/home/argus/Documents/Abby/frontend/package-lock.json", "JSON", 0, 0, 1801, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1802
+"/home/argus/Documents/Abby/frontend/package.json", "JSON", 0, 0, 24, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 25
+"/home/argus/Documents/Abby/frontend/src/app/router.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 25, 0, 0, 0, 0, 0, 0, 0, 0, 3, 28
+"/home/argus/Documents/Abby/frontend/src/components/CdrSummaryCard.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 114, 0, 0, 0, 0, 0, 0, 0, 0, 9, 123
+"/home/argus/Documents/Abby/frontend/src/components/ServiceLayerCard.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 19, 0, 0, 0, 0, 0, 0, 0, 0, 2, 21
+"/home/argus/Documents/Abby/frontend/src/components/WorkflowStepper.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 0, 0, 0, 0, 1, 16
+"/home/argus/Documents/Abby/frontend/src/components/layout/AppLayout.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 22, 0, 0, 0, 0, 0, 0, 0, 0, 2, 24
+"/home/argus/Documents/Abby/frontend/src/lib/api-client.ts", "TypeScript", 0, 0, 0, 0, 0, 0, 135, 0, 0, 0, 0, 0, 0, 0, 18, 153
+"/home/argus/Documents/Abby/frontend/src/lib/config.ts", "TypeScript", 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 1, 5
+"/home/argus/Documents/Abby/frontend/src/lib/stub-data.ts", "TypeScript", 0, 0, 0, 0, 0, 0, 67, 0, 0, 0, 0, 0, 0, 0, 4, 71
+"/home/argus/Documents/Abby/frontend/src/main.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 0, 0, 4, 18
+"/home/argus/Documents/Abby/frontend/src/pages/BatchJobPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 211, 0, 0, 0, 0, 0, 0, 0, 0, 19, 230
+"/home/argus/Documents/Abby/frontend/src/pages/ComparePage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 104, 0, 0, 0, 0, 0, 0, 0, 0, 9, 113
+"/home/argus/Documents/Abby/frontend/src/pages/DashboardPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 98, 0, 0, 0, 0, 0, 0, 0, 0, 7, 105
+"/home/argus/Documents/Abby/frontend/src/pages/PredictionPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 177, 0, 0, 0, 0, 0, 0, 0, 0, 15, 192
+"/home/argus/Documents/Abby/frontend/src/pages/ProjectPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 292, 0, 0, 0, 0, 0, 0, 0, 0, 19, 311
+"/home/argus/Documents/Abby/frontend/src/pages/SettingsPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 22, 0, 0, 0, 0, 0, 0, 0, 0, 1, 23
+"/home/argus/Documents/Abby/frontend/src/pages/StructurePage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 200, 0, 0, 0, 0, 0, 0, 0, 0, 17, 217
+"/home/argus/Documents/Abby/frontend/src/styles.css", "PostCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 133, 0, 0, 8, 141
+"/home/argus/Documents/Abby/frontend/src/types/api.ts", "TypeScript", 0, 0, 0, 0, 0, 0, 200, 0, 0, 0, 0, 0, 0, 0, 24, 224
+"/home/argus/Documents/Abby/frontend/src/types/ui.ts", "TypeScript", 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 2, 9
+"/home/argus/Documents/Abby/frontend/src/vite-env.d.ts", "TypeScript", 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 1, 3, 11
+"/home/argus/Documents/Abby/frontend/tsconfig.app.json", "JSON", 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 21
+"/home/argus/Documents/Abby/frontend/tsconfig.app.tsbuildinfo", "JSON", 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+"/home/argus/Documents/Abby/frontend/tsconfig.json", "JSON with Comments", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 1, 7
+"/home/argus/Documents/Abby/frontend/vite.config.ts", "TypeScript", 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 0, 0, 0, 2, 17
+"/home/argus/Documents/Abby/molecular_visualization_2026.md", "Markdown", 40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 58
+"/home/argus/Documents/Abby/prediction_properties_bioconjugated_proteins.md", "Markdown", 54, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 72
+"/home/argus/Documents/Abby/schema_&_failure_modes_PDB_vs_PDBx_mmCIF_.md", "Markdown", 62, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 21, 83
+"/home/argus/Documents/Abby/scripts/run_andd_validation.py", "Python", 0, 0, 0, 105, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 19, 124
+"/home/argus/Documents/Abby/service_layer_dev_plan.md", "Markdown", 311, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 439
+"/home/argus/Documents/Abby/src/abby_api/__init__.py", "Python", 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 4
+"/home/argus/Documents/Abby/src/abby_api/api/__init__.py", "Python", 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2
+"/home/argus/Documents/Abby/src/abby_api/api/router.py", "Python", 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 13
+"/home/argus/Documents/Abby/src/abby_api/api/routes/__init__.py", "Python", 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2
+"/home/argus/Documents/Abby/src/abby_api/api/routes/batch_jobs.py", "Python", 0, 0, 0, 31, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 44
+"/home/argus/Documents/Abby/src/abby_api/api/routes/predictions.py", "Python", 0, 0, 0, 70, 0, 0, 0, 0, 0, 0, 0, 0, 0, 34, 25, 129
+"/home/argus/Documents/Abby/src/abby_api/api/routes/projects.py", "Python", 0, 0, 0, 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 28
+"/home/argus/Documents/Abby/src/abby_api/api/routes/structures.py", "Python", 0, 0, 0, 27, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 38
+"/home/argus/Documents/Abby/src/abby_api/api/routes/system.py", "Python", 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 24
+"/home/argus/Documents/Abby/src/abby_api/cdr_calibration_runner.py", "Python", 0, 0, 0, 147, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 179
+"/home/argus/Documents/Abby/src/abby_api/core/__init__.py", "Python", 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2
+"/home/argus/Documents/Abby/src/abby_api/core/config.py", "Python", 0, 0, 0, 37, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 9, 49
+"/home/argus/Documents/Abby/src/abby_api/core/security.py", "Python", 0, 0, 0, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 21
+"/home/argus/Documents/Abby/src/abby_api/db/session.py", "Python", 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 4, 12
+"/home/argus/Documents/Abby/src/abby_api/main.py", "Python", 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 50
+"/home/argus/Documents/Abby/src/abby_api/repositories/__init__.py", "Python", 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 4
+"/home/argus/Documents/Abby/src/abby_api/repositories/memory.py", "Python", 0, 0, 0, 140, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 44, 184
+"/home/argus/Documents/Abby/src/abby_api/schemas/__init__.py", "Python", 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 6
+"/home/argus/Documents/Abby/src/abby_api/schemas/common.py", "Python", 0, 0, 0, 121, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 39, 170
+"/home/argus/Documents/Abby/src/abby_api/schemas/predictions.py", "Python", 0, 0, 0, 162, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 60, 254
+"/home/argus/Documents/Abby/src/abby_api/schemas/projects.py", "Python", 0, 0, 0, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 25
+"/home/argus/Documents/Abby/src/abby_api/schemas/structures.py", "Python", 0, 0, 0, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 66
+"/home/argus/Documents/Abby/src/abby_api/schemas/system.py", "Python", 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 58
+"/home/argus/Documents/Abby/src/abby_api/services/__init__.py", "Python", 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 10
+"/home/argus/Documents/Abby/src/abby_api/services/baseline_models.py", "Python", 0, 0, 0, 105, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 27, 132
+"/home/argus/Documents/Abby/src/abby_api/services/batch_jobs.py", "Python", 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 287
+"/home/argus/Documents/Abby/src/abby_api/services/cdr_annotation.py", "Python", 0, 0, 0, 591, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 94, 687
+"/home/argus/Documents/Abby/src/abby_api/services/cdr_numbering.py", "Python", 0, 0, 0, 42, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 53
+"/home/argus/Documents/Abby/src/abby_api/services/cdr_quality_calibration.py", "Python", 0, 0, 0, 140, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 164
+"/home/argus/Documents/Abby/src/abby_api/services/cdr_telemetry.py", "Python", 0, 0, 0, 83, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 107
+"/home/argus/Documents/Abby/src/abby_api/services/feature_extraction.py", "Python", 0, 0, 0, 860, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 125, 994
+"/home/argus/Documents/Abby/src/abby_api/services/graph_models.py", "Python", 0, 0, 0, 683, 0, 0, 0, 0, 0, 0, 0, 0, 0, 393, 136, 1212
+"/home/argus/Documents/Abby/src/abby_api/services/predictions.py", "Python", 0, 0, 0, 698, 0, 0, 0, 0, 0, 0, 0, 0, 0, 56, 64, 818
+"/home/argus/Documents/Abby/src/abby_api/services/projects.py", "Python", 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 20
+"/home/argus/Documents/Abby/src/abby_api/services/simulation.py", "Python", 0, 0, 0, 433, 0, 0, 0, 0, 0, 0, 0, 0, 0, 110, 76, 619
+"/home/argus/Documents/Abby/src/abby_api/services/structure_generation.py", "Python", 0, 0, 0, 622, 0, 0, 0, 0, 0, 0, 0, 0, 0, 205, 97, 924
+"/home/argus/Documents/Abby/src/abby_api/services/structure_parsing.py", "Python", 0, 0, 0, 409, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 63, 472
+"/home/argus/Documents/Abby/src/abby_api/services/structures.py", "Python", 0, 0, 0, 364, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 43, 407
+"/home/argus/Documents/Abby/src/abby_api/services/system.py", "Python", 0, 0, 0, 91, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 17, 108
+"/home/argus/Documents/Abby/src/abby_api/services/trajectory.py", "Python", 0, 0, 0, 159, 0, 0, 0, 0, 0, 0, 0, 0, 0, 77, 40, 276
+"/home/argus/Documents/Abby/src/abby_api/storage/object_store.py", "Python", 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 14, 55
+"/home/argus/Documents/Abby/src/abby_api/validation_harness.py", "Python", 0, 0, 0, 660, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 104, 764
+"/home/argus/Documents/Abby/src/abby_api/workers/__init__.py", "Python", 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2
+"/home/argus/Documents/Abby/src/abby_api/workers/backend.py", "Python", 0, 0, 0, 187, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 49, 250
+"/home/argus/Documents/Abby/src/abby_api/workers/runner.py", "Python", 0, 0, 0, 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 18
+"/home/argus/Documents/Abby/src/abby_api/workers/tasks.py", "Python", 0, 0, 0, 62, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 26, 112
+"/home/argus/Documents/Abby/tests/conftest.py", "Python", 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 11
+"/home/argus/Documents/Abby/tests/test_baseline_models.py", "Python", 0, 0, 0, 33, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 41
+"/home/argus/Documents/Abby/tests/test_batch_jobs.py", "Python", 0, 0, 0, 197, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 38, 235
+"/home/argus/Documents/Abby/tests/test_cdr_annotation.py", "Python", 0, 0, 0, 281, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 82, 363
+"/home/argus/Documents/Abby/tests/test_cdr_calibration_runner.py", "Python", 0, 0, 0, 98, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 19, 117
+"/home/argus/Documents/Abby/tests/test_cdr_quality_calibration.py", "Python", 0, 0, 0, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 17, 65
+"/home/argus/Documents/Abby/tests/test_feature_extraction.py", "Python", 0, 0, 0, 179, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 20, 200
+"/home/argus/Documents/Abby/tests/test_health.py", "Python", 0, 0, 0, 98, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 118
+"/home/argus/Documents/Abby/tests/test_learned_models.py", "Python", 0, 0, 0, 595, 0, 0, 0, 0, 0, 0, 0, 0, 0, 50, 103, 748
+"/home/argus/Documents/Abby/tests/test_simulation.py", "Python", 0, 0, 0, 492, 0, 0, 0, 0, 0, 0, 0, 0, 0, 61, 104, 657
+"/home/argus/Documents/Abby/tests/test_structure_flow.py", "Python", 0, 0, 0, 989, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 116, 1105
+"/home/argus/Documents/Abby/tests/test_validation_harness.py", "Python", 0, 0, 0, 171, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 185
+"/home/argus/Documents/Abby/tests/test_worker_backend.py", "Python", 0, 0, 0, 63, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 26, 89
+"/home/argus/Documents/Abby/validation_plan.md", "Markdown", 112, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 132
+"Total", "-", 2773, 10, 1974, 10817, 6695, 1313, 435, 58, 1281, 14, 31, 133, 12, 1093, 3214, 29853

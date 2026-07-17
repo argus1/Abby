@@ -42,7 +42,11 @@ def _smoke_pdb_ids(dataset_root: Path, workbook_path: Path, smoke_limit: int) ->
         if predicted_idx is not None and predicted_idx < len(row):
             predicted_value = str(row[predicted_idx] or "").strip().lower()
 
-        if antigen_value and antigen_value not in {"n/a", "na", "\\"} and predicted_value != "predicted":
+        if (
+            antigen_value
+            and antigen_value not in {"n/a", "na", "\\"}
+            and predicted_value != "predicted"
+        ):
             candidates.append(pdb_id)
 
     workbook.close()

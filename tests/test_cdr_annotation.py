@@ -165,7 +165,7 @@ def test_cdr_h3_numbering_annotation_selects_heavy_chain_without_h_name() -> Non
         "cdr_boundary_quality_contract_v1"
     )
     assert annotation["quality_baseline"]["model_contract"]["feature_schema_version"] == (
-        "cdr_boundary_quality_features_v1"
+        "cdr_boundary_quality_features_v2"
     )
     assert annotation["quality_baseline"]["model_contract"]["calibration_scaffold_version"] == (
         "cdr_boundary_quality_calibration_scaffold_v1"
@@ -187,6 +187,7 @@ def test_cdr_h3_motif_fallback_annotation_records_typed_warning() -> None:
     assert CDR_MOTIF_FALLBACK_USED in annotation["warnings"]
     assert annotation["quality_baseline"]["drift_flag"] is True
     assert "FALLBACK_BOUNDARY_SOURCE" in annotation["quality_baseline"]["drift_reason_codes"]
+    assert "CDR_BASELINE_DRIFT_FLAGGED" in annotation["warnings"]
 
 
 def test_cdr_h3_ambiguous_motif_returns_boundary_ambiguity_warning() -> None:
@@ -297,14 +298,57 @@ def test_full_numbered_cdr_regions_extracted_for_heavy_and_light() -> None:
     assert annotation["quality_baseline"]["predicted_confidence_class"] == "high"
     assert annotation["quality_baseline"]["drift_flag"] is False
     assert annotation["quality_baseline"]["model_contract"]["model_id"] == (
-        "cdr_boundary_quality_heuristic"
+        "cdr_boundary_quality_logistic_multinomial"
     )
-    assert set(annotation["quality_baseline"]["model_contract"]["calibration_metrics_supported"]) == {
+    assert set(
+        annotation["quality_baseline"]["model_contract"]["calibration_metrics_supported"]
+    ) == {
         "ece",
         "mce",
         "brier",
         "auc_roc",
     }
+
+
+def test_quality_baseline_uses_logistic_qa_contract() -> None:
+    heavy_sequence = ("A" * 9) + "C" + ("A" * 130)
+    light_sequence = ("A" * 23) + "C" + ("A" * 20) + "F" + ("A" * 81)
+    structure = _Structure(
+        [
+            _chain_from_sequence("H", 1, heavy_sequence),
+            _chain_from_sequence("L", 1, light_sequence),
+        ]
+    )
+
+    annotation = annotate_cdr_h3(structure)
+
+    baseline = annotation["quality_baseline"]
+    assert baseline["model_name"] == "logistic_multinomial_v1"
+    assert baseline["model_contract"]["model_family"] == "multinomial_logistic_baseline"
+    assert baseline["model_contract"]["non_blocking"] is True
+    assert baseline["model_contract"]["intended_use"] == "qa_drift_monitoring_only"
+
+
+def test_quality_baseline_feature_vector_includes_positional_and_composition_signals() -> None:
+    heavy_sequence = ("A" * 9) + "C" + ("A" * 130)
+    light_sequence = ("A" * 23) + "C" + ("A" * 20) + "F" + ("A" * 81)
+    structure = _Structure(
+        [
+            _chain_from_sequence("H", 1, heavy_sequence),
+            _chain_from_sequence("L", 1, light_sequence),
+        ]
+    )
+
+    annotation = annotate_cdr_h3(structure)
+    feature_vector = annotation["quality_baseline"]["feature_vector"]
+
+    assert annotation["quality_baseline"]["model_contract"]["feature_schema_version"] == (
+        "cdr_boundary_quality_features_v2"
+    )
+    assert "h3_start_sequence_id_norm" in feature_vector
+    assert "h3_length_norm" in feature_vector
+    assert "h3_aromatic_fraction" in feature_vector
+    assert "h3_charged_fraction" in feature_vector
 
 
 def test_cdr_region_payload_keeps_insertion_code_ordering() -> None:

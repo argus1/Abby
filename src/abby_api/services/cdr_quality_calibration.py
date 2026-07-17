@@ -115,8 +115,9 @@ def build_cdr_calibration_report(
             )
         )
 
-    brier = sum((score - float(label)) ** 2 for score, label in zip(clamped_scores, labels)) / float(
-        total
+    brier = (
+        sum((score - float(label)) ** 2 for score, label in zip(clamped_scores, labels))
+        / float(total)
     )
 
     positives = sum(labels)
