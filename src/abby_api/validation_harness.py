@@ -22,7 +22,10 @@ from abby_api.schemas.structures import (
     StructureInput,
     StructureValidationRequest,
 )
-from abby_api.services.cdr_stress_harness import run_cdr_mutation_stress_batch
+from abby_api.services.cdr_stress_harness import (
+    run_cdr_mutation_stress_batch,
+    run_cdr_perturbation_class_slice,
+)
 from abby_api.services.predictions import create_prediction
 from abby_api.services.simulation import (
     SimulationRunConfig,
@@ -38,6 +41,40 @@ from abby_api.services.structures import validate_structure
 DEFAULT_DATASET_ROOT = Path("validation_dataset/ANDD_pdb")
 DEFAULT_WORKBOOK_NAME = "Antibody and Nanobody Design Dataset (ANDD)_v2.xlsx"
 DEFAULT_OUTPUT_ROOT = Path("data/validation_runs/andd")
+_PERTURBATION_CLASS_MATRIX_SPECIFICATIONS: dict[str, list[str]] = {
+    "CRISPR_edits": ["H95:C>W", "H:95:A>W"],
+    "LNP_conjugation": ["H:95:A>W"],
+    "small_molecule_conjugation": ["H95:C>W", "H:95:A>W"],
+    "PEG_XTEN_conjugation": ["H:95-97:W"],
+}
+_PERTURBATION_CLASS_MATRIX_ORDER: tuple[str, ...] = (
+    "CRISPR_edits",
+    "LNP_conjugation",
+    "small_molecule_conjugation",
+    "PEG_XTEN_conjugation",
+)
+_THREE_TO_ONE_MATRIX_RESIDUES = {
+    "ALA": "A",
+    "ARG": "R",
+    "ASN": "N",
+    "ASP": "D",
+    "CYS": "C",
+    "GLN": "Q",
+    "GLU": "E",
+    "GLY": "G",
+    "HIS": "H",
+    "ILE": "I",
+    "LEU": "L",
+    "LYS": "K",
+    "MET": "M",
+    "PHE": "F",
+    "PRO": "P",
+    "SER": "S",
+    "THR": "T",
+    "TRP": "W",
+    "TYR": "Y",
+    "VAL": "V",
+}
 
 _MISSING_VALUES = {"", "na", "n/a", "none", "null", "\\", "-"}
 _CHAIN_SEPARATORS = re.compile(r"[;,/|]+|\s+")
@@ -574,6 +611,175 @@ def _build_cdr_stress_resilience_assertions(
     }
 
 
+def _build_matrix_probe_spec(structure: object) -> str | None:
+    models = list(structure.get_models()) if hasattr(structure, "get_models") else []
+    if not models:
+        return None
+
+    for chain in models[0].get_chains():
+        chain_id = str(getattr(chain, "id", "")).strip()
+        if not chain_id:
+            continue
+        for residue in chain.get_residues():
+            residue_id = getattr(residue, "id", None)
+            if not isinstance(residue_id, tuple) or len(residue_id) < 3:
+                continue
+            if residue_id[0] != " ":
+                continue
+            try:
+                sequence_id = int(residue_id[1])
+            except (TypeError, ValueError):
+                continue
+            insertion_code = str(residue_id[2] or "").strip()
+            if insertion_code in {"?", "."}:
+                insertion_code = ""
+            if hasattr(residue, "get_resname"):
+                current_three = residue.get_resname()
+            else:
+                current_three = getattr(residue, "resname", "")
+            current_one = _THREE_TO_ONE_MATRIX_RESIDUES.get(
+                str(current_three).strip().upper()
+            )
+            if current_one is None:
+                continue
+            target_one = "W" if current_one != "W" else "A"
+            return f"{chain_id}:{sequence_id}{insertion_code}:{current_one}>{target_one}"
+
+    return None
+
+
+def _build_cdr_perturbation_matrix(
+    cases: list[ValidationCaseResult],
+    *,
+    corpus_limit: int = 3,
+) -> dict[str, object]:
+    selected_cases = [
+        case for case in cases if case.converted_mmcif_path
+    ][:corpus_limit]
+    rows: list[dict[str, object]] = []
+    class_rows: dict[str, list[dict[str, object]]] = {
+        perturbation_class: [] for perturbation_class in _PERTURBATION_CLASS_MATRIX_ORDER
+    }
+
+    for case in selected_cases:
+        converted_path = Path(case.converted_mmcif_path or "")
+        try:
+            structure, parser_name = parse_structure_file(converted_path, "mmcif")
+        except Exception as exc:  # pragma: no cover - corpus-backed probe should remain best-effort
+            for perturbation_class in _PERTURBATION_CLASS_MATRIX_ORDER:
+                row = {
+                    "pdb_id": case.pdb_id,
+                    "perturbation_class": perturbation_class,
+                    "slice_name": "unavailable",
+                    "corpus_parser": "parse_failed",
+                    "status": "failed",
+                    "deterministic": False,
+                    "annotation_available": False,
+                    "applied_mutation_count": 0,
+                    "failed_mutation_count": 0,
+                    "typed_issue_count": 1,
+                    "error": str(exc),
+                }
+                rows.append(row)
+                class_rows[perturbation_class].append(row)
+            continue
+
+        matrix_probe_spec = _build_matrix_probe_spec(structure)
+        for perturbation_class in _PERTURBATION_CLASS_MATRIX_ORDER:
+            mutation_specs = (
+                [matrix_probe_spec]
+                if matrix_probe_spec
+                else _PERTURBATION_CLASS_MATRIX_SPECIFICATIONS[perturbation_class]
+            )
+            probe = run_cdr_perturbation_class_slice(
+                structure,
+                perturbation_class=perturbation_class,
+                mutation_specs=mutation_specs,
+            )
+            row = {
+                "pdb_id": case.pdb_id,
+                "perturbation_class": perturbation_class,
+                "slice_name": probe["slice_name"],
+                "corpus_parser": parser_name,
+                "status": probe["status"],
+                "deterministic": bool(probe.get("deterministic", False)),
+                "annotation_available": bool(
+                    probe.get("annotation", {}).get("available", False)
+                ),
+                "applied_mutation_count": int(probe.get("applied_mutation_count", 0)),
+                "failed_mutation_count": int(probe.get("failed_mutation_count", 0)),
+                "typed_issue_count": len(probe.get("issues", [])),
+                "resilience_assertions": probe.get("resilience_assertions", {}),
+            }
+            rows.append(row)
+            class_rows[perturbation_class].append(row)
+
+    row_count = len(rows)
+    deterministic_count = sum(1 for row in rows if row["deterministic"])
+    annotation_available_count = sum(1 for row in rows if row["annotation_available"])
+    expected_row_count = len(selected_cases) * len(_PERTURBATION_CLASS_MATRIX_ORDER)
+    class_gate_results: dict[str, dict[str, object]] = {}
+    for perturbation_class, class_rows_for_class in class_rows.items():
+        class_row_count = len(class_rows_for_class)
+        class_failed_count = sum(1 for row in class_rows_for_class if row["status"] != "completed")
+        class_annotation_available_count = sum(
+            1 for row in class_rows_for_class if row["annotation_available"]
+        )
+        class_deterministic_count = sum(1 for row in class_rows_for_class if row["deterministic"])
+        class_failure_rate = (
+            class_failed_count / class_row_count if class_row_count else 1.0
+        )
+        class_annotation_available_rate = (
+            class_annotation_available_count / class_row_count if class_row_count else 0.0
+        )
+        class_deterministic_rate = (
+            class_deterministic_count / class_row_count if class_row_count else 0.0
+        )
+        class_gate_results[perturbation_class] = {
+            "row_count": class_row_count,
+            "completed_row_count": class_row_count - class_failed_count,
+            "failed_row_count": class_failed_count,
+            "failure_rate": class_failure_rate,
+            "annotation_available_rate": class_annotation_available_rate,
+            "deterministic_rate": class_deterministic_rate,
+            "passed": (
+                class_row_count > 0
+                and class_failure_rate <= 0.25
+                and class_deterministic_rate >= 1.0
+            ),
+        }
+
+    matrix_coverage = row_count / expected_row_count if expected_row_count else 0.0
+    overall_passed = (
+        len(selected_cases) > 0
+        and row_count == expected_row_count
+        and all(gate["passed"] for gate in class_gate_results.values())
+    )
+    return {
+        "corpus_sample_size": len(selected_cases),
+        "class_count": len(_PERTURBATION_CLASS_MATRIX_ORDER),
+        "expected_row_count": expected_row_count,
+        "row_count": row_count,
+        "matrix_coverage": matrix_coverage,
+        "deterministic_row_count": deterministic_count,
+        "annotation_available_row_count": annotation_available_count,
+        "thresholds": {
+            "minimum_corpus_sample_size": 1,
+            "required_matrix_coverage": 1.0,
+            "maximum_failure_rate_per_class": 0.25,
+            "minimum_deterministic_rate_per_class": 1.0,
+        },
+        "gate_results": {
+            "passed": overall_passed,
+            "expected_row_count": expected_row_count,
+            "observed_row_count": row_count,
+            "matrix_coverage": matrix_coverage,
+            "per_class": class_gate_results,
+        },
+        "rows": rows,
+    }
+
+
 def run_andd_validation_harness(
     *,
     dataset_root: Path = DEFAULT_DATASET_ROOT,
@@ -794,6 +1000,7 @@ def run_andd_validation_harness(
                 "parsed_specs": stress_summary.parsed_specs,
                 "failed_specs": stress_summary.failed_specs,
                 "resilience_assertions": resilience_assertions,
+                "perturbation_matrix": _build_cdr_perturbation_matrix(cases),
                 "results": [
                     {
                         "input_spec": result.input_spec,

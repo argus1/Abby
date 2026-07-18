@@ -38,6 +38,12 @@ _ONE_TO_THREE = {
     "V": "VAL",
 }
 _THREE_TO_ONE = {value: key for key, value in _ONE_TO_THREE.items()}
+_PERTURBATION_CLASS_SLICE_NAMES = {
+    "CRISPR_edits": "crispr_edits_resilience_slice",
+    "LNP_conjugation": "lnp_conjugation_resilience_slice",
+    "small_molecule_conjugation": "small_molecule_conjugation_resilience_slice",
+    "PEG_XTEN_conjugation": "peg_xten_conjugation_resilience_slice",
+}
 
 
 @dataclass(frozen=True)
@@ -320,4 +326,102 @@ def run_cdr_mutation_annotation_probe(
         "deterministic": first == second,
         "issues": issues,
         "annotation": first,
+    }
+
+
+def _build_perturbation_class_resilience_assertions(
+    *,
+    perturbation_class: str,
+    mutation_specs: list[str],
+    probe_result: dict[str, Any],
+) -> dict[str, dict[str, object]]:
+    issues = probe_result.get("issues", [])
+    typed_issue_reporting = all(
+        isinstance(issue, dict)
+        and isinstance(issue.get("code"), str)
+        and isinstance(issue.get("message"), str)
+        and isinstance(issue.get("spec"), str)
+        for issue in issues
+    )
+
+    assertions: dict[str, dict[str, object]] = {
+        "typed_issue_reporting": {
+            "passed": typed_issue_reporting,
+            "observed_issue_count": len(issues),
+            "expected": "typed code/message/spec for each issue",
+        },
+        "deterministic_annotation": {
+            "passed": bool(probe_result.get("deterministic", False)),
+            "observed": bool(probe_result.get("deterministic", False)),
+            "expected": True,
+        },
+    }
+
+    if perturbation_class == "CRISPR_edits":
+        assertions["sequence_corruption_tolerated"] = {
+            "passed": bool(probe_result.get("failed_mutation_count", 0)) > 0,
+            "observed_failed_mutation_count": probe_result.get("failed_mutation_count", 0),
+            "expected": ">0 failed mutations are surfaced as typed issues",
+        }
+    elif perturbation_class == "LNP_conjugation":
+        assertions["steric_occlusion_does_not_crash_annotation"] = {
+            "passed": probe_result.get("annotation", {}).get("available", False) is True,
+            "observed_annotation_available": probe_result.get("annotation", {}).get(
+                "available", False
+            ),
+            "expected": True,
+        }
+    elif perturbation_class == "small_molecule_conjugation":
+        assertions["conjugation_heterogeneity_reported"] = {
+            "passed": bool(issues) or bool(probe_result.get("failed_mutation_count", 0)),
+            "observed_issue_count": len(issues),
+            "expected": "typed failure or heterogeneity signal is surfaced",
+        }
+    elif perturbation_class == "PEG_XTEN_conjugation":
+        assertions["range_perturbation_tolerated"] = {
+            "passed": any("-" in spec for spec in mutation_specs)
+            and bool(probe_result.get("deterministic", False)),
+            "observed_range_specs": [spec for spec in mutation_specs if "-" in spec],
+            "expected": "range perturbation is supported with deterministic annotation",
+        }
+
+    return assertions
+
+
+def run_cdr_perturbation_class_slice(
+    structure: Any,
+    *,
+    perturbation_class: str,
+    mutation_specs: list[str],
+) -> dict[str, Any]:
+    """Run a single perturbation-class harness slice.
+
+    The slice remains optional and off the default prediction path. It is a thin,
+    testable wrapper around the mutation→annotation probe with class-specific
+    resilience assertions.
+    """
+
+    probe_result = run_cdr_mutation_annotation_probe(
+        structure,
+        mutation_specs=mutation_specs,
+    )
+    slice_name = _PERTURBATION_CLASS_SLICE_NAMES.get(
+        perturbation_class,
+        "generic_perturbation_resilience_slice",
+    )
+    resilience_assertions = _build_perturbation_class_resilience_assertions(
+        perturbation_class=perturbation_class,
+        mutation_specs=mutation_specs,
+        probe_result=probe_result,
+    )
+    return {
+        "perturbation_class": perturbation_class,
+        "slice_name": slice_name,
+        "status": probe_result.get("status", "failed"),
+        "applied_mutation_count": probe_result.get("applied_mutation_count", 0),
+        "failed_mutation_count": probe_result.get("failed_mutation_count", 0),
+        "deterministic": probe_result.get("deterministic", False),
+        "issues": probe_result.get("issues", []),
+        "annotation": probe_result.get("annotation", {}),
+        "resilience_assertions": resilience_assertions,
     }

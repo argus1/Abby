@@ -272,3 +272,46 @@ def test_cdr_stress_report_includes_structure_chain_coverage_assertion(tmp_path)
 
     assert assertions["spec_chains_present_in_structures"]["passed"] is True
     assert assertions["spec_chains_present_in_structures"]["observed_missing_chains"] == []
+
+
+def test_cdr_stress_report_includes_corpus_backed_perturbation_matrix(tmp_path) -> None:
+    dataset_root = tmp_path / "ANDD_pdb"
+    structures_dir = dataset_root / "All_structures"
+    structures_dir.mkdir(parents=True)
+    pdb_path = structures_dir / "TEST.pdb"
+    pdb_path.write_text(PDB_FIXTURE)
+
+    workbook_path = dataset_root / "Antibody and Nanobody Design Dataset (ANDD)_v2.xlsx"
+    _build_test_workbook(workbook_path)
+
+    output_dir = tmp_path / "validation_output"
+    run_andd_validation_harness(
+        dataset_root=dataset_root,
+        workbook_path=workbook_path,
+        output_dir=output_dir,
+        pdb_ids=["TEST"],
+        simulation_policy="skip",
+        cdr_stress_specs=["H:95A:C>W"],
+    )
+
+    stress_report_path = output_dir / "reports" / "cdr_mutation_stress_report.json"
+    payload = json.loads(stress_report_path.read_text(encoding="utf-8"))
+    matrix = payload["perturbation_matrix"]
+    gates = matrix["gate_results"]
+
+    assert matrix["corpus_sample_size"] == 1
+    assert matrix["class_count"] == 4
+    assert matrix["expected_row_count"] == 4
+    assert matrix["row_count"] == 4
+    assert matrix["matrix_coverage"] == 1.0
+    assert matrix["deterministic_row_count"] == 4
+    assert gates["passed"] is True
+    assert {row["perturbation_class"] for row in matrix["rows"]} == {
+        "CRISPR_edits",
+        "LNP_conjugation",
+        "small_molecule_conjugation",
+        "PEG_XTEN_conjugation",
+    }
+    assert all(class_gate["passed"] is True for class_gate in gates["per_class"].values())
+    assert all(class_gate["failure_rate"] == 0.0 for class_gate in gates["per_class"].values())
+    assert all("resilience_assertions" in row for row in matrix["rows"])

@@ -6,6 +6,7 @@ from abby_api.services.cdr_stress_harness import (
     parse_cdr_mutation_spec,
     run_cdr_mutation_annotation_probe,
     run_cdr_mutation_stress_batch,
+    run_cdr_perturbation_class_slice,
 )
 
 
@@ -155,3 +156,54 @@ def test_mutation_probe_applies_local_range_perturbation_resiliently() -> None:
     assert result["failed_mutation_count"] == 0
     assert result["deterministic"] is True
     assert result["annotation"]["available"] is True
+
+
+@pytest.mark.parametrize(
+    "perturbation_class,mutation_specs,expected_slice_name,expected_assertion_key",
+    [
+        (
+            "CRISPR_edits",
+            ["H95:C>W", "H:95:A>W"],
+            "crispr_edits_resilience_slice",
+            "sequence_corruption_tolerated",
+        ),
+        (
+            "LNP_conjugation",
+            ["H:95:A>W"],
+            "lnp_conjugation_resilience_slice",
+            "steric_occlusion_does_not_crash_annotation",
+        ),
+        (
+            "small_molecule_conjugation",
+            ["H95:C>W", "H:95:A>W"],
+            "small_molecule_conjugation_resilience_slice",
+            "conjugation_heterogeneity_reported",
+        ),
+        (
+            "PEG_XTEN_conjugation",
+            ["H:95-97:W"],
+            "peg_xten_conjugation_resilience_slice",
+            "range_perturbation_tolerated",
+        ),
+    ],
+)
+def test_perturbation_class_harness_slices_are_testable(
+    perturbation_class: str,
+    mutation_specs: list[str],
+    expected_slice_name: str,
+    expected_assertion_key: str,
+) -> None:
+    heavy_sequence = "AAAA" + "C" + "AAAAAAAA" + "W" + "AAAAAAAAAAAAAAAAAAAA"
+    structure = _Structure([_chain_from_sequence("H", 90, heavy_sequence)])
+
+    result = run_cdr_perturbation_class_slice(
+        structure,
+        perturbation_class=perturbation_class,
+        mutation_specs=mutation_specs,
+    )
+
+    assert result["perturbation_class"] == perturbation_class
+    assert result["slice_name"] == expected_slice_name
+    assert result["deterministic"] is True
+    assert result["resilience_assertions"][expected_assertion_key]["passed"] is True
+    assert result["resilience_assertions"]["typed_issue_reporting"]["passed"] is True

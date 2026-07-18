@@ -534,6 +534,10 @@ Introduce robust mutation-parser style validation harness for CDR-local stress t
   - `failure_rate_within_limit`,
   - `spec_chains_present_in_structures` (structure-aware chain coverage check),
   to begin measuring resilience trajectory toward full Phase 6 exit criteria.
+- Added a small corpus-backed perturbation matrix to the stress report:
+  - reuses the validation corpus cases selected for the run,
+  - records per-class slice outcomes for the four tracked perturbation families,
+  - makes the Phase 6 exit criterion more measurable without changing default flow.
 - Added first mutation→annotation integration probe in
   `run_cdr_mutation_annotation_probe(...)` with regression coverage ensuring that
   a valid heavy-chain CDR-H3 point mutation still yields typed CDR annotation
@@ -546,9 +550,48 @@ Introduce robust mutation-parser style validation harness for CDR-local stress t
 - Harness remains intentionally parser-only and not wired into default prediction routes,
   preserving optional/off-default behavior for v1.
 
+### 6A) Perturbation-class annotation resilience coverage
+
+The following perturbation classes are tracked as local-resilience scenarios for
+annotation and harness behavior. The goal is not to make Abby fully model these
+chemistries in Phase 6, but to ensure annotation remains typed, deterministic,
+and failure-transparent when perturbations appear near CDRs.
+
+| Perturbation class | Local annotation failure mode | Resilience contract | Suggested regression signal |
+| --- | --- | --- | --- |
+| CRISPR-mediated edits | unintended indels, frameshifts, disrupted disulfides, altered glycosylation/PTMs | typed failure or partial annotation; never silent corruption of CDR metadata | malformed/mismatched mutation specs report typed issues; annotation remains deterministic on valid inputs |
+| LNP conjugation | steric occlusion, orientation blockage, altered local microenvironment | CDR availability/confidence should degrade explicitly rather than crash | chain-coverage assertion plus steric-occlusion warning path in optional reports |
+| Small-molecule conjugation | steric hindrance, charge/hydrophobic shifts, DAR heterogeneity | preserve typed annotation and surface conjugation-related uncertainty in provenance | mixed-valid mutation batches keep annotation output stable and emit per-spec issue codes |
+| PEG/XTEN conjugation | bulky disordered cloud, dynamic flexibility, charge/ionic interference | annotation should remain deterministic while confidence/warnings capture dynamic obstruction | range-perturbation probe and deterministic repeat-annotation check |
+
+#### Annotation resilience checklist by class
+
+The harness now exposes one testable slice per perturbation class:
+
+- [x] CRISPR edits slice: `run_cdr_perturbation_class_slice(..., perturbation_class="CRISPR_edits", ...)`.
+  - Validates typed issue reporting for sequence corruption / malformed-spec scenarios.
+- [x] LNP conjugation slice: `run_cdr_perturbation_class_slice(..., perturbation_class="LNP_conjugation", ...)`.
+  - Validates that steric-occlusion scenarios remain typed and deterministic.
+- [x] Small-molecule conjugation slice: `run_cdr_perturbation_class_slice(..., perturbation_class="small_molecule_conjugation", ...)`.
+  - Validates local conjugation heterogeneity is surfaced without silent failures.
+- [x] PEG/XTEN conjugation slice: `run_cdr_perturbation_class_slice(..., perturbation_class="PEG_XTEN_conjugation", ...)`.
+  - Validates local range perturbation support and deterministic annotation repeatability.
+- [x] All classes: deterministic annotation output and no silent failure; report the perturbation class in provenance or stress artifacts.
+
 ### Exit criteria
 
-- [ ] CDR annotation resilient to local perturbation scenarios.
+- [ ] `reports/cdr_mutation_stress_report.json` is emitted only when `run_andd_validation_harness(..., cdr_stress_specs=[...])` or CLI `--cdr-stress-spec` inputs are supplied.
+- [ ] `resilience_assertions.nonzero_parse_success.passed == true` and `resilience_assertions.nonzero_parse_success.observed >= 1`.
+- [ ] `resilience_assertions.spec_chains_present_in_structures.passed == true` and `resilience_assertions.spec_chains_present_in_structures.observed_missing_chains == []`.
+- [ ] `perturbation_matrix.corpus_sample_size >= perturbation_matrix.thresholds.minimum_corpus_sample_size` and `perturbation_matrix.matrix_coverage == perturbation_matrix.thresholds.required_matrix_coverage`.
+- [ ] `perturbation_matrix.expected_row_count == perturbation_matrix.row_count` and `perturbation_matrix.gate_results.passed == true`.
+- [ ] For every class under `perturbation_matrix.gate_results.per_class.*`:
+  - `row_count >= 1`
+  - `failure_rate <= perturbation_matrix.thresholds.maximum_failure_rate_per_class`
+  - `deterministic_rate >= perturbation_matrix.thresholds.minimum_deterministic_rate_per_class`
+  - `passed == true`
+- [ ] Every row in `perturbation_matrix.rows[]` records `pdb_id`, `perturbation_class`, `status`, `deterministic`, `annotation_available`, and `resilience_assertions`.
+- [ ] All four perturbation classes appear in `perturbation_matrix.rows[].perturbation_class` and pass their dedicated slice checks through `perturbation_matrix.gate_results.per_class`.
 
 ---
 
