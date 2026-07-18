@@ -130,6 +130,31 @@ def _apply_point_mutation(structure: Any, spec: CDRMutationSpec) -> bool:
     return False
 
 
+def _apply_range_mutation(structure: Any, spec: CDRMutationSpec) -> bool:
+    target_resname = _ONE_TO_THREE.get(spec.to_residue)
+    if target_resname is None:
+        return False
+
+    changed = 0
+    for chain_id, residue in _iter_residues(structure):
+        if chain_id != spec.chain_id:
+            continue
+        residue_id = getattr(residue, "id", None)
+        if not isinstance(residue_id, tuple) or len(residue_id) < 3:
+            continue
+        if residue_id[0] != " ":
+            continue
+        try:
+            sequence_id = int(residue_id[1])
+        except (TypeError, ValueError):
+            continue
+        if spec.start_seq_id <= sequence_id <= spec.end_seq_id:
+            if _mutate_residue_name(residue, target_resname):
+                changed += 1
+
+    return changed > 0
+
+
 def parse_cdr_mutation_spec(text: str) -> CDRMutationSpec:
     """Parse a single CDR-local mutation specification.
 
@@ -239,15 +264,52 @@ def run_cdr_mutation_annotation_probe(
     mutated_structure = copy.deepcopy(structure)
     applied_mutation_count = 0
     failed_mutation_count = 0
+    issues: list[dict[str, str]] = []
     for raw_spec in mutation_specs:
-        parsed_spec = parse_cdr_mutation_spec(raw_spec)
-        if parsed_spec.mode != "point_substitution":
+        try:
+            parsed_spec = parse_cdr_mutation_spec(raw_spec)
+        except ValueError as exc:
             failed_mutation_count += 1
+            code = str(exc).split(":", 1)[0].strip() or "CDR_MUTATION_SPEC_INVALID"
+            issues.append(
+                {
+                    "code": code,
+                    "message": str(exc),
+                    "spec": raw_spec,
+                }
+            )
             continue
-        if _apply_point_mutation(mutated_structure, parsed_spec):
+
+        apply_ok = False
+        if parsed_spec.mode == "point_substitution":
+            apply_ok = _apply_point_mutation(mutated_structure, parsed_spec)
+        elif parsed_spec.mode == "range_substitution":
+            apply_ok = _apply_range_mutation(mutated_structure, parsed_spec)
+        else:
+            failed_mutation_count += 1
+            issues.append(
+                {
+                    "code": "CDR_MUTATION_MODE_UNSUPPORTED",
+                    "message": "Mutation probe encountered unsupported mutation mode",
+                    "spec": raw_spec,
+                }
+            )
+            continue
+
+        if apply_ok:
             applied_mutation_count += 1
         else:
             failed_mutation_count += 1
+            issues.append(
+                {
+                    "code": "CDR_MUTATION_APPLY_FAILED",
+                    "message": (
+                        "Mutation target could not be applied (missing chain/residue or source "
+                        "residue mismatch)"
+                    ),
+                    "spec": raw_spec,
+                }
+            )
 
     first = annotate_cdr_h3(mutated_structure)
     second = annotate_cdr_h3(mutated_structure)
@@ -256,5 +318,6 @@ def run_cdr_mutation_annotation_probe(
         "applied_mutation_count": applied_mutation_count,
         "failed_mutation_count": failed_mutation_count,
         "deterministic": first == second,
+        "issues": issues,
         "annotation": first,
     }

@@ -122,3 +122,36 @@ def test_mutation_probe_keeps_h3_annotation_typed_and_deterministic() -> None:
     assert result["deterministic"] is True
     assert result["annotation"]["available"] is True
     assert result["annotation"]["boundary_confidence"] in {"high", "medium", "low"}
+
+
+def test_mutation_probe_handles_malformed_spec_without_crashing() -> None:
+    heavy_sequence = "AAAA" + "C" + "AAAAAAAA" + "W" + "AAAAAAAAAAAAAAAAAAAA"
+    structure = _Structure([_chain_from_sequence("H", 90, heavy_sequence)])
+
+    result = run_cdr_mutation_annotation_probe(
+        structure,
+        mutation_specs=["H95:C>W", "H:95:A>W"],
+    )
+
+    assert result["status"] == "completed"
+    assert result["applied_mutation_count"] == 1
+    assert result["failed_mutation_count"] == 1
+    issue_codes = [issue["code"] for issue in result["issues"]]
+    assert "CDR_MUTATION_SPEC_INVALID_FORMAT" in issue_codes
+    assert result["annotation"]["available"] is True
+
+
+def test_mutation_probe_applies_local_range_perturbation_resiliently() -> None:
+    heavy_sequence = "AAAA" + "C" + "AAAAAAAA" + "W" + "AAAAAAAAAAAAAAAAAAAA"
+    structure = _Structure([_chain_from_sequence("H", 90, heavy_sequence)])
+
+    result = run_cdr_mutation_annotation_probe(
+        structure,
+        mutation_specs=["H:95-97:W"],
+    )
+
+    assert result["status"] == "completed"
+    assert result["applied_mutation_count"] == 1
+    assert result["failed_mutation_count"] == 0
+    assert result["deterministic"] is True
+    assert result["annotation"]["available"] is True

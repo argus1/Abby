@@ -538,6 +538,11 @@ Introduce robust mutation-parser style validation harness for CDR-local stress t
   `run_cdr_mutation_annotation_probe(...)` with regression coverage ensuring that
   a valid heavy-chain CDR-H3 point mutation still yields typed CDR annotation
   output and deterministic repeated annotation results.
+- Hardened local perturbation resilience in the mutation→annotation probe:
+  - malformed mutation specs are handled without crashing and emit typed issue codes,
+  - local range perturbations (`CHAIN:START-END:TO`) are now applied safely,
+  - mixed successful/failed perturbation batches preserve deterministic annotation
+    output with explicit per-spec failure reasons.
 - Harness remains intentionally parser-only and not wired into default prediction routes,
   preserving optional/off-default behavior for v1.
 
