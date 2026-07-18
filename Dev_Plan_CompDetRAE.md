@@ -597,7 +597,7 @@ The harness now exposes one testable slice per perturbation class:
 
 All eight exit criteria are now covered by regression tests in `tests/test_validation_harness.py`:
 
-- `test_andd_validation_harness_does_not_emit_stress_report_without_specs` — criterion 1 (negative: no report without specs)
+- `test_stress_report_not_emitted_without_specs` — criterion 1 (negative: no report without specs)
 - `test_andd_validation_harness_optionally_writes_cdr_stress_report` — criterion 1 (positive: report emitted with specs)
 - `test_cdr_stress_report_includes_resilience_assertions` — criterion 2 (`nonzero_parse_success.observed >= 1`)
 - `test_cdr_stress_report_includes_structure_chain_coverage_assertion` — criterion 3
