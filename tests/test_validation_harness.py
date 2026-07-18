@@ -7,6 +7,15 @@ from openpyxl import Workbook
 
 from abby_api.validation_harness import run_andd_validation_harness
 
+_REQUIRED_MATRIX_ROW_FIELDS = frozenset({
+    "pdb_id",
+    "perturbation_class",
+    "status",
+    "deterministic",
+    "annotation_available",
+    "resilience_assertions",
+})
+
 PDB_FIXTURE = """\
 ATOM      1  N   GLY A   1      11.104  13.207   9.111  1.00 20.00           N
 ATOM      2  CA  GLY A   1      12.560  13.102   9.262  1.00 20.00           C
@@ -242,6 +251,7 @@ def test_cdr_stress_report_includes_resilience_assertions(tmp_path) -> None:
     assertions = payload["resilience_assertions"]
 
     assert assertions["nonzero_parse_success"]["passed"] is True
+    assert assertions["nonzero_parse_success"]["observed"] >= 1
     assert assertions["failure_rate_within_limit"]["passed"] is True
     assert assertions["failure_rate_within_limit"]["observed"] == 1 / 3
 
@@ -305,6 +315,11 @@ def test_cdr_stress_report_includes_corpus_backed_perturbation_matrix(tmp_path) 
     assert matrix["row_count"] == 4
     assert matrix["matrix_coverage"] == 1.0
     assert matrix["deterministic_row_count"] == 4
+    # Criterion 4: corpus_sample_size >= thresholds.minimum_corpus_sample_size
+    thresholds = matrix["thresholds"]
+    assert matrix["corpus_sample_size"] >= thresholds["minimum_corpus_sample_size"]
+    # Criterion 4: matrix_coverage == thresholds.required_matrix_coverage
+    assert matrix["matrix_coverage"] == thresholds["required_matrix_coverage"]
     assert gates["passed"] is True
     assert {row["perturbation_class"] for row in matrix["rows"]} == {
         "CRISPR_edits",
@@ -315,3 +330,88 @@ def test_cdr_stress_report_includes_corpus_backed_perturbation_matrix(tmp_path) 
     assert all(class_gate["passed"] is True for class_gate in gates["per_class"].values())
     assert all(class_gate["failure_rate"] == 0.0 for class_gate in gates["per_class"].values())
     assert all("resilience_assertions" in row for row in matrix["rows"])
+
+
+def test_stress_report_not_emitted_without_specs(tmp_path) -> None:
+    dataset_root = tmp_path / "ANDD_pdb"
+    structures_dir = dataset_root / "All_structures"
+    structures_dir.mkdir(parents=True)
+    pdb_path = structures_dir / "TEST.pdb"
+    pdb_path.write_text(PDB_FIXTURE)
+
+    workbook_path = dataset_root / "Antibody and Nanobody Design Dataset (ANDD)_v2.xlsx"
+    _build_test_workbook(workbook_path)
+
+    output_dir = tmp_path / "validation_output"
+    run_andd_validation_harness(
+        dataset_root=dataset_root,
+        workbook_path=workbook_path,
+        output_dir=output_dir,
+        pdb_ids=["TEST"],
+        simulation_policy="skip",
+    )
+
+    stress_report_path = output_dir / "reports" / "cdr_mutation_stress_report.json"
+    assert not stress_report_path.exists(), (
+        "cdr_mutation_stress_report.json must not be written when no cdr_stress_specs are provided"
+    )
+
+
+def _run_harness_with_stress_specs(tmp_path: Path, stress_specs: list[str]) -> dict:
+    """Helper: set up a minimal fixture and run the harness with given specs."""
+    dataset_root = tmp_path / "ANDD_pdb"
+    structures_dir = dataset_root / "All_structures"
+    structures_dir.mkdir(parents=True)
+    (structures_dir / "TEST.pdb").write_text(PDB_FIXTURE)
+    workbook_path = dataset_root / "Antibody and Nanobody Design Dataset (ANDD)_v2.xlsx"
+    _build_test_workbook(workbook_path)
+    output_dir = tmp_path / "validation_output"
+    run_andd_validation_harness(
+        dataset_root=dataset_root,
+        workbook_path=workbook_path,
+        output_dir=output_dir,
+        pdb_ids=["TEST"],
+        simulation_policy="skip",
+        cdr_stress_specs=stress_specs,
+    )
+    stress_report_path = output_dir / "reports" / "cdr_mutation_stress_report.json"
+    return json.loads(stress_report_path.read_text(encoding="utf-8"))
+
+
+def test_perturbation_matrix_per_class_gate_meets_threshold_contracts(tmp_path) -> None:
+    payload = _run_harness_with_stress_specs(tmp_path, ["H:95A:C>W"])
+    matrix = payload["perturbation_matrix"]
+    thresholds = matrix["thresholds"]
+    max_failure_rate = thresholds["maximum_failure_rate_per_class"]
+    min_deterministic_rate = thresholds["minimum_deterministic_rate_per_class"]
+
+    for perturbation_class, class_gate in matrix["gate_results"]["per_class"].items():
+        # Criterion 6: row_count >= 1
+        assert class_gate["row_count"] >= 1, (
+            f"{perturbation_class}: row_count must be >= 1"
+        )
+        # Criterion 6: failure_rate <= maximum_failure_rate_per_class
+        assert class_gate["failure_rate"] <= max_failure_rate, (
+            f"{perturbation_class}: failure_rate {class_gate['failure_rate']} "
+            f"exceeds threshold {max_failure_rate}"
+        )
+        # Criterion 6: deterministic_rate >= minimum_deterministic_rate_per_class
+        assert class_gate["deterministic_rate"] >= min_deterministic_rate, (
+            f"{perturbation_class}: deterministic_rate {class_gate['deterministic_rate']} "
+            f"below threshold {min_deterministic_rate}"
+        )
+        # Criterion 6: passed == true
+        assert class_gate["passed"] is True, (
+            f"{perturbation_class}: gate must pass"
+        )
+
+
+def test_perturbation_matrix_rows_contain_all_required_fields(tmp_path) -> None:
+    payload = _run_harness_with_stress_specs(tmp_path, ["H:95A:C>W"])
+    matrix = payload["perturbation_matrix"]
+
+    for row in matrix["rows"]:
+        missing = _REQUIRED_MATRIX_ROW_FIELDS - set(row.keys())
+        assert not missing, (
+            f"Perturbation matrix row is missing required fields: {missing}."
+        )

@@ -580,18 +580,30 @@ The harness now exposes one testable slice per perturbation class:
 
 ### Exit criteria
 
-- [ ] `reports/cdr_mutation_stress_report.json` is emitted only when `run_andd_validation_harness(..., cdr_stress_specs=[...])` or CLI `--cdr-stress-spec` inputs are supplied.
-- [ ] `resilience_assertions.nonzero_parse_success.passed == true` and `resilience_assertions.nonzero_parse_success.observed >= 1`.
-- [ ] `resilience_assertions.spec_chains_present_in_structures.passed == true` and `resilience_assertions.spec_chains_present_in_structures.observed_missing_chains == []`.
-- [ ] `perturbation_matrix.corpus_sample_size >= perturbation_matrix.thresholds.minimum_corpus_sample_size` and `perturbation_matrix.matrix_coverage == perturbation_matrix.thresholds.required_matrix_coverage`.
-- [ ] `perturbation_matrix.expected_row_count == perturbation_matrix.row_count` and `perturbation_matrix.gate_results.passed == true`.
-- [ ] For every class under `perturbation_matrix.gate_results.per_class.*`:
+- [x] `reports/cdr_mutation_stress_report.json` is emitted only when `run_andd_validation_harness(..., cdr_stress_specs=[...])` or CLI `--cdr-stress-spec` inputs are supplied.
+- [x] `resilience_assertions.nonzero_parse_success.passed == true` and `resilience_assertions.nonzero_parse_success.observed >= 1`.
+- [x] `resilience_assertions.spec_chains_present_in_structures.passed == true` and `resilience_assertions.spec_chains_present_in_structures.observed_missing_chains == []`.
+- [x] `perturbation_matrix.corpus_sample_size >= perturbation_matrix.thresholds.minimum_corpus_sample_size` and `perturbation_matrix.matrix_coverage == perturbation_matrix.thresholds.required_matrix_coverage`.
+- [x] `perturbation_matrix.expected_row_count == perturbation_matrix.row_count` and `perturbation_matrix.gate_results.passed == true`.
+- [x] For every class under `perturbation_matrix.gate_results.per_class.*`:
   - `row_count >= 1`
   - `failure_rate <= perturbation_matrix.thresholds.maximum_failure_rate_per_class`
   - `deterministic_rate >= perturbation_matrix.thresholds.minimum_deterministic_rate_per_class`
   - `passed == true`
-- [ ] Every row in `perturbation_matrix.rows[]` records `pdb_id`, `perturbation_class`, `status`, `deterministic`, `annotation_available`, and `resilience_assertions`.
-- [ ] All four perturbation classes appear in `perturbation_matrix.rows[].perturbation_class` and pass their dedicated slice checks through `perturbation_matrix.gate_results.per_class`.
+- [x] Every row in `perturbation_matrix.rows[]` records `pdb_id`, `perturbation_class`, `status`, `deterministic`, `annotation_available`, and `resilience_assertions`.
+- [x] All four perturbation classes appear in `perturbation_matrix.rows[].perturbation_class` and pass their dedicated slice checks through `perturbation_matrix.gate_results.per_class`.
+
+### Exit verification notes (Phase 6)
+
+All eight exit criteria are now covered by regression tests in `tests/test_validation_harness.py`:
+
+- `test_andd_validation_harness_does_not_emit_stress_report_without_specs` — criterion 1 (negative: no report without specs)
+- `test_andd_validation_harness_optionally_writes_cdr_stress_report` — criterion 1 (positive: report emitted with specs)
+- `test_cdr_stress_report_includes_resilience_assertions` — criterion 2 (`nonzero_parse_success.observed >= 1`)
+- `test_cdr_stress_report_includes_structure_chain_coverage_assertion` — criterion 3
+- `test_cdr_stress_report_includes_corpus_backed_perturbation_matrix` — criteria 4, 5, 8 (threshold comparison, gate pass, all four classes)
+- `test_perturbation_matrix_per_class_gate_meets_threshold_contracts` — criterion 6 (per-class row_count/failure_rate/deterministic_rate against threshold values)
+- `test_perturbation_matrix_rows_contain_all_required_fields` — criterion 7 (all required row fields)
 
 ---
 
