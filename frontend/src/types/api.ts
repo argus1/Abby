@@ -71,6 +71,22 @@ export interface CDRAnnotationSummary {
   quality_baseline?: CDRQualityBaseline | null;
 }
 
+export interface DatasetSourceProvenance {
+  dataset_name: string;
+  dataset_role: 'training' | 'evaluation' | 'qa' | 'validation' | 'calibration';
+  source_family?: string | null;
+  source_label: string;
+  license: string;
+  license_spdx?: string | null;
+  license_compatible: boolean;
+  attribution_required: boolean;
+  attribution_text?: string | null;
+  version?: string | null;
+  doi?: string | null;
+  preprocessing_method?: string | null;
+  notes: string[];
+}
+
 export interface StructureSummaryMetadata extends Record<string, unknown> {
   cdr_annotation?: CDRAnnotationSummary;
 }
@@ -174,6 +190,7 @@ export interface PredictionResult {
     descriptor_hash: string;
     contact_distance_cutoff_angstrom: number;
     created_at: string;
+    dataset_sources?: DatasetSourceProvenance[];
     cdr_annotation?: CDRAnnotationSummary | null;
   } | null;
 }

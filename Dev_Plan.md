@@ -79,6 +79,7 @@ For CDR-aware structural bookkeeping, Abby v1.1 should follow the execution path
 * **Keep out of v1.1 core flow:** mandatory AIRR-seq assembly dependencies or repertoire-only boundary inference replacing structure-driven extraction.
 * **VHH profile rule:** treat heavy-only single-domain antibody inputs as first-class in this same boundary contract; do not require light-chain region resolution to report `cdr_annotation.available=true`.
 * **Current execution status:** CompDetRAE Phase 0 (contract/taxonomy foundations) is implemented; next delivery slice is Phase 1 deterministic CDR-H3 boundary extraction and provenance threading.
+* **Dataset governance status:** reusable sequence-level CDR training/QA artifacts should now carry structured dataset-source provenance (source, version/DOI, preprocessing method) and pass license/attribution validation before use.
 
 ### Aptamer support extension track (v1.1+)
 
@@ -101,6 +102,7 @@ Treat `validation_dataset/ANDD_pdb/` as the canonical local regression corpus fo
 * **mmCIF conversion workflow:** keep the validation corpus available in `PDBx/mmCIF` form and verify PDB→mmCIF conversion before any validation, prediction, or export step.
 * **Regression coverage:** when parser, validation, batch, or export logic changes, rerun the relevant checks against the dataset so the documented workflow stays grounded in real inputs.
 * **Roadmap linkage:** keep dataset-backed validation expectations synchronized across `Dev_Plan.md`, `Dev_Plan_Biopython.md`, and `Dev_Plan_Implementation_Checklist.md` whenever new benchmark files are added.
+* **Sequence-annotation QA governance:** when sequence-level CDR annotation artifacts are produced for training, calibration, or QA, validate them against the dataset governance schema and preserve source/license attribution metadata in provenance artifacts.
 
 ## Relationship to implementation and API design
 

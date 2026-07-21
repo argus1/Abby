@@ -749,6 +749,52 @@ components:
           items:
             $ref: '#/components/schemas/DescriptorContribution'
       required: [top_descriptors]
+    DatasetSourceProvenance:
+      type: object
+      properties:
+        dataset_name:
+          type: string
+        dataset_role:
+          type: string
+          enum: [training, evaluation, qa, validation, calibration]
+        source_family:
+          type: string
+          nullable: true
+        source_label:
+          type: string
+        license:
+          type: string
+        license_spdx:
+          type: string
+          nullable: true
+        license_compatible:
+          type: boolean
+        attribution_required:
+          type: boolean
+        attribution_text:
+          type: string
+          nullable: true
+        version:
+          type: string
+          nullable: true
+        doi:
+          type: string
+          nullable: true
+        preprocessing_method:
+          type: string
+          nullable: true
+        notes:
+          type: array
+          items:
+            type: string
+      required:
+        - dataset_name
+        - dataset_role
+        - source_label
+        - license
+        - license_compatible
+        - attribution_required
+        - notes
     Provenance:
       type: object
       properties:
@@ -763,6 +809,10 @@ components:
         created_at:
           type: string
           format: date-time
+        dataset_sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/DatasetSourceProvenance'
         cdr_annotation:
           type: object
           properties:

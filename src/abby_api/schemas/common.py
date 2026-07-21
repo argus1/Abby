@@ -10,6 +10,7 @@ PredictionMode = Literal["ppi_general", "antibody_antigen"]
 ConfidenceClass = Literal["high", "medium", "low"]
 JobStatus = Literal["queued", "running", "completed", "failed"]
 StructureFormat = Literal["pdb", "cif", "mmcif"]
+DatasetUsageRole = Literal["training", "evaluation", "qa", "validation", "calibration"]
 
 
 class AbbyBaseModel(BaseModel):
@@ -137,6 +138,22 @@ class CDRAnnotationProvenance(AbbyBaseModel):
     quality_baseline: CDRBoundaryQualityBaseline | None = None
 
 
+class DatasetSourceProvenance(AbbyBaseModel):
+    dataset_name: str
+    dataset_role: DatasetUsageRole = "qa"
+    source_family: str | None = None
+    source_label: str
+    license: str
+    license_spdx: str | None = None
+    license_compatible: bool = True
+    attribution_required: bool = True
+    attribution_text: str | None = None
+    version: str | None = None
+    doi: str | None = None
+    preprocessing_method: str | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
 class StructureGenerationProvenance(AbbyBaseModel):
     """Provenance record for externally generated or refined structure inputs.
 
@@ -165,5 +182,6 @@ class Provenance(AbbyBaseModel):
     simulation: SimulationProvenance | None = None
     learned_model: LearnedModelProvenance | None = None
     cdr_annotation: CDRAnnotationProvenance | None = None
+    dataset_sources: list[DatasetSourceProvenance] = Field(default_factory=list)
     structure_generation: StructureGenerationProvenance | None = None
     artifacts: ArtifactRegistry | None = None

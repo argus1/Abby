@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from uuid import UUID
 
 from openpyxl import Workbook
 
+from abby_api.repositories.memory import get_prediction
+from abby_api.schemas.common import DatasetSourceProvenance
 from abby_api.validation_harness import run_andd_validation_harness
 
 _REQUIRED_MATRIX_ROW_FIELDS = frozenset({
@@ -415,3 +418,56 @@ def test_perturbation_matrix_rows_contain_all_required_fields(tmp_path) -> None:
         assert not missing, (
             f"Perturbation matrix row is missing required fields: {missing}."
         )
+
+
+def test_validation_harness_persists_dataset_source_provenance_and_schema_artifact(
+    tmp_path,
+) -> None:
+    dataset_root = tmp_path / "ANDD_pdb"
+    structures_dir = dataset_root / "All_structures"
+    structures_dir.mkdir(parents=True)
+    pdb_path = structures_dir / "TEST.pdb"
+    pdb_path.write_text(PDB_FIXTURE)
+
+    workbook_path = dataset_root / "Antibody and Nanobody Design Dataset (ANDD)_v2.xlsx"
+    _build_test_workbook(workbook_path)
+
+    output_dir = tmp_path / "validation_output"
+    report = run_andd_validation_harness(
+        dataset_root=dataset_root,
+        workbook_path=workbook_path,
+        output_dir=output_dir,
+        pdb_ids=["TEST"],
+        simulation_policy="skip",
+        dataset_sources=[
+            DatasetSourceProvenance(
+                dataset_name="ANDD",
+                dataset_role="qa",
+                source_family="paired_unpaired",
+                source_label="Antibody and Nanobody Design Dataset workbook",
+                license="CC-BY-4.0",
+                license_spdx="CC-BY-4.0",
+                attribution_required=True,
+                attribution_text="Antibody and Nanobody Design Dataset (ANDD) with attribution.",
+                version="v2",
+                doi="10.1234/example-andd",
+                preprocessing_method="sequence workbook extraction + CDR field normalization",
+            )
+        ],
+    )
+
+    assert report.dataset_schema_artifact_path is not None
+    schema_artifact_path = Path(report.dataset_schema_artifact_path)
+    assert schema_artifact_path.exists()
+
+    schema_payload = json.loads(schema_artifact_path.read_text(encoding="utf-8"))
+    assert schema_payload["schema_version"] == "cdr_sequence_annotation_artifact_v1"
+    assert schema_payload["dataset_sources"][0]["dataset_name"] == "ANDD"
+    assert len(schema_payload["records"]) == 1
+    assert schema_payload["records"][0]["cdr_annotations"]["CDR-H3"] == "CDRH3"
+
+    prediction = get_prediction(UUID(str(report.cases[0].prediction_id)))
+    assert prediction is not None
+    assert prediction.provenance is not None
+    assert prediction.provenance.dataset_sources[0].dataset_name == "ANDD"
+    assert prediction.provenance.dataset_sources[0].preprocessing_method is not None

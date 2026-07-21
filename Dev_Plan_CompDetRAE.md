@@ -611,17 +611,33 @@ All eight exit criteria are now covered by regression tests in `tests/test_valid
 
 ### Checklist
 
-- [ ] Use OAS/paired-unpaired resources only under compatible licenses and attribution terms.
-- [ ] Track source metadata in provenance:
+- [x] Use OAS/paired-unpaired resources only under compatible licenses and attribution terms.
+- [x] Track source metadata in provenance:
   - dataset source
   - version/DOI
   - preprocessing method
-- [ ] Add dataset schema validator for sequence-level annotation training/QA artifacts.
+- [x] Add dataset schema validator for sequence-level annotation training/QA artifacts.
 
 ### Notes
 
 - OAS provides large, annotated repertoires and filtering by attributes.
 - p-IgGen Zenodo snapshot can support reproducible training/evaluation splits.
+
+### Implementation status notes (Section 6)
+
+- Added structured dataset-source provenance contract in `src/abby_api/schemas/common.py`:
+  - `dataset_name`, `dataset_role`, `source_family`, `source_label`
+  - license compatibility + attribution fields
+  - `version` / `doi` / `preprocessing_method`
+- Added dataset governance validator in `src/abby_api/services/dataset_governance.py`:
+  - rejects incompatible/unsupported license tokens,
+  - requires attribution text,
+  - requires version-or-DOI and preprocessing metadata,
+  - validates sequence-level CDR annotation artifacts for paired-antibody and VHH cases.
+- Wired the ANDD validation harness to optionally:
+  - validate dataset-source manifests,
+  - emit `reports/cdr_sequence_annotation_dataset_artifact.json`,
+  - attach validated dataset-source entries to prediction provenance for QA/evaluation runs.
 
 ---
 

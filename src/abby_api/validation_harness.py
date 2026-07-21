@@ -15,7 +15,13 @@ from uuid import uuid4
 from openpyxl import load_workbook
 
 from abby_api.cdr_calibration_runner import generate_cdr_calibration_artifacts
-from abby_api.repositories.memory import get_prediction, new_project, save_structure
+from abby_api.repositories.memory import (
+    get_prediction,
+    new_project,
+    save_prediction,
+    save_structure,
+)
+from abby_api.schemas.common import DatasetSourceProvenance
 from abby_api.schemas.predictions import PredictionRequest
 from abby_api.schemas.structures import (
     ChainMapping,
@@ -25,6 +31,11 @@ from abby_api.schemas.structures import (
 from abby_api.services.cdr_stress_harness import (
     run_cdr_mutation_stress_batch,
     run_cdr_perturbation_class_slice,
+)
+from abby_api.services.dataset_governance import (
+    SequenceAnnotationDatasetArtifact,
+    validate_dataset_source_provenance,
+    validate_sequence_annotation_dataset_artifact,
 )
 from abby_api.services.predictions import create_prediction
 from abby_api.services.simulation import (
@@ -98,6 +109,15 @@ class AnddReference:
     reason_code: str | None
     predicted_or_not: str | None
     provenance: str | None
+    heavy_sequence: str | None = None
+    light_sequence: str | None = None
+    cdr_h1: str | None = None
+    cdr_h2: str | None = None
+    cdr_h3: str | None = None
+    cdr_l1: str | None = None
+    cdr_l2: str | None = None
+    cdr_l3: str | None = None
+    cdr_nomenclature: str | None = None
     heavy_chain_auth_ids: list[str] = field(default_factory=list)
     light_chain_auth_ids: list[str] = field(default_factory=list)
     antigen_chain_auth_ids: list[str] = field(default_factory=list)
@@ -183,6 +203,8 @@ class ValidationReport:
     simulation_completed_structures: int
     matched_structures: int
     failed_structures: int
+    dataset_sources: list[dict[str, object]]
+    dataset_schema_artifact_path: str | None
     metrics: ValidationMetrics
     cases: list[ValidationCaseResult]
 
@@ -202,6 +224,8 @@ class ValidationReport:
             "simulation_completed_structures": self.simulation_completed_structures,
             "matched_structures": self.matched_structures,
             "failed_structures": self.failed_structures,
+            "dataset_sources": self.dataset_sources,
+            "dataset_schema_artifact_path": self.dataset_schema_artifact_path,
             "metrics": self.metrics.to_dict(),
             "cases": [case.to_dict() for case in self.cases],
         }
@@ -296,6 +320,15 @@ def _load_reference_rows(workbook_path: Path) -> list[AnddReference]:
     reason_idx = _find_column(lookup, "Reason_Code")
     predicted_idx = _find_column(lookup, "Predicted_or_Not")
     provenance_idx = _find_column(lookup, "Provenance")
+    heavy_sequence_idx = _find_column(lookup, "Ab/Nano H_Chain AA")
+    light_sequence_idx = _find_column(lookup, "Ab/Nano L_Chain AA")
+    cdr_h1_idx = _find_column(lookup, "Ab/Nano_CDR H1")
+    cdr_h2_idx = _find_column(lookup, "Ab/Nano_CDR H2")
+    cdr_h3_idx = _find_column(lookup, "Ab/Nano_CDR H3")
+    cdr_l1_idx = _find_column(lookup, "Ab/Nano_CDR L1")
+    cdr_l2_idx = _find_column(lookup, "Ab/Nano_CDR L2")
+    cdr_l3_idx = _find_column(lookup, "Ab/Nano_CDR L3")
+    cdr_nomenclature_idx = _find_column(lookup, "CDR Nomenclature")
 
     references: list[AnddReference] = []
     for row_index, row in enumerate(rows, start=2):
@@ -313,6 +346,15 @@ def _load_reference_rows(workbook_path: Path) -> list[AnddReference]:
                 reason_code=_text_or_none(_cell(row, reason_idx)),
                 predicted_or_not=_text_or_none(_cell(row, predicted_idx)),
                 provenance=_text_or_none(_cell(row, provenance_idx)),
+                heavy_sequence=_text_or_none(_cell(row, heavy_sequence_idx)),
+                light_sequence=_text_or_none(_cell(row, light_sequence_idx)),
+                cdr_h1=_text_or_none(_cell(row, cdr_h1_idx)),
+                cdr_h2=_text_or_none(_cell(row, cdr_h2_idx)),
+                cdr_h3=_text_or_none(_cell(row, cdr_h3_idx)),
+                cdr_l1=_text_or_none(_cell(row, cdr_l1_idx)),
+                cdr_l2=_text_or_none(_cell(row, cdr_l2_idx)),
+                cdr_l3=_text_or_none(_cell(row, cdr_l3_idx)),
+                cdr_nomenclature=_text_or_none(_cell(row, cdr_nomenclature_idx)),
                 heavy_chain_auth_ids=_parse_chain_ids(_cell(row, heavy_idx)),
                 light_chain_auth_ids=_parse_chain_ids(_cell(row, light_idx)),
                 antigen_chain_auth_ids=_parse_chain_ids(_cell(row, antigen_idx)),
@@ -780,6 +822,78 @@ def _build_cdr_perturbation_matrix(
     }
 
 
+def _build_sequence_annotation_dataset_artifact(
+    *,
+    references: list[AnddReference],
+    dataset_sources: list[DatasetSourceProvenance],
+) -> SequenceAnnotationDatasetArtifact | None:
+    if not dataset_sources:
+        return None
+
+    records: list[dict[str, object]] = []
+    for reference in references:
+        heavy_sequence = _text_or_none(reference.heavy_sequence)
+        light_sequence = _text_or_none(reference.light_sequence)
+        cdr_annotations = {
+            key: value
+            for key, value in {
+                "CDR-H1": reference.cdr_h1,
+                "CDR-H2": reference.cdr_h2,
+                "CDR-H3": reference.cdr_h3,
+                "CDR-L1": reference.cdr_l1,
+                "CDR-L2": reference.cdr_l2,
+                "CDR-L3": reference.cdr_l3,
+            }.items()
+            if _text_or_none(value) is not None
+        }
+        if heavy_sequence is None and light_sequence is None and not cdr_annotations:
+            continue
+
+        antibody_format = "paired_antibody"
+        if heavy_sequence and not light_sequence:
+            antibody_format = "vhh_single_domain"
+        elif heavy_sequence is None and light_sequence is not None:
+            antibody_format = "unknown_antibody_format"
+
+        records.append(
+            {
+                "record_id": f"{reference.pdb_id}:{reference.row_index}",
+                "dataset_source_name": reference.source,
+                "split": "qa",
+                "antibody_format": antibody_format,
+                "heavy_sequence": heavy_sequence,
+                "light_sequence": light_sequence,
+                "numbering_scheme": (
+                    str(reference.cdr_nomenclature).strip().lower()
+                    if reference.cdr_nomenclature is not None
+                    else "unknown"
+                ),
+                "cdr_annotations": cdr_annotations,
+                "source_pdb_id": reference.pdb_id,
+                "source_provenance": reference.provenance,
+                "notes": [
+                    note
+                    for note in [reference.affinity_method, reference.reason_code]
+                    if note is not None and str(note).strip()
+                ],
+            }
+        )
+
+    if not records:
+        return None
+
+    return validate_sequence_annotation_dataset_artifact(
+        {
+            "artifact_name": "andd_sequence_annotation_qa",
+            "artifact_role": "qa",
+            "dataset_sources": [
+                source.model_dump(mode="json") for source in dataset_sources
+            ],
+            "records": records,
+        }
+    )
+
+
 def run_andd_validation_harness(
     *,
     dataset_root: Path = DEFAULT_DATASET_ROOT,
@@ -790,6 +904,7 @@ def run_andd_validation_harness(
     simulation_policy: str = "skip",
     temperature_kelvin: float = 298.15,
     cdr_stress_specs: list[str] | None = None,
+    dataset_sources: list[DatasetSourceProvenance] | None = None,
 ) -> ValidationReport:
     workbook_path = workbook_path or dataset_root / DEFAULT_WORKBOOK_NAME
     output_dir = output_dir.resolve()
@@ -799,6 +914,23 @@ def run_andd_validation_harness(
 
     references = _load_reference_rows(workbook_path)
     grouped_references = _group_references_by_pdb_id(references)
+    validated_dataset_sources = [
+        validate_dataset_source_provenance(source)
+        for source in (dataset_sources or [])
+    ]
+    dataset_schema_artifact = _build_sequence_annotation_dataset_artifact(
+        references=references,
+        dataset_sources=validated_dataset_sources,
+    )
+    dataset_schema_artifact_path: str | None = None
+    if dataset_schema_artifact is not None:
+        dataset_schema_artifact_path = str(
+            (report_dir / "cdr_sequence_annotation_dataset_artifact.json").resolve()
+        )
+        _write_json(
+            Path(dataset_schema_artifact_path),
+            dataset_schema_artifact.model_dump(mode="json"),
+        )
 
     all_pdb_paths = sorted((dataset_root / "All_structures").glob("*.pdb"))
     if pdb_ids:
@@ -881,6 +1013,12 @@ def run_andd_validation_harness(
             if persisted_prediction is None or persisted_prediction.consensus is None:
                 raise RuntimeError("Prediction result could not be retrieved from memory store.")
 
+            if persisted_prediction.provenance is not None and validated_dataset_sources:
+                persisted_prediction.provenance.dataset_sources = [
+                    source.model_copy(deep=True) for source in validated_dataset_sources
+                ]
+                save_prediction(persisted_prediction)
+
             case.predicted_log_k = persisted_prediction.consensus.log_k
             case.predicted_delta_g_kcal_mol = persisted_prediction.consensus.delta_g_kcal_mol
             case.prediction_status = persisted_prediction.status
@@ -937,6 +1075,10 @@ def run_andd_validation_harness(
             if case.reference_row_index is not None and case.status == "completed"
         ),
         failed_structures=sum(1 for case in cases if case.status == "failed"),
+        dataset_sources=[
+            source.model_dump(mode="json") for source in validated_dataset_sources
+        ],
+        dataset_schema_artifact_path=dataset_schema_artifact_path,
         metrics=metrics,
         cases=cases,
     )

@@ -305,6 +305,7 @@ These should be advanced throughout the roadmap rather than left until the end.
 | `[x]` | `P0 / S` | Add batch execution tests with real results and exports | — |
 | `[x]` | `P0 / S` | Add dataset-backed validation regression tests using `validation_dataset/ANDD_pdb/` | `tests/test_structure_flow.py`, `tests/test_batch_jobs.py` |
 | `[x]` | `P1 / S` | Add residue-depth / new-descriptor verification tests as Phase 3 lands | — |
+| `[x]` | `P1 / S` | Add dataset-source provenance + schema validation for sequence-level CDR QA artifacts | `src/abby_api/services/dataset_governance.py`, `src/abby_api/validation_harness.py`, `tests/test_dataset_governance.py`, `tests/test_validation_harness.py` |
 | `[x]` | `P1 / S` | Add imported-simulation artifact tests as Phase 4 lands | — |
 | `[x]` | `P2 / M` | Add simulation worker / trajectory tests as Phase 5 lands | `tests/test_simulation.py` |
 | `[x]` | `P3 / M` | Add learned-model provenance and regression tests as Phase 6 lands | `tests/test_learned_models.py`; 52 tests covering graph construction, GNN stub path, training/calibration, structure-generation stub paths, ingestion contract, and API route integration |
