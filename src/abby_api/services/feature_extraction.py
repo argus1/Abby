@@ -14,6 +14,7 @@ from abby_api.services.cdr_annotation import (
     CDR_MOTIF_FALLBACK_USED,
     CDR_NUMBERING_MISSING,
 )
+from abby_api.services.nucleic_acid import COUNTERION_NOMINAL_CHARGES
 
 RESIDUE_CLASS_MAP = {
     "ARG": "charged",
@@ -40,7 +41,7 @@ RESIDUE_CLASS_MAP = {
 
 # v3 adds CDR-aware descriptor features while preserving existing descriptor keys.
 DESCRIPTOR_VERSION = "summary_features_v3"
-APTAMER_DESCRIPTOR_VERSION = "aptamer_features_v1"
+APTAMER_DESCRIPTOR_VERSION = "aptamer_features_v2"
 
 _CDR_REGION_KEYS: tuple[str, ...] = (
     "CDR-H1",
@@ -436,6 +437,48 @@ def calculate_inter_partner_contacts(
     )
 
 
+def calculate_aptamer_counterion_contact_count(
+    structure: Any,
+    validation: StructureValidationResult,
+    distance_cutoff: float = 5.5,
+) -> int:
+    if validation.chain_groups is None:
+        return 0
+
+    models = list(structure.get_models()) if hasattr(structure, "get_models") else []
+    if not models:
+        return 0
+
+    model = models[0]
+    residues_by_chain = _iter_residues_by_chain(model)
+    aptamer_atom_coords = [
+        coord
+        for chain_id in validation.chain_groups.partner_1
+        for residue in residues_by_chain.get(chain_id, [])
+        for coord in _residue_atom_coords(residue)
+    ]
+    if not aptamer_atom_coords:
+        return 0
+
+    d2_cutoff = float(distance_cutoff) ** 2
+    contact_count = 0
+    for residue in model.get_residues():
+        if _residue_name(residue) not in COUNTERION_NOMINAL_CHARGES:
+            continue
+        ion_atom_coords = _residue_atom_coords(residue)
+        if any(
+            ((aptamer_atom[0] - ion_atom[0]) ** 2)
+            + ((aptamer_atom[1] - ion_atom[1]) ** 2)
+            + ((aptamer_atom[2] - ion_atom[2]) ** 2)
+            <= d2_cutoff
+            for aptamer_atom in aptamer_atom_coords
+            for ion_atom in ion_atom_coords
+        ):
+            contact_count += 1
+
+    return contact_count
+
+
 def calculate_solvent_accessibility(
     structure: Any,
     validation: StructureValidationResult,
@@ -725,6 +768,7 @@ def build_descriptor_bundle(
     radius_of_gyration_observation: RadiusOfGyrationObservation | None = None,
     contact_distance_cutoff: float = 5.5,
     trajectory_summary: Any | None = None,
+    aptamer_counterion_contact_count: int | None = None,
 ) -> DescriptorBundle:
     partner_1_chains = validation.chain_groups.partner_1 if validation.chain_groups else []
     partner_2_chains = validation.chain_groups.partner_2 if validation.chain_groups else []
@@ -901,6 +945,9 @@ def build_descriptor_bundle(
         descriptor_version = APTAMER_DESCRIPTOR_VERSION
         descriptors["aptamer_sasa_fraction"] = (
             round(sasa_partner_1 / sasa_total, 4) if sasa_total > 0.0 else 0.0
+        )
+        descriptors["aptamer_counterion_contact_count"] = float(
+            aptamer_counterion_contact_count or 0
         )
 
     cdr_descriptor_features = _cdr_descriptor_features(summary, validation)

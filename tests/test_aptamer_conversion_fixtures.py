@@ -456,7 +456,7 @@ def test_aptamer_prediction_persists_deterministic_sasa_fraction_provenance() ->
         4,
     )
     assert 0.0 < first_descriptors["aptamer_sasa_fraction"] <= 1.0
-    assert first_summary["descriptor_version"] == "aptamer_features_v1"
+    assert first_summary["descriptor_version"] == "aptamer_features_v2"
 
     first_hash = prediction_results[0]["provenance"]["descriptor_hash"]
     second_hash = prediction_results[1]["provenance"]["descriptor_hash"]
@@ -464,4 +464,70 @@ def test_aptamer_prediction_persists_deterministic_sasa_fraction_provenance() ->
     assert prediction_results[0]["feature_summary"]["descriptors"] == (
         prediction_results[1]["feature_summary"]["descriptors"]
     )
+    assert first_hash == second_hash
+
+
+def test_aptamer_prediction_persists_deterministic_counterion_contact_count() -> None:
+    fixture_path = FIXTURE_ROOT / "dna_aptamer_na_mg_counterions.mmcif"
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                fixture_path.name,
+                fixture_path.read_bytes(),
+                "chemical/x-cif",
+            )
+        },
+        data={"mode": "aptamer_target"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    structure_id = upload_response.json()["structure_id"]
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": structure_id,
+            "mode": "aptamer_target",
+            "chains": {"partner_1": ["D"], "partner_2": ["T"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    assert validate_response.json()["valid"] is True
+
+    project_response = client.post(
+        "/api/v1/projects",
+        headers=HEADERS,
+        json={"name": "Aptamer counterion contact provenance"},
+    )
+    assert project_response.status_code == 201, project_response.text
+
+    prediction_results = []
+    for _ in range(2):
+        prediction_response = client.post(
+            "/api/v1/predictions",
+            headers=HEADERS,
+            json={
+                "project_id": project_response.json()["project_id"],
+                "structure_id": structure_id,
+                "mode": "aptamer_target",
+            },
+        )
+        assert prediction_response.status_code == 202, prediction_response.text
+        prediction_fetch = client.get(
+            f"/api/v1/predictions/{prediction_response.json()['prediction_id']}",
+            headers=HEADERS,
+        )
+        assert prediction_fetch.status_code == 200, prediction_fetch.text
+        prediction_results.append(prediction_fetch.json())
+
+    first_descriptors = prediction_results[0]["feature_summary"]["descriptors"]
+    assert first_descriptors["aptamer_counterion_contact_count"] == 1.0
+    assert prediction_results[0]["feature_summary"]["descriptor_version"] == (
+        "aptamer_features_v2"
+    )
+    first_hash = prediction_results[0]["provenance"]["descriptor_hash"]
+    second_hash = prediction_results[1]["provenance"]["descriptor_hash"]
+    assert len(first_hash) == 64
     assert first_hash == second_hash

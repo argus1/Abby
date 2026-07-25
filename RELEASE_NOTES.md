@@ -2,8 +2,8 @@
 
 ## 2026-07-25
 
-- Added the first deterministic `aptamer_target` descriptor, `aptamer_sasa_fraction`, under the explicit `aptamer_features_v1` contract.
-- Persisted the descriptor through the existing feature-summary artifact and descriptor-hash provenance path, with an end-to-end determinism regression over the canonical aptamer mmCIF fixture.
+- Added deterministic `aptamer_sasa_fraction` and cutoff-aware `aptamer_counterion_contact_count` descriptors under the explicit `aptamer_features_v2` contract.
+- Persisted both descriptors through the existing feature-summary artifact and descriptor-hash provenance path, with end-to-end determinism regressions over canonical aptamer mmCIF fixtures.
 
 ## 2026-07-11
 

@@ -50,6 +50,7 @@ from abby_api.services.baseline_models import (
 )
 from abby_api.services.feature_extraction import (
     build_descriptor_bundle,
+    calculate_aptamer_counterion_contact_count,
     calculate_inter_partner_contacts,
     calculate_radius_of_gyration,
     calculate_residue_depth,
@@ -186,6 +187,7 @@ def create_prediction(request: PredictionRequest) -> PredictionQueuedResponse:
     solvent_accessibility = None
     residue_depth_observation = None
     radius_of_gyration_observation = None
+    aptamer_counterion_contact_count = None
     structure_file = get_structure_file(request.structure_id)
     if structure_file is not None:
         try:
@@ -211,11 +213,20 @@ def create_prediction(request: PredictionRequest) -> PredictionQueuedResponse:
                 parsed_structure,
                 structure.validation,
             )
+            if request.mode == "aptamer_target":
+                aptamer_counterion_contact_count = (
+                    calculate_aptamer_counterion_contact_count(
+                        parsed_structure,
+                        structure.validation,
+                        distance_cutoff=request.options.contact_distance_cutoff_angstrom,
+                    )
+                )
         except Exception:
             contact_observation = None
             solvent_accessibility = None
             residue_depth_observation = None
             radius_of_gyration_observation = None
+            aptamer_counterion_contact_count = None
 
     bundle = build_descriptor_bundle(
         structure.summary,
@@ -225,6 +236,7 @@ def create_prediction(request: PredictionRequest) -> PredictionQueuedResponse:
         solvent_accessibility=solvent_accessibility,
         residue_depth_observation=residue_depth_observation,
         radius_of_gyration_observation=radius_of_gyration_observation,
+        aptamer_counterion_contact_count=aptamer_counterion_contact_count,
         contact_distance_cutoff=request.options.contact_distance_cutoff_angstrom,
     )
     scoring = run_baseline_affinity_models(bundle.descriptors)
