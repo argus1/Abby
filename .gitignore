@@ -11,6 +11,7 @@ node_modules/
 frontend/node_modules/
 data/uploads/
 data/object_store/
+ISO42001.pdf
 validation_dataset/ANDD_pdb/*
 !validation_dataset/ANDD_pdb/CompDetRAE_edge_cases/
 !validation_dataset/ANDD_pdb/CompDetRAE_edge_cases/*.mmcif
