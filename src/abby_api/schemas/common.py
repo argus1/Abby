@@ -172,6 +172,36 @@ class NucleotideResidueNamingIssue(AbbyBaseModel):
     category: Literal["legacy_rna_prefix"]
 
 
+class CounterionRecord(AbbyBaseModel):
+    chain_id: str
+    residue_name: Literal["NA", "MG"]
+    sequence_id: int
+    nominal_charge: Literal[1, 2]
+
+
+class CounterionInventory(AbbyBaseModel):
+    available: bool = False
+    total_ion_count: int = 0
+    ion_counts: dict[str, int] = Field(default_factory=dict)
+    nominal_charge_total: int = 0
+    ions: list[CounterionRecord] = Field(default_factory=list)
+
+
+IonizationPreflightReason = Literal[
+    "COUNTERION_ROLE_UNVERIFIED",
+    "ION_CONCENTRATION_UNKNOWN",
+    "NEUTRALIZATION_NOT_ASSESSED",
+]
+
+
+class IonizationPreflight(AbbyBaseModel):
+    status: Literal["review_required"] = "review_required"
+    counterions_present: bool = False
+    concentration_known: bool = False
+    neutralization_assessed: bool = False
+    reason_codes: list[IonizationPreflightReason] = Field(default_factory=list)
+
+
 class NucleicAcidProfile(AbbyBaseModel):
     available: bool = False
     chain_types: dict[str, NucleicAcidChainType] = Field(default_factory=dict)
@@ -180,6 +210,8 @@ class NucleicAcidProfile(AbbyBaseModel):
     modified_nucleotides: list[ModifiedNucleotide] = Field(default_factory=list)
     atom_naming_issues: list[NucleotideAtomNamingIssue] = Field(default_factory=list)
     residue_naming_issues: list[NucleotideResidueNamingIssue] = Field(default_factory=list)
+    counterion_inventory: CounterionInventory = Field(default_factory=CounterionInventory)
+    ionization_preflight: IonizationPreflight = Field(default_factory=IonizationPreflight)
 
 
 class DatasetSourceProvenance(AbbyBaseModel):
