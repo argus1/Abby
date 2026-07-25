@@ -107,7 +107,7 @@ For antibody-specific CDR bookkeeping implementation details, use `Dev_Plan_Comp
 * **Optional interoperability:** AIRR-oriented schema/adapter mapping may be added as a non-blocking extension.
 * **Guardrail:** do not introduce mandatory repertoire-pipeline preprocessing in the default BioPython parsing/normalization path.
 * **VHH guardrail:** do not couple CDR readiness to light-chain presence when `antibody_format=vhh_single_domain`.
-* **Current execution status:** CompDetRAE Phase 0 contract scaffolding is now implemented in `src/abby_api/services/cdr_annotation.py` and `src/abby_api/services/cdr_numbering.py`; proceed with Phase 1 boundary extraction against this fixed contract.
+* **Current execution status:** CompDetRAE Phases 0–6 and the Part 7 testing/quality gates are implemented. Dedicated descriptor-hash regression tests and mmCIF numbering edge fixtures now live in `tests/test_cdr_descriptor_regression.py` and `validation_dataset/ANDD_pdb/CompDetRAE_edge_cases/`.
 
 ### 7. Aptamer support implementation boundary (v1.1+)
 
