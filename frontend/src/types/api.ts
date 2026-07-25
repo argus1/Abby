@@ -125,6 +125,34 @@ export interface NucleotideResidueNamingIssue {
   category: 'legacy_rna_prefix';
 }
 
+export interface CounterionRecord {
+  chain_id: string;
+  residue_name: 'NA' | 'MG';
+  sequence_id: number;
+  nominal_charge: 1 | 2;
+}
+
+export interface CounterionInventory {
+  available: boolean;
+  total_ion_count: number;
+  ion_counts: Record<string, number>;
+  nominal_charge_total: number;
+  ions: CounterionRecord[];
+}
+
+export type IonizationPreflightReason =
+  | 'COUNTERION_ROLE_UNVERIFIED'
+  | 'ION_CONCENTRATION_UNKNOWN'
+  | 'NEUTRALIZATION_NOT_ASSESSED';
+
+export interface IonizationPreflight {
+  status: 'review_required';
+  counterions_present: boolean;
+  concentration_known: boolean;
+  neutralization_assessed: boolean;
+  reason_codes: IonizationPreflightReason[];
+}
+
 export interface NucleicAcidProfile {
   available: boolean;
   chain_types: Record<string, NucleicAcidChainType>;
@@ -133,6 +161,8 @@ export interface NucleicAcidProfile {
   modified_nucleotides: ModifiedNucleotide[];
   atom_naming_issues: NucleotideAtomNamingIssue[];
   residue_naming_issues: NucleotideResidueNamingIssue[];
+  counterion_inventory: CounterionInventory;
+  ionization_preflight: IonizationPreflight;
 }
 
 export interface StructureSummaryMetadata extends Record<string, unknown> {

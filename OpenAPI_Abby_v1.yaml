@@ -855,6 +855,69 @@ components:
         - expected_residue_name
         - polymer_type
         - category
+    CounterionRecord:
+      type: object
+      properties:
+        chain_id:
+          type: string
+        residue_name:
+          type: string
+          enum: [NA, MG]
+        sequence_id:
+          type: integer
+        nominal_charge:
+          type: integer
+          enum: [1, 2]
+      required: [chain_id, residue_name, sequence_id, nominal_charge]
+    CounterionInventory:
+      type: object
+      properties:
+        available:
+          type: boolean
+        total_ion_count:
+          type: integer
+        ion_counts:
+          type: object
+          additionalProperties:
+            type: integer
+        nominal_charge_total:
+          type: integer
+        ions:
+          type: array
+          items:
+            $ref: '#/components/schemas/CounterionRecord'
+      required:
+        - available
+        - total_ion_count
+        - ion_counts
+        - nominal_charge_total
+        - ions
+    IonizationPreflight:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [review_required]
+        counterions_present:
+          type: boolean
+        concentration_known:
+          type: boolean
+        neutralization_assessed:
+          type: boolean
+        reason_codes:
+          type: array
+          items:
+            type: string
+            enum:
+              - COUNTERION_ROLE_UNVERIFIED
+              - ION_CONCENTRATION_UNKNOWN
+              - NEUTRALIZATION_NOT_ASSESSED
+      required:
+        - status
+        - counterions_present
+        - concentration_known
+        - neutralization_assessed
+        - reason_codes
     NucleicAcidProfile:
       type: object
       properties:
@@ -887,6 +950,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/NucleotideResidueNamingIssue'
+        counterion_inventory:
+          $ref: '#/components/schemas/CounterionInventory'
+        ionization_preflight:
+          $ref: '#/components/schemas/IonizationPreflight'
       required:
         - available
         - chain_types
@@ -895,6 +962,8 @@ components:
         - modified_nucleotides
         - atom_naming_issues
         - residue_naming_issues
+        - counterion_inventory
+        - ionization_preflight
     Provenance:
       type: object
       properties:
