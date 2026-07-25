@@ -13,6 +13,7 @@ import {
   validateStructure,
 } from '../lib/api-client';
 import { serviceLayerModules, stubPrediction, workflowSteps } from '../lib/stub-data';
+import type { PredictionMode } from '../types/api';
 
 function parseChains(value: string): string[] {
   return value
@@ -32,7 +33,7 @@ export function ProjectPage() {
 
   const [projectName, setProjectName] = useState('Abby Demo Project');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [mode, setMode] = useState<'ppi_general' | 'antibody_antigen'>('antibody_antigen');
+  const [mode, setMode] = useState<PredictionMode>('antibody_antigen');
   const [contactDistanceCutoff, setContactDistanceCutoff] = useState('5.5');
   const [partner1, setPartner1] = useState(stubPrediction.partner1.join(', '));
   const [partner2, setPartner2] = useState(stubPrediction.partner2.join(', '));
@@ -181,6 +182,7 @@ export function ProjectPage() {
             <select value={mode} onChange={(event) => setMode(event.target.value as typeof mode)}>
               <option value="antibody_antigen">antibody_antigen</option>
               <option value="ppi_general">ppi_general</option>
+              <option value="aptamer_target">aptamer_target</option>
             </select>
           </label>
           <label className="field">

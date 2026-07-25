@@ -507,7 +507,7 @@ components:
   schemas:
     PredictionMode:
       type: string
-      enum: [ppi_general, antibody_antigen]
+      enum: [ppi_general, antibody_antigen, aptamer_target]
     ConfidenceClass:
       type: string
       enum: [high, medium, low]
@@ -795,6 +795,49 @@ components:
         - license_compatible
         - attribution_required
         - notes
+    ModifiedNucleotide:
+      type: object
+      properties:
+        chain_id:
+          type: string
+        residue_name:
+          type: string
+        sequence_id:
+          type: integer
+        polymer_type:
+          type: string
+          enum: [dna, rna]
+      required: [chain_id, residue_name, sequence_id, polymer_type]
+    NucleicAcidProfile:
+      type: object
+      properties:
+        available:
+          type: boolean
+        chain_types:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [dna, rna, mixed, protein, unknown]
+        nucleic_acid_chains:
+          type: array
+          items:
+            type: string
+        canonical_nucleotide_counts:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: integer
+        modified_nucleotides:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModifiedNucleotide'
+      required:
+        - available
+        - chain_types
+        - nucleic_acid_chains
+        - canonical_nucleotide_counts
+        - modified_nucleotides
     Provenance:
       type: object
       properties:
@@ -924,6 +967,8 @@ components:
                 - drift_flag
                 - drift_reason_codes
                 - feature_vector
+        nucleic_acid_profile:
+          $ref: '#/components/schemas/NucleicAcidProfile'
       required:
         [model_bundle_version, preprocess_version, descriptor_hash, contact_distance_cutoff_angstrom, created_at]
     PredictionResult:

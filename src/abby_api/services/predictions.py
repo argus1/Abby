@@ -22,6 +22,7 @@ from abby_api.schemas.common import (
     CDRAnnotationProvenance,
     CDRBoundaryQualityBaseline,
     LearnedModelProvenance,
+    NucleicAcidProfile,
     PredictionInterval,
     Provenance,
     SimulationProvenance,
@@ -165,6 +166,11 @@ def create_prediction(request: PredictionRequest) -> PredictionQueuedResponse:
     structure = get_structure(request.structure_id)
     if structure is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Structure not found.")
+    if request.mode != structure.mode:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Prediction mode must match the validated structure mode.",
+        )
     if structure.validation is None or not structure.validation.valid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -298,6 +304,12 @@ def create_prediction(request: PredictionRequest) -> PredictionQueuedResponse:
                 else None
             ),
         )
+    nucleic_acid_metadata = structure.summary.metadata.get("nucleic_acid_profile")
+    nucleic_acid_profile = (
+        NucleicAcidProfile.model_validate(nucleic_acid_metadata)
+        if isinstance(nucleic_acid_metadata, dict)
+        else None
+    )
 
     result = PredictionResult(
         prediction_id=prediction_id,
@@ -334,6 +346,7 @@ def create_prediction(request: PredictionRequest) -> PredictionQueuedResponse:
             created_at=datetime.now(timezone.utc),
             topology_handoff=topology_handoff,
             cdr_annotation=cdr_annotation_provenance,
+            nucleic_acid_profile=nucleic_acid_profile,
             simulation=SimulationProvenance(
                 source="none",
                 imported=False,

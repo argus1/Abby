@@ -21,6 +21,10 @@ from abby_api.schemas.structures import StructureSummary, StructureValidationIss
 from abby_api.services.cdr_annotation import annotate_cdr_h3
 from abby_api.services.cdr_telemetry import record_cdr_annotation_telemetry
 from abby_api.services.feature_extraction import classify_residue
+from abby_api.services.nucleic_acid import (
+    build_nucleic_acid_profile,
+    is_canonical_nucleotide,
+)
 
 
 @dataclass
@@ -324,7 +328,10 @@ def summarize_structure(
             residue_class = classify_residue(residue_name)
             residue_class_counts[residue_class] += 1
             global_residue_class_counts[residue_class] += 1
-            if residue_class == "other":
+            if residue_class == "other" and not (
+                prediction_mode == "aptamer_target"
+                and is_canonical_nucleotide(residue_name)
+            ):
                 unsupported_counts_for_chain[residue_name] = (
                     unsupported_counts_for_chain.get(residue_name, 0) + 1
                 )
@@ -459,6 +466,9 @@ def summarize_structure(
                     },
                 )
             )
+
+    if prediction_mode == "aptamer_target":
+        metadata["nucleic_acid_profile"] = build_nucleic_acid_profile(structure)
 
     return StructureSummary(
         parser_name=parser_name,

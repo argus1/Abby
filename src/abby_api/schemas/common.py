@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-PredictionMode = Literal["ppi_general", "antibody_antigen"]
+PredictionMode = Literal["ppi_general", "antibody_antigen", "aptamer_target"]
 ConfidenceClass = Literal["high", "medium", "low"]
 AntibodyFormat = Literal[
     "paired_antibody",
@@ -14,6 +14,7 @@ AntibodyFormat = Literal[
     "unknown_antibody_format",
 ]
 CDRRegionApplicability = Literal["applicable", "not_applicable", "unknown"]
+NucleicAcidChainType = Literal["dna", "rna", "mixed", "protein", "unknown"]
 JobStatus = Literal["queued", "running", "completed", "failed"]
 StructureFormat = Literal["pdb", "cif", "mmcif"]
 DatasetUsageRole = Literal["training", "evaluation", "qa", "validation", "calibration"]
@@ -146,6 +147,21 @@ class CDRAnnotationProvenance(AbbyBaseModel):
     quality_baseline: CDRBoundaryQualityBaseline | None = None
 
 
+class ModifiedNucleotide(AbbyBaseModel):
+    chain_id: str
+    residue_name: str
+    sequence_id: int
+    polymer_type: Literal["dna", "rna"]
+
+
+class NucleicAcidProfile(AbbyBaseModel):
+    available: bool = False
+    chain_types: dict[str, NucleicAcidChainType] = Field(default_factory=dict)
+    nucleic_acid_chains: list[str] = Field(default_factory=list)
+    canonical_nucleotide_counts: dict[str, dict[str, int]] = Field(default_factory=dict)
+    modified_nucleotides: list[ModifiedNucleotide] = Field(default_factory=list)
+
+
 class DatasetSourceProvenance(AbbyBaseModel):
     dataset_name: str
     dataset_role: DatasetUsageRole = "qa"
@@ -190,6 +206,7 @@ class Provenance(AbbyBaseModel):
     simulation: SimulationProvenance | None = None
     learned_model: LearnedModelProvenance | None = None
     cdr_annotation: CDRAnnotationProvenance | None = None
+    nucleic_acid_profile: NucleicAcidProfile | None = None
     dataset_sources: list[DatasetSourceProvenance] = Field(default_factory=list)
     structure_generation: StructureGenerationProvenance | None = None
     artifacts: ArtifactRegistry | None = None

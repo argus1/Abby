@@ -243,6 +243,98 @@ def _build_cdr_validation_issues(summary: StructureSummary) -> list[StructureVal
     return issues
 
 
+def _build_aptamer_validation_errors(
+    summary: StructureSummary,
+    chains: ChainMapping,
+) -> list[StructureValidationIssue]:
+    profile = summary.metadata.get("nucleic_acid_profile", {})
+    if not isinstance(profile, dict):
+        profile = {}
+    chain_types = profile.get("chain_types", {})
+    if not isinstance(chain_types, dict):
+        chain_types = {}
+
+    partner_1_chain_types = {
+        chain_id: str(chain_types.get(chain_id, "unknown")) for chain_id in chains.partner_1
+    }
+    issues: list[StructureValidationIssue] = []
+    nucleic_acid_types = {"dna", "rna", "mixed"}
+    if not any(
+        chain_type in nucleic_acid_types for chain_type in partner_1_chain_types.values()
+    ):
+        issues.append(
+            StructureValidationIssue(
+                code="APTAMER_CHAIN_REQUIRED",
+                message="Aptamer mode requires a DNA or RNA chain in partner_1.",
+                details={
+                    "selected_partner_1_chains": chains.partner_1,
+                    "partner_1_chain_types": partner_1_chain_types,
+                },
+            )
+        )
+
+    partner_2_chain_types = {
+        chain_id: str(chain_types.get(chain_id, "unknown")) for chain_id in chains.partner_2
+    }
+    if not any(
+        chain_type not in nucleic_acid_types
+        for chain_type in partner_2_chain_types.values()
+    ):
+        issues.append(
+            StructureValidationIssue(
+                code="APTAMER_TARGET_CHAIN_REQUIRED",
+                message=(
+                    "Aptamer mode requires a non-nucleic-acid target chain in partner_2."
+                ),
+                details={
+                    "selected_partner_2_chains": chains.partner_2,
+                    "partner_2_chain_types": partner_2_chain_types,
+                },
+            )
+        )
+    return issues
+
+
+def _build_aptamer_validation_warnings(
+    summary: StructureSummary,
+) -> list[StructureValidationIssue]:
+    profile = summary.metadata.get("nucleic_acid_profile", {})
+    if not isinstance(profile, dict):
+        return []
+    issues: list[StructureValidationIssue] = []
+    modified_nucleotides = profile.get("modified_nucleotides", [])
+    if isinstance(modified_nucleotides, list) and modified_nucleotides:
+        issues.append(
+            StructureValidationIssue(
+                code="APTAMER_MODIFIED_NUCLEOTIDE",
+                message=(
+                    "Modified nucleotides require force-field and topology "
+                    "parameterization review."
+                ),
+                details={"modified_nucleotides": modified_nucleotides},
+            )
+        )
+
+    chain_types = profile.get("chain_types", {})
+    if isinstance(chain_types, dict):
+        mixed_chain_ids = sorted(
+            str(chain_id)
+            for chain_id, chain_type in chain_types.items()
+            if chain_type == "mixed"
+        )
+        if mixed_chain_ids:
+            issues.append(
+                StructureValidationIssue(
+                    code="APTAMER_MIXED_DNA_RNA_CHAIN",
+                    message=(
+                        "A nucleic-acid chain contains both DNA and RNA residue naming."
+                    ),
+                    details={"mixed_chain_ids": mixed_chain_ids},
+                )
+            )
+    return issues
+
+
 def build_md_handoff_plan(chains: ChainMapping) -> dict[str, object]:
     selected_chains = [*chains.partner_1, *chains.partner_2]
     capacity_ok = len(selected_chains) <= len(MD_CANONICAL_CHAIN_IDS)
@@ -366,6 +458,18 @@ def validate_structure(request: StructureValidationRequest) -> StructureValidati
             normalized_groups,
         )
     )
+    if request.mode != detail.mode:
+        errors.append("PREDICTION_MODE_MISMATCH")
+        error_details.append(
+            StructureValidationIssue(
+                code="PREDICTION_MODE_MISMATCH",
+                message="Validation mode must match the structure upload mode.",
+                details={
+                    "structure_mode": detail.mode,
+                    "requested_mode": request.mode,
+                },
+            )
+        )
     md_handoff = build_md_handoff_plan(normalized_groups)
     if md_handoff["issues"]:
         warnings.append("MD_CHAIN_CANONICALIZATION_SUGGESTED")
@@ -384,8 +488,23 @@ def validate_structure(request: StructureValidationRequest) -> StructureValidati
     warning_details.extend(cdr_warning_details)
     warnings.extend(issue.code for issue in cdr_warning_details)
 
+    if request.mode == "aptamer_target":
+        aptamer_error_details = _build_aptamer_validation_errors(
+            detail.summary,
+            normalized_groups,
+        )
+        error_details.extend(aptamer_error_details)
+        errors.extend(issue.code for issue in aptamer_error_details)
+        aptamer_warning_details = _build_aptamer_validation_warnings(detail.summary)
+        warning_details.extend(aptamer_warning_details)
+        warnings.extend(issue.code for issue in aptamer_warning_details)
+
     normalized = "mmcif" if detail.format in {"mmcif", "cif"} else "pdb"
-    inferred_roles = {"partner_1": "receptor", "partner_2": "ligand"}
+    inferred_roles = (
+        {"partner_1": "aptamer", "partner_2": "target"}
+        if request.mode == "aptamer_target"
+        else {"partner_1": "receptor", "partner_2": "ligand"}
+    )
     cdr_annotation = detail.summary.metadata.get("cdr_annotation", {})
     if isinstance(cdr_annotation, dict):
         antibody_format = cdr_annotation.get("antibody_format")

@@ -5,6 +5,8 @@ export interface Project {
   created_at: string;
 }
 
+export type PredictionMode = 'ppi_general' | 'antibody_antigen' | 'aptamer_target';
+
 export interface ChainMapping {
   partner_1: string[];
   partner_2: string[];
@@ -17,7 +19,7 @@ export interface StructureInput {
   filename: string;
   sha256: string;
   chains?: ChainMapping | null;
-  mode: 'ppi_general' | 'antibody_antigen';
+  mode: PredictionMode;
 }
 
 export interface CDRRegion {
@@ -96,8 +98,26 @@ export interface DatasetSourceProvenance {
   notes: string[];
 }
 
+export type NucleicAcidChainType = 'dna' | 'rna' | 'mixed' | 'protein' | 'unknown';
+
+export interface ModifiedNucleotide {
+  chain_id: string;
+  residue_name: string;
+  sequence_id: number;
+  polymer_type: 'dna' | 'rna';
+}
+
+export interface NucleicAcidProfile {
+  available: boolean;
+  chain_types: Record<string, NucleicAcidChainType>;
+  nucleic_acid_chains: string[];
+  canonical_nucleotide_counts: Record<string, Record<string, number>>;
+  modified_nucleotides: ModifiedNucleotide[];
+}
+
 export interface StructureSummaryMetadata extends Record<string, unknown> {
   cdr_annotation?: CDRAnnotationSummary;
+  nucleic_acid_profile?: NucleicAcidProfile;
 }
 
 export interface StructureSummary {
@@ -118,7 +138,7 @@ export interface StructureValidationIssue {
 
 export interface StructureValidationRequest {
   structure_id: string;
-  mode: 'ppi_general' | 'antibody_antigen';
+  mode: PredictionMode;
   chains: ChainMapping;
 }
 
@@ -144,7 +164,7 @@ export interface StructureDetail extends StructureInput {
 
 export interface PredictionRequest {
   project_id: string;
-  mode: 'ppi_general' | 'antibody_antigen';
+  mode: PredictionMode;
   structure_id: string;
   options?: {
     return_all_models?: boolean;
@@ -170,7 +190,7 @@ export interface PredictionOptions {
 export interface PredictionResult {
   prediction_id: string;
   status: 'queued' | 'running' | 'completed' | 'failed';
-  mode: 'ppi_general' | 'antibody_antigen';
+  mode: PredictionMode;
   consensus?: {
     log_k: number;
     delta_g_kcal_mol: number;
@@ -201,12 +221,13 @@ export interface PredictionResult {
     created_at: string;
     dataset_sources?: DatasetSourceProvenance[];
     cdr_annotation?: CDRAnnotationSummary | null;
+    nucleic_acid_profile?: NucleicAcidProfile | null;
   } | null;
 }
 
 export interface BatchJobRequest {
   project_id: string;
-  mode: 'ppi_general' | 'antibody_antigen';
+  mode: PredictionMode;
   structure_ids: string[];
   options?: PredictionOptions;
 }

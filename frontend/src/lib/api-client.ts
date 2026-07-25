@@ -5,6 +5,7 @@ import type {
   BatchJobRequest,
   BatchResultsPage,
   ExportResponse,
+  PredictionMode,
   PredictionQueuedResponse,
   PredictionRequest,
   PredictionResult,
@@ -79,7 +80,7 @@ export async function getProject(projectId: string): Promise<Project> {
 
 export async function uploadStructure(
   file: File,
-  mode: 'ppi_general' | 'antibody_antigen',
+  mode: PredictionMode,
   projectId?: string,
 ): Promise<StructureInput> {
   const formData = new FormData();

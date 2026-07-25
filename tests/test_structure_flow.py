@@ -26,6 +26,50 @@ TER
 END
 """
 
+PDB_APTAMER_TARGET_FIXTURE = """\
+ATOM      1  P    DA D   1      11.104  13.207   9.111  1.00 20.00           P
+ATOM      2  O5'  DA D   1      12.560  13.102   9.262  1.00 20.00           O
+ATOM      3  P    DC D   2      13.030  11.670   9.634  1.00 20.00           P
+ATOM      4  O5'  DC D   2      12.284  10.719   9.434  1.00 20.00           O
+ATOM      5  N   ALA T   1      14.300  11.500  10.100  1.00 20.00           N
+ATOM      6  CA  ALA T   1      14.900  10.170  10.420  1.00 20.00           C
+ATOM      7  C   ALA T   1      16.350  10.200  10.900  1.00 20.00           C
+ATOM      8  O   ALA T   1      17.020   9.180  10.810  1.00 20.00           O
+TER
+END
+"""
+
+PDB_TWO_APTAMER_CHAINS_FIXTURE = """\
+ATOM      1  P    DA D   1      11.104  13.207   9.111  1.00 20.00           P
+ATOM      2  O5'  DA D   1      12.560  13.102   9.262  1.00 20.00           O
+ATOM      3  P    DC E   1      13.030  11.670   9.634  1.00 20.00           P
+ATOM      4  O5'  DC E   1      12.284  10.719   9.434  1.00 20.00           O
+TER
+END
+"""
+
+PDB_MODIFIED_RNA_TARGET_FIXTURE = """\
+ATOM      1  P     U R   1      11.104  13.207   9.111  1.00 20.00           P
+ATOM      2  O5'   U R   1      12.560  13.102   9.262  1.00 20.00           O
+HETATM    3  P   PSU R   2      13.030  11.670   9.634  1.00 20.00           P
+HETATM    4  O5' PSU R   2      12.284  10.719   9.434  1.00 20.00           O
+ATOM      5  N   ALA T   1      14.300  11.500  10.100  1.00 20.00           N
+ATOM      6  CA  ALA T   1      14.900  10.170  10.420  1.00 20.00           C
+TER
+END
+"""
+
+PDB_MIXED_NUCLEIC_ACID_TARGET_FIXTURE = """\
+ATOM      1  P    DA M   1      11.104  13.207   9.111  1.00 20.00           P
+ATOM      2  O5'  DA M   1      12.560  13.102   9.262  1.00 20.00           O
+ATOM      3  P     U M   2      13.030  11.670   9.634  1.00 20.00           P
+ATOM      4  O5'   U M   2      12.284  10.719   9.434  1.00 20.00           O
+ATOM      5  N   ALA T   1      14.300  11.500  10.100  1.00 20.00           N
+ATOM      6  CA  ALA T   1      14.900  10.170  10.420  1.00 20.00           C
+TER
+END
+"""
+
 PDB_UNSUPPORTED_RESIDUE_FIXTURE = """\
 ATOM      1  N   MSE A   1      11.104  13.207   9.111  1.00 20.00           N
 ATOM      2  CA  MSE A   1      12.560  13.102   9.262  1.00 20.00           C
@@ -210,6 +254,399 @@ def test_structure_upload_validate_and_fetch() -> None:
     assert detail["summary"]["metadata"]["chain_residue_class_counts"]["A"]["apolar"] == 1
     assert detail["summary"]["warning_details"] == []
     assert detail["validation"]["valid"] is True
+
+
+def test_aptamer_target_mode_is_accepted_for_structure_upload() -> None:
+    response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                "test_aptamer_target.pdb",
+                PDB_APTAMER_TARGET_FIXTURE,
+                "chemical/x-pdb",
+            )
+        },
+        data={"mode": "aptamer_target"},
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["mode"] == "aptamer_target"
+
+
+def test_aptamer_structure_summary_classifies_dna_and_target_chains() -> None:
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                "test_aptamer_chain_types.pdb",
+                PDB_APTAMER_TARGET_FIXTURE,
+                "chemical/x-pdb",
+            )
+        },
+        data={"mode": "aptamer_target"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+
+    detail_response = client.get(
+        f"/api/v1/structures/{upload_response.json()['structure_id']}",
+        headers=HEADERS,
+    )
+    assert detail_response.status_code == 200, detail_response.text
+    profile = detail_response.json()["summary"]["metadata"]["nucleic_acid_profile"]
+    assert profile["available"] is True
+    assert profile["chain_types"] == {"D": "dna", "T": "protein"}
+    assert profile["nucleic_acid_chains"] == ["D"]
+    assert profile["canonical_nucleotide_counts"] == {"D": {"DA": 1, "DC": 1}}
+    assert profile["modified_nucleotides"] == []
+
+
+def test_aptamer_target_validation_assigns_aptamer_and_target_roles() -> None:
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                "test_aptamer_roles.pdb",
+                PDB_APTAMER_TARGET_FIXTURE,
+                "chemical/x-pdb",
+            )
+        },
+        data={"mode": "aptamer_target"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": upload_response.json()["structure_id"],
+            "mode": "aptamer_target",
+            "chains": {"partner_1": ["D"], "partner_2": ["T"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    validation = validate_response.json()
+    assert validation["valid"] is True
+    assert validation["inferred_roles"] == {
+        "partner_1": "aptamer",
+        "partner_2": "target",
+    }
+    assert validation["errors"] == []
+
+
+def test_aptamer_target_validation_requires_nucleic_acid_partner() -> None:
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={"file": ("test_no_aptamer.pdb", PDB_FIXTURE, "chemical/x-pdb")},
+        data={"mode": "aptamer_target"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": upload_response.json()["structure_id"],
+            "mode": "aptamer_target",
+            "chains": {"partner_1": ["A"], "partner_2": ["B"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    validation = validate_response.json()
+    assert validation["valid"] is False
+    assert validation["errors"] == ["APTAMER_CHAIN_REQUIRED"]
+    issue = validation["error_details"][0]
+    assert issue["code"] == "APTAMER_CHAIN_REQUIRED"
+    assert issue["details"] == {
+        "selected_partner_1_chains": ["A"],
+        "partner_1_chain_types": {"A": "protein"},
+    }
+
+
+def test_aptamer_target_validation_requires_non_nucleic_acid_target() -> None:
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                "test_missing_aptamer_target.pdb",
+                PDB_TWO_APTAMER_CHAINS_FIXTURE,
+                "chemical/x-pdb",
+            )
+        },
+        data={"mode": "aptamer_target"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": upload_response.json()["structure_id"],
+            "mode": "aptamer_target",
+            "chains": {"partner_1": ["D"], "partner_2": ["E"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    validation = validate_response.json()
+    assert validation["valid"] is False
+    assert validation["errors"] == ["APTAMER_TARGET_CHAIN_REQUIRED"]
+    issue = validation["error_details"][0]
+    assert issue["code"] == "APTAMER_TARGET_CHAIN_REQUIRED"
+    assert issue["details"] == {
+        "selected_partner_2_chains": ["E"],
+        "partner_2_chain_types": {"E": "dna"},
+    }
+
+
+def test_aptamer_validation_reports_modified_nucleotide_as_typed_warning() -> None:
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                "test_modified_rna_target.pdb",
+                PDB_MODIFIED_RNA_TARGET_FIXTURE,
+                "chemical/x-pdb",
+            )
+        },
+        data={"mode": "aptamer_target"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": upload_response.json()["structure_id"],
+            "mode": "aptamer_target",
+            "chains": {"partner_1": ["R"], "partner_2": ["T"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    validation = validate_response.json()
+    assert validation["valid"] is True
+    assert "APTAMER_MODIFIED_NUCLEOTIDE" in validation["warnings"]
+    issue = next(
+        item
+        for item in validation["warning_details"]
+        if item["code"] == "APTAMER_MODIFIED_NUCLEOTIDE"
+    )
+    assert issue["details"]["modified_nucleotides"] == [
+        {
+            "chain_id": "R",
+            "residue_name": "PSU",
+            "sequence_id": 2,
+            "polymer_type": "rna",
+        }
+    ]
+
+
+def test_aptamer_summary_does_not_flag_canonical_nucleotides_as_unsupported() -> None:
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                "test_supported_dna.pdb",
+                PDB_APTAMER_TARGET_FIXTURE,
+                "chemical/x-pdb",
+            )
+        },
+        data={"mode": "aptamer_target"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+
+    detail_response = client.get(
+        f"/api/v1/structures/{upload_response.json()['structure_id']}",
+        headers=HEADERS,
+    )
+    assert detail_response.status_code == 200, detail_response.text
+    summary = detail_response.json()["summary"]
+    assert "UNSUPPORTED_RESIDUE" not in summary["warnings"]
+    assert summary["metadata"]["unsupported_residue_counts"] == {}
+
+
+def test_aptamer_validation_reports_mixed_dna_rna_chain_as_typed_warning() -> None:
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                "test_mixed_nucleic_acid_target.pdb",
+                PDB_MIXED_NUCLEIC_ACID_TARGET_FIXTURE,
+                "chemical/x-pdb",
+            )
+        },
+        data={"mode": "aptamer_target"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": upload_response.json()["structure_id"],
+            "mode": "aptamer_target",
+            "chains": {"partner_1": ["M"], "partner_2": ["T"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    validation = validate_response.json()
+    assert validation["valid"] is True
+    assert "APTAMER_MIXED_DNA_RNA_CHAIN" in validation["warnings"]
+    issue = next(
+        item
+        for item in validation["warning_details"]
+        if item["code"] == "APTAMER_MIXED_DNA_RNA_CHAIN"
+    )
+    assert issue["details"] == {"mixed_chain_ids": ["M"]}
+
+
+def test_aptamer_prediction_preserves_mode_and_nucleic_acid_provenance() -> None:
+    project_response = client.post(
+        "/api/v1/projects",
+        headers=HEADERS,
+        json={"name": "Aptamer mode contract"},
+    )
+    assert project_response.status_code == 201, project_response.text
+
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                "test_aptamer_prediction.pdb",
+                PDB_APTAMER_TARGET_FIXTURE,
+                "chemical/x-pdb",
+            )
+        },
+        data={"mode": "aptamer_target"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    structure_id = upload_response.json()["structure_id"]
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": structure_id,
+            "mode": "aptamer_target",
+            "chains": {"partner_1": ["D"], "partner_2": ["T"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    assert validate_response.json()["valid"] is True
+
+    prediction_response = client.post(
+        "/api/v1/predictions",
+        headers=HEADERS,
+        json={
+            "project_id": project_response.json()["project_id"],
+            "structure_id": structure_id,
+            "mode": "aptamer_target",
+        },
+    )
+    assert prediction_response.status_code == 202, prediction_response.text
+
+    prediction_fetch = client.get(
+        f"/api/v1/predictions/{prediction_response.json()['prediction_id']}",
+        headers=HEADERS,
+    )
+    assert prediction_fetch.status_code == 200, prediction_fetch.text
+    prediction = prediction_fetch.json()
+    assert prediction["mode"] == "aptamer_target"
+    profile = prediction["provenance"]["nucleic_acid_profile"]
+    assert profile["available"] is True
+    assert profile["chain_types"] == {"D": "dna", "T": "protein"}
+    assert profile["nucleic_acid_chains"] == ["D"]
+
+
+def test_aptamer_validation_rejects_mode_mismatch() -> None:
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                "test_aptamer_mode_mismatch.pdb",
+                PDB_APTAMER_TARGET_FIXTURE,
+                "chemical/x-pdb",
+            )
+        },
+        data={"mode": "aptamer_target"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": upload_response.json()["structure_id"],
+            "mode": "ppi_general",
+            "chains": {"partner_1": ["D"], "partner_2": ["T"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    validation = validate_response.json()
+    assert validation["valid"] is False
+    assert validation["errors"] == ["PREDICTION_MODE_MISMATCH"]
+    assert validation["error_details"][0]["details"] == {
+        "structure_mode": "aptamer_target",
+        "requested_mode": "ppi_general",
+    }
+
+
+def test_aptamer_prediction_rejects_mode_mismatch() -> None:
+    project_response = client.post(
+        "/api/v1/projects",
+        headers=HEADERS,
+        json={"name": "Aptamer mismatch guard"},
+    )
+    assert project_response.status_code == 201, project_response.text
+
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                "test_aptamer_prediction_mismatch.pdb",
+                PDB_APTAMER_TARGET_FIXTURE,
+                "chemical/x-pdb",
+            )
+        },
+        data={"mode": "aptamer_target"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    structure_id = upload_response.json()["structure_id"]
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": structure_id,
+            "mode": "aptamer_target",
+            "chains": {"partner_1": ["D"], "partner_2": ["T"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    assert validate_response.json()["valid"] is True
+
+    prediction_response = client.post(
+        "/api/v1/predictions",
+        headers=HEADERS,
+        json={
+            "project_id": project_response.json()["project_id"],
+            "structure_id": structure_id,
+            "mode": "ppi_general",
+        },
+    )
+    assert prediction_response.status_code == 400, prediction_response.text
+    assert prediction_response.json()["detail"] == (
+        "Prediction mode must match the validated structure mode."
+    )
 
 
 def test_structure_validation_reports_typed_error_details() -> None:

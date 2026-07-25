@@ -124,8 +124,8 @@ Add aptamer support as a **v1.1+ extension lane** that reuses the existing parsi
 
 #### 7A. Suggested delivery slices (v1.1+)
 
-* **Slice A (contract only):** schema/mode expansion + validation issue taxonomy + provenance placeholders.
-* **Slice B (parsing/validation):** nucleic-acid-aware normalization and typed diagnostics.
+* **Slice A (contract only) — complete:** `aptamer_target` schema/mode expansion, typed role and chemistry issue taxonomy, synchronized OpenAPI/frontend contracts, and typed prediction provenance.
+* **Slice B (parsing/validation) — partial:** DNA/RNA/protein/mixed chain typing, canonical nucleotide counts, modified-nucleotide records, role validation, and mixed/modified warnings are implemented; residue/atom naming and ionization diagnostics remain.
 * **Slice C (feature parity):** deterministic aptamer descriptor bundle and explainability integration.
 * **Slice D (optional simulation):** simulation-backed aptamer descriptor enrichment with explicit protocol versioning.
 

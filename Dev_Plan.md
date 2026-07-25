@@ -94,6 +94,7 @@ To expand Abby beyond protein-protein and antibody-antigen workflows, add aptame
 * **MD boundary:** keep simulation optional in user-facing flow; when simulation-backed descriptors are used, persist force field, solvent model, ion settings, protocol stages, and random seed in simulation provenance.
 * **Dataset expectation:** add a canonical local aptamer regression corpus and run conversion/validation checks in parallel with `validation_dataset/ANDD_pdb/` to avoid domain skew.
 * **Out-of-scope for this extension slice:** mandatory de novo aptamer folding orchestration in the default prediction path.
+* **Current execution status:** the `aptamer_target` mode contract is implemented across backend, OpenAPI, frontend, prediction, and batch surfaces. The initial validation profile classifies DNA/RNA/protein/mixed chains, records canonical and modified nucleotides, enforces aptamer/target partner roles, emits typed mixed/modified warnings, and threads the profile into prediction provenance. Aptamer descriptors, a canonical conversion corpus, atom-naming/ionization diagnostics, and simulation parity remain open.
 
 ### **Dataset-backed validation workflow**
 
