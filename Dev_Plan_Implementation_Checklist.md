@@ -159,7 +159,7 @@ Audit baseline: **2026-07-07**
 
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
-| `[x]` | `P1 / M` | Add CDR-aware structural bookkeeping if antibody-specific mode needs it | Phase 1 CDR-H3 MVP now implemented with numbering-first + motif-fallback boundaries, typed confidence/warnings, `summary.metadata["cdr_annotation"]` persistence, descriptor readiness gating, prediction provenance threading, and regression coverage in `tests/test_cdr_annotation.py` |
+| `[x]` | `P1 / M` | Add CDR-aware structural bookkeeping if antibody-specific mode needs it | CompDetRAE Phases 0–6 plus Part 7 quality gates are complete: numbering-first + motif fallback, typed confidence/warnings, persisted metadata/provenance, CDR descriptors, dedicated descriptor-hash regression coverage, and mmCIF numbering edge fixtures under `validation_dataset/ANDD_pdb/CompDetRAE_edge_cases/` |
 | `[x]` | `P2 / M` | Add electrostatics / surface pKa integration hooks for future PlayMolecule-style enrichment | Contract/hook only is sufficient in this phase if implementation is deferred |
 
 ### 3C. VHH nanobody parity for antibody workflows

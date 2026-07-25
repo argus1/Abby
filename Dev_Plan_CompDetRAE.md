@@ -645,22 +645,40 @@ All eight exit criteria are now covered by regression tests in `tests/test_valid
 
 For each phase touching backend logic:
 
-- [ ] `pytest -q tests/test_structure_flow.py`
-- [ ] `pytest -q tests/test_feature_extraction.py`
-- [ ] `pytest -q tests/test_batch_jobs.py` (if feature payload changes)
-- [ ] `pytest -q`
-- [ ] `ruff check .`
+- [x] `pytest -q tests/test_structure_flow.py`
+- [x] `pytest -q tests/test_feature_extraction.py`
+- [x] `pytest -q tests/test_batch_jobs.py` (if feature payload changes)
+- [x] `pytest -q`
+- [x] `ruff check .`
 
 If API schema/frontend payload changes:
 
-- [ ] `frontend` dependency install with deterministic mode
-- [ ] `npm run build`
+- [x] `frontend` dependency install with deterministic mode
+- [x] `npm run build`
 
 Additional new tests to add:
 
-- [ ] `tests/test_cdr_annotation.py` (unit/contract)
-- [ ] `tests/test_cdr_descriptor_regression.py`
-- [ ] dataset/numbering edge-case fixtures under `validation_dataset/ANDD_pdb/` extensions
+- [x] `tests/test_cdr_annotation.py` (unit/contract)
+- [x] `tests/test_cdr_descriptor_regression.py`
+- [x] dataset/numbering edge-case fixtures under `validation_dataset/ANDD_pdb/` extensions
+
+### Part 7 verification evidence
+
+- Backend targeted gates passed:
+  - `tests/test_structure_flow.py`: 17 tests
+  - `tests/test_feature_extraction.py`: 5 tests
+  - `tests/test_batch_jobs.py`: 2 tests
+  - CompDetRAE contract/regression/fixture group: 23 tests
+- Full backend suite passed: 174 tests.
+- Python lint passed with `ruff check .`.
+- Frontend dependencies installed from `package-lock.json` with
+  `npm ci --no-audit --no-fund`; the TypeScript/Vite production build passed.
+- Added exact `summary_features_v3` descriptor-hash regression coverage plus
+  legacy-field compatibility and non-antibody isolation checks in
+  `tests/test_cdr_descriptor_regression.py`.
+- Added committed mmCIF numbering fixtures and production-parser coverage for
+  insertion-code ordering and discontinuous numbering/nonstandard chain IDs under
+  `validation_dataset/ANDD_pdb/CompDetRAE_edge_cases/`.
 
 ---
 
