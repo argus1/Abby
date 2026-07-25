@@ -1,5 +1,10 @@
 # Release Notes
 
+## 2026-07-25
+
+- Added the first deterministic `aptamer_target` descriptor, `aptamer_sasa_fraction`, under the explicit `aptamer_features_v1` contract.
+- Persisted the descriptor through the existing feature-summary artifact and descriptor-hash provenance path, with an end-to-end determinism regression over the canonical aptamer mmCIF fixture.
+
 ## 2026-07-11
 
 - Added dataset-backed validation guidance across the planning docs, including PDB→mmCIF conversion checks for `validation_dataset/ANDD_pdb/`.

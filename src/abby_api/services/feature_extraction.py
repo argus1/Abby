@@ -40,6 +40,7 @@ RESIDUE_CLASS_MAP = {
 
 # v3 adds CDR-aware descriptor features while preserving existing descriptor keys.
 DESCRIPTOR_VERSION = "summary_features_v3"
+APTAMER_DESCRIPTOR_VERSION = "aptamer_features_v1"
 
 _CDR_REGION_KEYS: tuple[str, ...] = (
     "CDR-H1",
@@ -895,6 +896,12 @@ def build_descriptor_bundle(
         "multi_model_flag": 1.0 if summary.model_count > 1 else 0.0,
         "antibody_mode_flag": 1.0 if mode == "antibody_antigen" else 0.0,
     }
+    descriptor_version = DESCRIPTOR_VERSION
+    if mode == "aptamer_target":
+        descriptor_version = APTAMER_DESCRIPTOR_VERSION
+        descriptors["aptamer_sasa_fraction"] = (
+            round(sasa_partner_1 / sasa_total, 4) if sasa_total > 0.0 else 0.0
+        )
 
     cdr_descriptor_features = _cdr_descriptor_features(summary, validation)
     descriptors.update(cdr_descriptor_features)
@@ -934,14 +941,14 @@ def build_descriptor_bundle(
     notes = sorted(set(notes))
 
     hash_payload = {
-        "descriptor_version": DESCRIPTOR_VERSION,
+        "descriptor_version": descriptor_version,
         "descriptors": descriptors,
         "partner_residues": partner_residues,
         "residue_class_fractions": residue_class_fractions,
         "notes": notes,
     }
     return DescriptorBundle(
-        descriptor_version=DESCRIPTOR_VERSION,
+        descriptor_version=descriptor_version,
         descriptors=descriptors,
         partner_residues=partner_residues,
         residue_class_fractions=residue_class_fractions,
