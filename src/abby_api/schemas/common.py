@@ -154,12 +154,32 @@ class ModifiedNucleotide(AbbyBaseModel):
     polymer_type: Literal["dna", "rna"]
 
 
+class NucleotideAtomNamingIssue(AbbyBaseModel):
+    chain_id: str
+    residue_name: str
+    sequence_id: int
+    observed_atom_name: str
+    expected_atom_name: str
+    category: Literal["legacy_star_prime_notation"]
+
+
+class NucleotideResidueNamingIssue(AbbyBaseModel):
+    chain_id: str
+    observed_residue_name: str
+    sequence_id: int
+    expected_residue_name: str
+    polymer_type: Literal["dna", "rna"]
+    category: Literal["legacy_rna_prefix"]
+
+
 class NucleicAcidProfile(AbbyBaseModel):
     available: bool = False
     chain_types: dict[str, NucleicAcidChainType] = Field(default_factory=dict)
     nucleic_acid_chains: list[str] = Field(default_factory=list)
     canonical_nucleotide_counts: dict[str, dict[str, int]] = Field(default_factory=dict)
     modified_nucleotides: list[ModifiedNucleotide] = Field(default_factory=list)
+    atom_naming_issues: list[NucleotideAtomNamingIssue] = Field(default_factory=list)
+    residue_naming_issues: list[NucleotideResidueNamingIssue] = Field(default_factory=list)
 
 
 class DatasetSourceProvenance(AbbyBaseModel):

@@ -54,6 +54,8 @@ def test_canonical_aptamer_pdb_conversion_preserves_chain_and_nucleotide_profile
         "D": {"DA": 1, "DC": 1, "DG": 1}
     }
     assert profile["modified_nucleotides"] == []
+    assert profile["atom_naming_issues"] == []
+    assert profile["residue_naming_issues"] == []
     assert summary["metadata"]["connectivity"]["connection_count"] == 0
 
 
@@ -171,4 +173,99 @@ def test_canonical_aptamer_connectivity_persists_through_validation_and_predicti
     assert [record["id"] for record in preserved["connections"]] == [
         "phosphodiester_1_2",
         "phosphodiester_2_3",
+    ]
+
+
+def test_malformed_aptamer_reports_typed_atom_naming_warning() -> None:
+    fixture_path = FIXTURE_ROOT / "rna_aptamer_malformed_naming.mmcif"
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                fixture_path.name,
+                fixture_path.read_bytes(),
+                "chemical/x-cif",
+            )
+        },
+        data={"mode": "aptamer_target"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    structure_id = upload_response.json()["structure_id"]
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": structure_id,
+            "mode": "aptamer_target",
+            "chains": {"partner_1": ["R"], "partner_2": ["T"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    validation = validate_response.json()
+    assert validation["valid"] is True
+    assert "APTAMER_ATOM_NAMING_INCOMPATIBLE" in validation["warnings"]
+    issue = next(
+        item
+        for item in validation["warning_details"]
+        if item["code"] == "APTAMER_ATOM_NAMING_INCOMPATIBLE"
+    )
+    assert issue["details"]["atom_naming_issues"] == [
+        {
+            "chain_id": "R",
+            "residue_name": "U",
+            "sequence_id": 1,
+            "observed_atom_name": "O5*",
+            "expected_atom_name": "O5'",
+            "category": "legacy_star_prime_notation",
+        }
+    ]
+
+
+def test_malformed_aptamer_reports_typed_residue_naming_warning() -> None:
+    fixture_path = FIXTURE_ROOT / "rna_aptamer_malformed_naming.mmcif"
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                fixture_path.name,
+                fixture_path.read_bytes(),
+                "chemical/x-cif",
+            )
+        },
+        data={"mode": "aptamer_target"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    structure_id = upload_response.json()["structure_id"]
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": structure_id,
+            "mode": "aptamer_target",
+            "chains": {"partner_1": ["R"], "partner_2": ["T"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    validation = validate_response.json()
+    assert validation["valid"] is True
+    assert "APTAMER_RESIDUE_NAMING_INCOMPATIBLE" in validation["warnings"]
+    assert "UNSUPPORTED_RESIDUE" not in validation["warnings"]
+    issue = next(
+        item
+        for item in validation["warning_details"]
+        if item["code"] == "APTAMER_RESIDUE_NAMING_INCOMPATIBLE"
+    )
+    assert issue["details"]["residue_naming_issues"] == [
+        {
+            "chain_id": "R",
+            "observed_residue_name": "RA",
+            "sequence_id": 2,
+            "expected_residue_name": "A",
+            "polymer_type": "rna",
+            "category": "legacy_rna_prefix",
+        }
     ]

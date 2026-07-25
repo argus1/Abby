@@ -107,12 +107,32 @@ export interface ModifiedNucleotide {
   polymer_type: 'dna' | 'rna';
 }
 
+export interface NucleotideAtomNamingIssue {
+  chain_id: string;
+  residue_name: string;
+  sequence_id: number;
+  observed_atom_name: string;
+  expected_atom_name: string;
+  category: 'legacy_star_prime_notation';
+}
+
+export interface NucleotideResidueNamingIssue {
+  chain_id: string;
+  observed_residue_name: string;
+  sequence_id: number;
+  expected_residue_name: string;
+  polymer_type: 'dna' | 'rna';
+  category: 'legacy_rna_prefix';
+}
+
 export interface NucleicAcidProfile {
   available: boolean;
   chain_types: Record<string, NucleicAcidChainType>;
   nucleic_acid_chains: string[];
   canonical_nucleotide_counts: Record<string, Record<string, number>>;
   modified_nucleotides: ModifiedNucleotide[];
+  atom_naming_issues: NucleotideAtomNamingIssue[];
+  residue_naming_issues: NucleotideResidueNamingIssue[];
 }
 
 export interface StructureSummaryMetadata extends Record<string, unknown> {

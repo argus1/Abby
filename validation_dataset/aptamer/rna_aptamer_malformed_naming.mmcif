@@ -1,0 +1,37 @@
+data_rna_aptamer_malformed_naming
+#
+_struct.entry_id rna_aptamer_malformed_naming
+#
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_entity_id
+_atom_site.label_seq_id
+_atom_site.pdbx_PDB_ins_code
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.occupancy
+_atom_site.B_iso_or_equiv
+_atom_site.pdbx_formal_charge
+_atom_site.auth_seq_id
+_atom_site.auth_comp_id
+_atom_site.auth_asym_id
+_atom_site.auth_atom_id
+_atom_site.pdbx_PDB_model_num
+ATOM 1 P P . U R 1 1 ? 11.104 13.207 9.111 1.00 20.00 ? 1 U R P 1
+ATOM 2 O "O5*" . U R 1 1 ? 12.560 13.102 9.262 1.00 20.00 ? 1 U R "O5*" 1
+ATOM 3 O "O3'" . U R 1 1 ? 13.030 11.670 9.634 1.00 20.00 ? 1 U R "O3'" 1
+ATOM 4 P P . RA R 1 2 ? 14.300 11.500 10.100 1.00 20.00 ? 2 RA R P 1
+ATOM 5 O "O5'" . RA R 1 2 ? 14.900 10.170 10.420 1.00 20.00 ? 2 RA R "O5'" 1
+ATOM 6 O "O3'" . RA R 1 2 ? 16.350 10.200 10.900 1.00 20.00 ? 2 RA R "O3'" 1
+ATOM 7 N N . ALA T 2 1 ? 15.100 12.100 12.900 1.00 20.00 ? 1 ALA T N 1
+ATOM 8 C CA . ALA T 2 1 ? 16.000 12.200 13.700 1.00 20.00 ? 1 ALA T CA 1
+ATOM 9 C C . ALA T 2 1 ? 16.800 13.300 14.100 1.00 20.00 ? 1 ALA T C 1
+ATOM 10 O O . ALA T 2 1 ? 17.900 13.100 14.600 1.00 20.00 ? 1 ALA T O 1
+#

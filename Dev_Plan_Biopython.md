@@ -125,7 +125,7 @@ Add aptamer support as a **v1.1+ extension lane** that reuses the existing parsi
 #### 7A. Suggested delivery slices (v1.1+)
 
 * **Slice A (contract only) — complete:** `aptamer_target` schema/mode expansion, typed role and chemistry issue taxonomy, synchronized OpenAPI/frontend contracts, and typed prediction provenance.
-* **Slice B (parsing/validation) — partial:** DNA/RNA/protein/mixed chain typing, canonical nucleotide counts, modified-nucleotide records, role validation, and mixed/modified warnings are implemented; residue/atom naming and ionization diagnostics remain.
+* **Slice B (parsing/validation) — partial:** DNA/RNA/protein/mixed chain typing, canonical nucleotide counts, modified-nucleotide records, role validation, mixed/modified warnings, and typed legacy residue/atom naming compatibility diagnostics are implemented; ionization diagnostics remain.
 * **Canonical conversion fixtures — complete:** `validation_dataset/aptamer/` contains a synthetic DNA aptamer-target PDB/mmCIF pair. Regression tests verify PDB→mmCIF chain/residue/profile parity and preserve explicit phosphodiester `_struct_conn` records from canonical mmCIF through prediction topology-handoff provenance. `MMCIFIO` does not synthesize `_struct_conn`, and Abby does not infer missing bonds during conversion.
 * **Slice C (feature parity):** deterministic aptamer descriptor bundle and explainability integration.
 * **Slice D (optional simulation):** simulation-backed aptamer descriptor enrichment with explicit protocol versioning.

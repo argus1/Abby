@@ -808,6 +808,53 @@ components:
           type: string
           enum: [dna, rna]
       required: [chain_id, residue_name, sequence_id, polymer_type]
+    NucleotideAtomNamingIssue:
+      type: object
+      properties:
+        chain_id:
+          type: string
+        residue_name:
+          type: string
+        sequence_id:
+          type: integer
+        observed_atom_name:
+          type: string
+        expected_atom_name:
+          type: string
+        category:
+          type: string
+          enum: [legacy_star_prime_notation]
+      required:
+        - chain_id
+        - residue_name
+        - sequence_id
+        - observed_atom_name
+        - expected_atom_name
+        - category
+    NucleotideResidueNamingIssue:
+      type: object
+      properties:
+        chain_id:
+          type: string
+        observed_residue_name:
+          type: string
+        sequence_id:
+          type: integer
+        expected_residue_name:
+          type: string
+        polymer_type:
+          type: string
+          enum: [dna, rna]
+        category:
+          type: string
+          enum: [legacy_rna_prefix]
+      required:
+        - chain_id
+        - observed_residue_name
+        - sequence_id
+        - expected_residue_name
+        - polymer_type
+        - category
     NucleicAcidProfile:
       type: object
       properties:
@@ -832,12 +879,22 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ModifiedNucleotide'
+        atom_naming_issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/NucleotideAtomNamingIssue'
+        residue_naming_issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/NucleotideResidueNamingIssue'
       required:
         - available
         - chain_types
         - nucleic_acid_chains
         - canonical_nucleotide_counts
         - modified_nucleotides
+        - atom_naming_issues
+        - residue_naming_issues
     Provenance:
       type: object
       properties:

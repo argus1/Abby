@@ -315,6 +315,32 @@ def _build_aptamer_validation_warnings(
             )
         )
 
+    atom_naming_issues = profile.get("atom_naming_issues", [])
+    if isinstance(atom_naming_issues, list) and atom_naming_issues:
+        issues.append(
+            StructureValidationIssue(
+                code="APTAMER_ATOM_NAMING_INCOMPATIBLE",
+                message=(
+                    "Nucleotide atoms use legacy naming that may be incompatible "
+                    "with topology generation."
+                ),
+                details={"atom_naming_issues": atom_naming_issues},
+            )
+        )
+
+    residue_naming_issues = profile.get("residue_naming_issues", [])
+    if isinstance(residue_naming_issues, list) and residue_naming_issues:
+        issues.append(
+            StructureValidationIssue(
+                code="APTAMER_RESIDUE_NAMING_INCOMPATIBLE",
+                message=(
+                    "Nucleotide residues use legacy names that may be incompatible "
+                    "with topology generation."
+                ),
+                details={"residue_naming_issues": residue_naming_issues},
+            )
+        )
+
     chain_types = profile.get("chain_types", {})
     if isinstance(chain_types, dict):
         mixed_chain_ids = sorted(

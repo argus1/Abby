@@ -23,7 +23,7 @@ from abby_api.services.cdr_telemetry import record_cdr_annotation_telemetry
 from abby_api.services.feature_extraction import classify_residue
 from abby_api.services.nucleic_acid import (
     build_nucleic_acid_profile,
-    is_canonical_nucleotide,
+    is_recognized_nucleotide_name,
 )
 
 
@@ -330,7 +330,7 @@ def summarize_structure(
             global_residue_class_counts[residue_class] += 1
             if residue_class == "other" and not (
                 prediction_mode == "aptamer_target"
-                and is_canonical_nucleotide(residue_name)
+                and is_recognized_nucleotide_name(residue_name)
             ):
                 unsupported_counts_for_chain[residue_name] = (
                     unsupported_counts_for_chain.get(residue_name, 0) + 1
