@@ -5,6 +5,8 @@ import re
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from abby_api.schemas.common import AntibodyFormat, CDRRegionApplicability
+
 CDR_REGION_NAMES: tuple[str, ...] = (
     "CDR-H1",
     "CDR-H2",
@@ -581,11 +583,15 @@ def annotate_cdr_h3(structure: Any) -> dict[str, Any]:
     if not residues_by_chain:
         return {
             "available": False,
+            "antibody_format": "unknown_antibody_format",
             "scheme": None,
             "boundary_source": None,
             "boundary_confidence": "low",
             "selected_heavy_chain": None,
             "chains": {},
+            "region_applicability": {
+                region_name: "unknown" for region_name in CDR_REGION_NAMES
+            },
             "warnings": [CDR_CHAIN_ROLE_AMBIGUOUS, CDR_BOUNDARY_AMBIGUOUS],
         }
 
@@ -700,6 +706,36 @@ def annotate_cdr_h3(structure: Any) -> dict[str, Any]:
         }
 
     available = annotation_window is not None
+    light_chain_present = any(
+        str(chain_payload.get("role", "")).startswith("light")
+        for chain_payload in chains_payload.values()
+    )
+    antibody_format: AntibodyFormat
+    if selected_heavy_chain is None:
+        antibody_format = "unknown_antibody_format"
+    elif light_chain_present:
+        antibody_format = "paired_antibody"
+    else:
+        antibody_format = "vhh_single_domain"
+
+    light_region_applicability: CDRRegionApplicability
+    if antibody_format == "paired_antibody":
+        light_region_applicability = "applicable"
+    elif antibody_format == "vhh_single_domain":
+        light_region_applicability = "not_applicable"
+    else:
+        light_region_applicability = "unknown"
+    heavy_region_applicability: CDRRegionApplicability = (
+        "applicable" if selected_heavy_chain is not None else "unknown"
+    )
+    region_applicability = {
+        region_name: (
+            heavy_region_applicability
+            if region_name.startswith("CDR-H")
+            else light_region_applicability
+        )
+        for region_name in CDR_REGION_NAMES
+    }
 
     deduped_warnings = sorted(set(warnings))
     h3_position_signal = 0.0
@@ -741,6 +777,7 @@ def annotate_cdr_h3(structure: Any) -> dict[str, Any]:
 
     return {
         "available": available,
+        "antibody_format": antibody_format,
         "scheme": (
             annotation_window.scheme if annotation_window is not None else heavy_region_scheme
         ),
@@ -750,6 +787,7 @@ def annotate_cdr_h3(structure: Any) -> dict[str, Any]:
         ),
         "selected_heavy_chain": selected_heavy_chain,
         "chains": chains_payload,
+        "region_applicability": region_applicability,
         "warnings": sorted(output_warnings),
         "quality_baseline": quality_baseline,
     }

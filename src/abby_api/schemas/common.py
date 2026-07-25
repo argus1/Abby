@@ -8,6 +8,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 PredictionMode = Literal["ppi_general", "antibody_antigen"]
 ConfidenceClass = Literal["high", "medium", "low"]
+AntibodyFormat = Literal[
+    "paired_antibody",
+    "vhh_single_domain",
+    "unknown_antibody_format",
+]
+CDRRegionApplicability = Literal["applicable", "not_applicable", "unknown"]
 JobStatus = Literal["queued", "running", "completed", "failed"]
 StructureFormat = Literal["pdb", "cif", "mmcif"]
 DatasetUsageRole = Literal["training", "evaluation", "qa", "validation", "calibration"]
@@ -129,11 +135,13 @@ class CDRBoundaryQualityBaseline(AbbyBaseModel):
 
 class CDRAnnotationProvenance(AbbyBaseModel):
     available: bool = False
+    antibody_format: AntibodyFormat = "unknown_antibody_format"
     scheme: str | None = None
     boundary_source: str | None = None
     boundary_confidence: ConfidenceClass = "low"
     selected_heavy_chain: str | None = None
     chains: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    region_applicability: dict[str, CDRRegionApplicability] = Field(default_factory=dict)
     warnings: list[str] = Field(default_factory=list)
     quality_baseline: CDRBoundaryQualityBaseline | None = None
 

@@ -263,6 +263,12 @@ def create_prediction(request: PredictionRequest) -> PredictionQueuedResponse:
     if isinstance(cdr_annotation_metadata, dict):
         cdr_annotation_provenance = CDRAnnotationProvenance(
             available=bool(cdr_annotation_metadata.get("available", False)),
+            antibody_format=str(
+                cdr_annotation_metadata.get(
+                    "antibody_format",
+                    "unknown_antibody_format",
+                )
+            ),
             scheme=(
                 str(cdr_annotation_metadata.get("scheme"))
                 if cdr_annotation_metadata.get("scheme") is not None
@@ -280,6 +286,9 @@ def create_prediction(request: PredictionRequest) -> PredictionQueuedResponse:
                 else None
             ),
             chains=dict(cdr_annotation_metadata.get("chains", {})),
+            region_applicability=dict(
+                cdr_annotation_metadata.get("region_applicability", {})
+            ),
             warnings=[str(item) for item in cdr_annotation_metadata.get("warnings", [])],
             quality_baseline=(
                 CDRBoundaryQualityBaseline.model_validate(

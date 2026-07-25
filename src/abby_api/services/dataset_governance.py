@@ -5,7 +5,11 @@ from typing import Any, Literal
 
 from pydantic import Field, model_validator
 
-from abby_api.schemas.common import AbbyBaseModel, DatasetSourceProvenance
+from abby_api.schemas.common import (
+    AbbyBaseModel,
+    AntibodyFormat,
+    DatasetSourceProvenance,
+)
 
 SequenceAnnotationSplit = Literal[
     "train",
@@ -14,11 +18,6 @@ SequenceAnnotationSplit = Literal[
     "qa",
     "calibration",
     "holdout",
-]
-AntibodyFormat = Literal[
-    "paired_antibody",
-    "vhh_single_domain",
-    "unknown_antibody_format",
 ]
 NumberingScheme = Literal["imgt", "kabat", "chothia", "aho", "motif_fallback", "unknown"]
 

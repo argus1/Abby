@@ -638,6 +638,11 @@ All eight exit criteria are now covered by regression tests in `tests/test_valid
   - validate dataset-source manifests,
   - emit `reports/cdr_sequence_annotation_dataset_artifact.json`,
   - attach validated dataset-source entries to prediction provenance for QA/evaluation runs.
+- Completed Phase 3C VHH parity around the CompDetRAE annotation envelope:
+  - explicit paired/VHH/unknown antibody-format provenance,
+  - six-region applicability with VHH light CDRs marked `not_applicable`,
+  - heavy-only validation and prediction propagation without phantom light chains,
+  - unit and end-to-end API regression coverage.
 
 ---
 

@@ -201,6 +201,16 @@ def test_cdr_h3_ambiguous_motif_returns_boundary_ambiguity_warning() -> None:
     assert "ANNOTATION_UNAVAILABLE" in annotation["quality_baseline"]["drift_reason_codes"]
 
 
+def test_cdr_annotation_reports_unknown_antibody_format_without_heavy_evidence() -> None:
+    structure = _Structure([_chain_from_sequence("A", 1, "AAAAAAAAAA")])
+
+    annotation = annotate_cdr_h3(structure)
+
+    assert annotation["available"] is False
+    assert annotation["antibody_format"] == "unknown_antibody_format"
+    assert set(annotation["region_applicability"].values()) == {"unknown"}
+
+
 def test_cdr_h3_annotation_is_deterministic() -> None:
     structure = _Structure([_chain_from_sequence("X", 1, "AAAAACAAAAAWGQGAAAAA")])
 
@@ -291,6 +301,8 @@ def test_full_numbered_cdr_regions_extracted_for_heavy_and_light() -> None:
     heavy_regions = set(annotation["chains"]["H"]["regions"].keys())
     light_regions = set(annotation["chains"]["L"]["regions"].keys())
 
+    assert annotation["antibody_format"] == "paired_antibody"
+    assert set(annotation["region_applicability"].values()) == {"applicable"}
     assert {"CDR-H1", "CDR-H2", "CDR-H3"}.issubset(heavy_regions)
     assert {"CDR-L1", "CDR-L2", "CDR-L3"}.issubset(light_regions)
     assert annotation["chains"]["H"]["completeness_score"] == 1.0
@@ -307,6 +319,26 @@ def test_full_numbered_cdr_regions_extracted_for_heavy_and_light() -> None:
         "mce",
         "brier",
         "auc_roc",
+    }
+
+
+def test_vhh_heavy_only_annotation_marks_light_cdrs_not_applicable() -> None:
+    heavy_sequence = ("A" * 9) + "C" + ("A" * 130)
+    structure = _Structure([_chain_from_sequence("H", 1, heavy_sequence)])
+
+    annotation = annotate_cdr_h3(structure)
+
+    assert annotation["available"] is True
+    assert annotation["antibody_format"] == "vhh_single_domain"
+    assert annotation["chains"]["H"]["role"] == "heavy"
+    assert annotation["chains"]["H"]["completeness_score"] == 1.0
+    assert annotation["region_applicability"] == {
+        "CDR-H1": "applicable",
+        "CDR-H2": "applicable",
+        "CDR-H3": "applicable",
+        "CDR-L1": "not_applicable",
+        "CDR-L2": "not_applicable",
+        "CDR-L3": "not_applicable",
     }
 
 

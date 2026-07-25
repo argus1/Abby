@@ -7,6 +7,15 @@ function humanizeBoundarySource(value: string | null | undefined): string {
   return value.replace(/_/g, ' ');
 }
 
+  function summarizeLightCdrApplicability(annotation: CDRAnnotationSummary): string {
+    const states = ['CDR-L1', 'CDR-L2', 'CDR-L3'].map(
+      (region) => annotation.region_applicability[region] ?? 'unknown',
+    );
+    return states.every((state) => state === states[0])
+      ? states[0].replace(/_/g, ' ')
+      : 'mixed';
+  }
+
 function summarizeChainRegions(annotation: CDRAnnotationSummary): string {
   const chainEntries = Object.entries(annotation.chains ?? {});
   if (chainEntries.length === 0) {
@@ -52,6 +61,8 @@ export function CdrSummaryCard({
           </div>
 
           <ul className="bullet-list compact">
+            <li>Antibody format: {humanizeBoundarySource(annotation.antibody_format)}</li>
+             <li>Light-chain CDRs: {summarizeLightCdrApplicability(annotation)}</li>
             <li>Boundary source: {humanizeBoundarySource(annotation.boundary_source)}</li>
             <li>Scheme: {annotation.scheme ?? 'not assigned'}</li>
             <li>Selected heavy chain: {annotation.selected_heavy_chain ?? 'not identified'}</li>

@@ -60,6 +60,7 @@ For VHH-supporting workflows, enforce these deterministic parsing/validation rul
 * **CDR expectations (VHH):** `CDR-H1/H2/H3`; light-chain CDRs must be represented as `not_applicable`.
 * **Validation semantics:** for VHH mode, treat absent light chain as expected behavior, not as a structural error.
 * **Provenance threading:** carry `antibody_format`, boundary source, and boundary confidence into prediction provenance for downstream auditability.
+* **Implementation status:** complete. BioPython-backed annotation classifies paired/VHH/unknown formats, emits six-region applicability, preserves the contract through validation and prediction, and is covered by unit and end-to-end heavy-only VHH regressions.
 
 ### **3\. Feature Extraction for ML Training**
 

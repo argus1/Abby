@@ -882,6 +882,86 @@ def test_prediction_cdr_annotation_stays_on_source_chain_ids_after_md_remap() ->
     )
 
 
+def test_vhh_heavy_only_structure_threads_format_and_light_region_applicability() -> None:
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                "test_vhh_heavy_only.pdb",
+                PDB_ANTIBODY_MOTIF_FALLBACK_FIXTURE,
+                "chemical/x-pdb",
+            )
+        },
+        data={"mode": "antibody_antigen"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    structure_id = upload_response.json()["structure_id"]
+
+    detail_response = client.get(f"/api/v1/structures/{structure_id}", headers=HEADERS)
+    assert detail_response.status_code == 200, detail_response.text
+    annotation = detail_response.json()["summary"]["metadata"]["cdr_annotation"]
+    assert annotation["available"] is True
+    assert annotation["antibody_format"] == "vhh_single_domain"
+    assert annotation["region_applicability"]["CDR-L1"] == "not_applicable"
+    assert annotation["region_applicability"]["CDR-L2"] == "not_applicable"
+    assert annotation["region_applicability"]["CDR-L3"] == "not_applicable"
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": structure_id,
+            "mode": "antibody_antigen",
+            "chains": {"partner_1": ["H"], "partner_2": ["A"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    validation = validate_response.json()
+    assert validation["valid"] is True
+    assert validation["errors"] == []
+    assert validation["inferred_roles"]["antibody_format"] == "vhh_single_domain"
+    fallback_issue = next(
+        issue
+        for issue in validation["warning_details"]
+        if issue["code"] == "CDR_MOTIF_FALLBACK_USED"
+    )
+    assert fallback_issue["details"]["antibody_format"] == "vhh_single_domain"
+    assert fallback_issue["details"]["region_applicability"]["CDR-L1"] == (
+        "not_applicable"
+    )
+
+    project_response = client.post(
+        "/api/v1/projects",
+        headers=HEADERS,
+        json={"name": "VHH provenance contract"},
+    )
+    assert project_response.status_code == 201, project_response.text
+
+    prediction_response = client.post(
+        "/api/v1/predictions",
+        headers=HEADERS,
+        json={
+            "project_id": project_response.json()["project_id"],
+            "structure_id": structure_id,
+            "mode": "antibody_antigen",
+        },
+    )
+    assert prediction_response.status_code == 202, prediction_response.text
+
+    prediction_fetch = client.get(
+        f"/api/v1/predictions/{prediction_response.json()['prediction_id']}",
+        headers=HEADERS,
+    )
+    assert prediction_fetch.status_code == 200, prediction_fetch.text
+    cdr_provenance = prediction_fetch.json()["provenance"]["cdr_annotation"]
+    assert cdr_provenance["available"] is True
+    assert cdr_provenance["antibody_format"] == "vhh_single_domain"
+    assert cdr_provenance["region_applicability"]["CDR-L1"] == "not_applicable"
+    assert cdr_provenance["region_applicability"]["CDR-L2"] == "not_applicable"
+    assert cdr_provenance["region_applicability"]["CDR-L3"] == "not_applicable"
+
+
 def test_antibody_prediction_response_exposes_cdr_descriptor_fields() -> None:
     upload_response = client.post(
         "/api/v1/structures:upload",

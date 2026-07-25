@@ -179,11 +179,16 @@ def _build_cdr_validation_issues(summary: StructureSummary) -> list[StructureVal
 
     details_payload = {
         "cdr_annotation_available": bool(cdr_annotation.get("available", False)),
+        "antibody_format": cdr_annotation.get(
+            "antibody_format",
+            "unknown_antibody_format",
+        ),
         "selected_heavy_chain": selected_heavy_chain,
         "scheme": scheme,
         "boundary_source": boundary_source,
         "boundary_confidence": boundary_confidence,
         "chains": chains_payload,
+        "region_applicability": cdr_annotation.get("region_applicability", {}),
         "quality_baseline": quality_baseline,
     }
 
@@ -380,10 +385,16 @@ def validate_structure(request: StructureValidationRequest) -> StructureValidati
     warnings.extend(issue.code for issue in cdr_warning_details)
 
     normalized = "mmcif" if detail.format in {"mmcif", "cif"} else "pdb"
+    inferred_roles = {"partner_1": "receptor", "partner_2": "ligand"}
+    cdr_annotation = detail.summary.metadata.get("cdr_annotation", {})
+    if isinstance(cdr_annotation, dict):
+        antibody_format = cdr_annotation.get("antibody_format")
+        if antibody_format is not None:
+            inferred_roles["antibody_format"] = str(antibody_format)
     result = StructureValidationResult(
         valid=not errors,
         normalized_format=normalized,
-        inferred_roles={"partner_1": "receptor", "partner_2": "ligand"},
+        inferred_roles=inferred_roles,
         available_chains=detail.summary.available_chains,
         model_count=detail.summary.model_count,
         chain_groups=normalized_groups,

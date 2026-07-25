@@ -166,10 +166,10 @@ Audit baseline: **2026-07-07**
 
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
-| `[ ]` | `P1 / M` | Add explicit antibody-format typing (`paired_antibody` vs `vhh_single_domain`) | Thread through structure summary + prediction provenance |
-| `[ ]` | `P1 / S` | Mark light-chain CDR regions as `not_applicable` for VHH instead of `missing` | Avoid false-negative readiness/validation outcomes |
-| `[ ]` | `P1 / S` | Add VHH-heavy-only validation semantics | Treat missing light chain as valid in VHH mode; keep warnings typed |
-| `[ ]` | `P1 / S` | Add regression tests for VHH CDR/provenance paths | Extend `tests/test_cdr_annotation.py` and `tests/test_structure_flow.py` |
+| `[x]` | `P1 / M` | Add explicit antibody-format typing (`paired_antibody` vs `vhh_single_domain`) | Shared typed contract covers paired, VHH, and unknown formats across structure summary, typed validation details, prediction provenance, OpenAPI, and frontend types |
+| `[x]` | `P1 / S` | Mark light-chain CDR regions as `not_applicable` for VHH instead of `missing` | Six-region applicability map preserves paired compatibility and uses explicit VHH light-region semantics |
+| `[x]` | `P1 / S` | Add VHH-heavy-only validation semantics | Heavy-only VHH reaches available CDR annotation without phantom light chains; warnings retain format/applicability context |
+| `[x]` | `P1 / S` | Add regression tests for VHH CDR/provenance paths | Unit and end-to-end upload → detail → validation → prediction coverage in `tests/test_cdr_annotation.py` and `tests/test_structure_flow.py` |
 
 ### 3D. Aptamer support extension track (v1.1+)
 
@@ -187,7 +187,7 @@ Audit baseline: **2026-07-07**
 | --- | --- | --- |
 | `[x]` | `P1 / M` | Prediction descriptors include at least one new non-contact, non-SASA structural feature family |
 | `[x]` | `P1 / S` | New descriptor fields are included in explainability and provenance-sensitive tests |
-| `[ ]` | `P1 / S` | Antibody workflows treat VHH as first-class: heavy-only structures can reach `cdr_annotation.available=true` with explicit `antibody_format` provenance |
+| `[x]` | `P1 / S` | Antibody workflows treat VHH as first-class: heavy-only structures can reach `cdr_annotation.available=true` with explicit `antibody_format` provenance |
 
 ---
 
@@ -324,7 +324,7 @@ If you want the highest leverage next steps, this is the shortest sensible path:
 | `[x]` | `P0 / S` | Validate the core workflow against `validation_dataset/ANDD_pdb/` |
 | `[x]` | `P1 / M` | Add residue-depth descriptors |
 | `[x]` | `P1 / M` | Define MD handoff + simulation provenance schema |
-| `[ ]` | `P1 / M` | Complete VHH nanobody parity (format typing, heavy-only validation semantics, and CDR readiness rules) |
+| `[x]` | `P1 / M` | Complete VHH nanobody parity (format typing, heavy-only validation semantics, and CDR readiness rules) |
 | `[ ]` | `P1 / M` | Start aptamer v1.1+ extension track (mode contract + nucleic-acid validation profile) |
 
 ---

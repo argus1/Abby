@@ -69,6 +69,7 @@ To make VHH support explicit and deterministic across ingest → validation → 
 * **CDR region expectations:** for VHH mode, require heavy-chain CDR bookkeeping (`CDR-H1/H2/H3`) and mark light-chain regions as `not_applicable` instead of `missing`.
 * **Provenance contract:** persist `antibody_format`, boundary source, numbering scheme, and confidence so downstream scoring and audits can separate VHH from paired-antibody behavior.
 * **Descriptor parity:** expose the same stable descriptor/provenance envelope for VHH predictions, with explicit flags when light-chain-dependent features are skipped.
+* **Current execution status:** Phase 3C is implemented end to end. Structure summaries, typed validation details, prediction provenance, OpenAPI, and frontend contracts carry antibody format plus six-region applicability; VHH light regions are `not_applicable`, and heavy-only VHH regression coverage passes without synthesizing a light chain.
 
 ### CDR annotation interoperability boundary (v1.1)
 

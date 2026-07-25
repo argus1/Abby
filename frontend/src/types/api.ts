@@ -35,6 +35,13 @@ export interface CDRAnnotatedChain {
   residue_count?: number;
 }
 
+export type AntibodyFormat =
+  | 'paired_antibody'
+  | 'vhh_single_domain'
+  | 'unknown_antibody_format';
+
+export type CDRRegionApplicability = 'applicable' | 'not_applicable' | 'unknown';
+
 export interface CDRQualityBaseline {
   available: boolean;
   model_name: string;
@@ -62,11 +69,13 @@ export interface CDRQualityBaseline {
 
 export interface CDRAnnotationSummary {
   available: boolean;
+  antibody_format: AntibodyFormat;
   scheme?: string | null;
   boundary_source?: string | null;
   boundary_confidence: 'high' | 'medium' | 'low';
   selected_heavy_chain?: string | null;
   chains: Record<string, CDRAnnotatedChain>;
+  region_applicability: Record<string, CDRRegionApplicability>;
   warnings: string[];
   quality_baseline?: CDRQualityBaseline | null;
 }
