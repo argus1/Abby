@@ -46,6 +46,7 @@ LEGACY_STAR_PRIME_ATOM_NAMES = {
     "O4*": "O4'",
     "O5*": "O5'",
 }
+COUNTERION_NOMINAL_CHARGES = {"NA": 1, "MG": 2}
 
 
 def is_canonical_nucleotide(residue_name: str) -> bool:
@@ -68,6 +69,7 @@ def build_nucleic_acid_profile(structure: Any) -> dict[str, Any]:
     modified_nucleotides: list[dict[str, Any]] = []
     atom_naming_issues: list[dict[str, Any]] = []
     residue_naming_issues: list[dict[str, Any]] = []
+    counterions: list[dict[str, Any]] = []
 
     for chain in structure.get_chains():
         chain_id = str(chain.id or "").strip()
@@ -80,6 +82,16 @@ def build_nucleic_acid_profile(structure: Any) -> dict[str, Any]:
         nucleotide_counts: dict[str, int] = {}
         for residue in chain.get_residues():
             residue_name = residue.get_resname().strip().upper()
+            nominal_charge = COUNTERION_NOMINAL_CHARGES.get(residue_name)
+            if nominal_charge is not None:
+                counterions.append(
+                    {
+                        "chain_id": chain_id,
+                        "residue_name": residue_name,
+                        "sequence_id": int(residue.id[1]),
+                        "nominal_charge": nominal_charge,
+                    }
+                )
             if residue_name in DNA_RESIDUE_NAMES:
                 dna_count += 1
                 nucleotide_counts[residue_name] = nucleotide_counts.get(residue_name, 0) + 1
@@ -163,6 +175,24 @@ def build_nucleic_acid_profile(structure: Any) -> dict[str, Any]:
         for chain_id, chain_type in chain_types.items()
         if chain_type in {"dna", "rna", "mixed"}
     )
+    sorted_counterions = sorted(
+        counterions,
+        key=lambda item: (
+            str(item["residue_name"]),
+            str(item["chain_id"]),
+            int(item["sequence_id"]),
+        ),
+    )
+    ion_counts: dict[str, int] = {}
+    for counterion in sorted_counterions:
+        residue_name = str(counterion["residue_name"])
+        ion_counts[residue_name] = ion_counts.get(residue_name, 0) + 1
+    ionization_reason_codes = [
+        "ION_CONCENTRATION_UNKNOWN",
+        "NEUTRALIZATION_NOT_ASSESSED",
+    ]
+    if sorted_counterions:
+        ionization_reason_codes.insert(0, "COUNTERION_ROLE_UNVERIFIED")
     return {
         "available": bool(nucleic_acid_chains),
         "chain_types": dict(sorted(chain_types.items())),
@@ -171,4 +201,21 @@ def build_nucleic_acid_profile(structure: Any) -> dict[str, Any]:
         "modified_nucleotides": modified_nucleotides,
         "atom_naming_issues": atom_naming_issues,
         "residue_naming_issues": residue_naming_issues,
+        "counterion_inventory": {
+            "available": bool(sorted_counterions),
+            "total_ion_count": len(sorted_counterions),
+            "ion_counts": dict(sorted(ion_counts.items())),
+            "nominal_charge_total": sum(
+                int(counterion["nominal_charge"])
+                for counterion in sorted_counterions
+            ),
+            "ions": sorted_counterions,
+        },
+        "ionization_preflight": {
+            "status": "review_required",
+            "counterions_present": bool(sorted_counterions),
+            "concentration_known": False,
+            "neutralization_assessed": False,
+            "reason_codes": ionization_reason_codes,
+        },
     }

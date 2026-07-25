@@ -56,6 +56,23 @@ def test_canonical_aptamer_pdb_conversion_preserves_chain_and_nucleotide_profile
     assert profile["modified_nucleotides"] == []
     assert profile["atom_naming_issues"] == []
     assert profile["residue_naming_issues"] == []
+    assert profile["counterion_inventory"] == {
+        "available": False,
+        "total_ion_count": 0,
+        "ion_counts": {},
+        "nominal_charge_total": 0,
+        "ions": [],
+    }
+    assert profile["ionization_preflight"] == {
+        "status": "review_required",
+        "counterions_present": False,
+        "concentration_known": False,
+        "neutralization_assessed": False,
+        "reason_codes": [
+            "ION_CONCENTRATION_UNKNOWN",
+            "NEUTRALIZATION_NOT_ASSESSED",
+        ],
+    }
     assert summary["metadata"]["connectivity"]["connection_count"] == 0
 
 
@@ -269,3 +286,108 @@ def test_malformed_aptamer_reports_typed_residue_naming_warning() -> None:
             "category": "legacy_rna_prefix",
         }
     ]
+
+
+def test_aptamer_validation_reports_typed_na_mg_counterion_inventory() -> None:
+    fixture_path = FIXTURE_ROOT / "dna_aptamer_na_mg_counterions.mmcif"
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                fixture_path.name,
+                fixture_path.read_bytes(),
+                "chemical/x-cif",
+            )
+        },
+        data={"mode": "aptamer_target"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    structure_id = upload_response.json()["structure_id"]
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": structure_id,
+            "mode": "aptamer_target",
+            "chains": {"partner_1": ["D"], "partner_2": ["T"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    validation = validate_response.json()
+    assert validation["valid"] is True
+    assert "APTAMER_COUNTERIONS_PRESENT" in validation["warnings"]
+    issue = next(
+        item
+        for item in validation["warning_details"]
+        if item["code"] == "APTAMER_COUNTERIONS_PRESENT"
+    )
+    assert issue["details"]["counterion_inventory"] == {
+        "available": True,
+        "total_ion_count": 2,
+        "ion_counts": {"MG": 1, "NA": 1},
+        "nominal_charge_total": 3,
+        "ions": [
+            {
+                "chain_id": "I",
+                "residue_name": "MG",
+                "sequence_id": 2,
+                "nominal_charge": 2,
+            },
+            {
+                "chain_id": "I",
+                "residue_name": "NA",
+                "sequence_id": 1,
+                "nominal_charge": 1,
+            },
+        ],
+    }
+
+
+def test_aptamer_validation_requires_ionization_preflight_review() -> None:
+    fixture_path = FIXTURE_ROOT / "dna_aptamer_na_mg_counterions.mmcif"
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                fixture_path.name,
+                fixture_path.read_bytes(),
+                "chemical/x-cif",
+            )
+        },
+        data={"mode": "aptamer_target"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    structure_id = upload_response.json()["structure_id"]
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": structure_id,
+            "mode": "aptamer_target",
+            "chains": {"partner_1": ["D"], "partner_2": ["T"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    validation = validate_response.json()
+    assert validation["valid"] is True
+    assert "APTAMER_IONIZATION_PRECHECK_REQUIRED" in validation["warnings"]
+    issue = next(
+        item
+        for item in validation["warning_details"]
+        if item["code"] == "APTAMER_IONIZATION_PRECHECK_REQUIRED"
+    )
+    assert issue["details"]["ionization_preflight"] == {
+        "status": "review_required",
+        "counterions_present": True,
+        "concentration_known": False,
+        "neutralization_assessed": False,
+        "reason_codes": [
+            "COUNTERION_ROLE_UNVERIFIED",
+            "ION_CONCENTRATION_UNKNOWN",
+            "NEUTRALIZATION_NOT_ASSESSED",
+        ],
+    }

@@ -341,6 +341,39 @@ def _build_aptamer_validation_warnings(
             )
         )
 
+    counterion_inventory = profile.get("counterion_inventory", {})
+    if (
+        isinstance(counterion_inventory, dict)
+        and counterion_inventory.get("available") is True
+    ):
+        issues.append(
+            StructureValidationIssue(
+                code="APTAMER_COUNTERIONS_PRESENT",
+                message=(
+                    "Recognized counterions are present; review their intended "
+                    "structural or solution role before simulation."
+                ),
+                details={"counterion_inventory": counterion_inventory},
+            )
+        )
+
+    ionization_preflight = profile.get("ionization_preflight", {})
+    if (
+        isinstance(ionization_preflight, dict)
+        and ionization_preflight.get("status") == "review_required"
+    ):
+        issues.append(
+            StructureValidationIssue(
+                code="APTAMER_IONIZATION_PRECHECK_REQUIRED",
+                message=(
+                    "Static structure data does not establish ion concentration, "
+                    "counterion role, or neutralization adequacy; review ionization "
+                    "before simulation."
+                ),
+                details={"ionization_preflight": ionization_preflight},
+            )
+        )
+
     chain_types = profile.get("chain_types", {})
     if isinstance(chain_types, dict):
         mixed_chain_ids = sorted(
