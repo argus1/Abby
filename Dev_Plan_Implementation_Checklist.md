@@ -178,7 +178,7 @@ Audit baseline: **2026-07-07**
 | `[x]` | `P1 / M` | Add aptamer-capable prediction mode contract (`aptamer_target`) | Backend schemas, upload/validation/prediction/batch contracts, OpenAPI, frontend types, and mode selector are synchronized; prediction provenance carries the typed nucleic-acid profile |
 | `[-]` | `P1 / M` | Add nucleic-acid-aware parsing/normalization diagnostics | DNA/RNA/protein/mixed chain typing, canonical nucleotide counts, modified-nucleotide provenance, role errors, and mixed/modified typed warnings are implemented; residue/atom naming and ionization diagnostics remain open |
 | `[ ]` | `P1 / M` | Add aptamer descriptor tranche with deterministic provenance | Nucleic-acid SASA/flexibility/ion-contact summaries; descriptor hash coverage |
-| `[ ]` | `P1 / S` | Add aptamer regression fixtures and conversion checks | Establish canonical local aptamer corpus; verify PDB→mmCIF and validation parity |
+| `[x]` | `P1 / S` | Add aptamer regression fixtures and conversion checks | Synthetic canonical PDB/mmCIF pair under `validation_dataset/aptamer/`; production conversion preserves chain/residue/profile parity, explicit phosphodiester `_struct_conn` survives upload → validation → prediction provenance, and no connectivity is fabricated from PDB |
 | `[ ]` | `P2 / M` | Add optional aptamer simulation-provenance parity | Persist protocol fields for simulation-backed descriptor runs/imports |
 
 ### Phase 3 exit criteria

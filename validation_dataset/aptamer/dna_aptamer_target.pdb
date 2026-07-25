@@ -1,0 +1,22 @@
+HEADER    SYNTHETIC DNA APTAMER-TARGET REGRESSION FIXTURE
+REMARK   1 MINIMAL SYNTHETIC FIXTURE; NOT AN EXPERIMENTAL STRUCTURE
+ATOM      1  P    DA D   1      11.104  13.207   9.111  1.00 20.00           P
+ATOM      2  O5'  DA D   1      12.560  13.102   9.262  1.00 20.00           O
+ATOM      3  O3'  DA D   1      13.030  11.670   9.634  1.00 20.00           O
+ATOM      4  P    DC D   2      14.300  11.500  10.100  1.00 20.00           P
+ATOM      5  O5'  DC D   2      14.900  10.170  10.420  1.00 20.00           O
+ATOM      6  O3'  DC D   2      16.350  10.200  10.900  1.00 20.00           O
+ATOM      7  P    DG D   3      17.020   9.180  10.810  1.00 20.00           P
+ATOM      8  O5'  DG D   3      18.200  10.700  11.400  1.00 20.00           O
+ATOM      9  O3'  DG D   3      19.100  10.900  12.500  1.00 20.00           O
+TER      10       DG D   3
+ATOM     11  N   ALA T   1      15.100  12.100  12.900  1.00 20.00           N
+ATOM     12  CA  ALA T   1      16.000  12.200  13.700  1.00 20.00           C
+ATOM     13  C   ALA T   1      16.800  13.300  14.100  1.00 20.00           C
+ATOM     14  O   ALA T   1      17.900  13.100  14.600  1.00 20.00           O
+ATOM     15  N   GLY T   2      18.600  14.200  15.000  1.00 20.00           N
+ATOM     16  CA  GLY T   2      19.700  14.500  15.600  1.00 20.00           C
+ATOM     17  C   GLY T   2      20.500  15.600  15.000  1.00 20.00           C
+ATOM     18  O   GLY T   2      21.600  15.400  14.500  1.00 20.00           O
+TER      19      GLY T   2
+END

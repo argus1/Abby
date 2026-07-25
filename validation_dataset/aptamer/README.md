@@ -1,0 +1,14 @@
+# Canonical aptamer regression fixtures
+
+This directory contains Abby's minimal, synthetic aptamer conversion and connectivity corpus. The fixtures are regression inputs, not experimental structures and not training data.
+
+## Fixture pair
+
+- `dna_aptamer_target.pdb` — three-residue DNA chain `D` (`DA`, `DC`, `DG`) and two-residue protein target chain `T` (`ALA`, `GLY`). It exercises production PDB→mmCIF conversion and nucleotide-profile parity.
+- `dna_aptamer_target.mmcif` — the same chain and residue composition with two explicit phosphodiester `_struct_conn` records linking `DA 1 O3' → DC 2 P` and `DC 2 O3' → DG 3 P`.
+
+## Connectivity boundary
+
+`Bio.PDB.MMCIFIO` preserves parsed atoms, residue names, and chains when converting PDB to mmCIF, but it does not synthesize `_struct_conn` records. Abby therefore treats explicit connectivity in source mmCIF as authoritative and does not fabricate phosphodiester links during conversion.
+
+Regression coverage lives in `tests/test_aptamer_conversion_fixtures.py`.
