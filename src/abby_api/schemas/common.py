@@ -134,12 +134,23 @@ class CDRBoundaryQualityBaseline(AbbyBaseModel):
     feature_vector: dict[str, float] = Field(default_factory=dict)
 
 
+class CDRAnnotationToolchain(AbbyBaseModel):
+    engine_name: str
+    engine_version: str
+    parameters_hash: str
+    reference_data_version: str | None = None
+
+
 class CDRAnnotationProvenance(AbbyBaseModel):
     available: bool = False
     antibody_format: AntibodyFormat = "unknown_antibody_format"
     scheme: str | None = None
+    numbering_scheme: str | None = None
     boundary_source: str | None = None
     boundary_confidence: ConfidenceClass = "low"
+    boundary_evidence: list[str] = Field(default_factory=list)
+    annotation_toolchain: CDRAnnotationToolchain | None = None
+    interop_profile: str | None = None
     selected_heavy_chain: str | None = None
     chains: dict[str, dict[str, Any]] = Field(default_factory=dict)
     region_applicability: dict[str, CDRRegionApplicability] = Field(default_factory=dict)

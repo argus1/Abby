@@ -69,12 +69,23 @@ export interface CDRQualityBaseline {
   feature_vector: Record<string, number>;
 }
 
+export interface CDRAnnotationToolchain {
+  engine_name: string;
+  engine_version: string;
+  parameters_hash: string;
+  reference_data_version?: string | null;
+}
+
 export interface CDRAnnotationSummary {
   available: boolean;
   antibody_format: AntibodyFormat;
   scheme?: string | null;
+  numbering_scheme?: 'imgt' | 'kabat' | 'chothia' | 'aho' | 'motif_fallback' | null;
   boundary_source?: string | null;
   boundary_confidence: 'high' | 'medium' | 'low';
+  boundary_evidence?: string[];
+  annotation_toolchain?: CDRAnnotationToolchain | null;
+  interop_profile?: 'abby_structural_v1_1' | null;
   selected_heavy_chain?: string | null;
   chains: Record<string, CDRAnnotatedChain>;
   region_applicability: Record<string, CDRRegionApplicability>;

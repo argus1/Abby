@@ -79,7 +79,7 @@ For CDR-aware structural bookkeeping, Abby v1.1 should follow the execution path
 * **Use later/optional:** AIRR-compliant import/export adapters and repertoire-scale analytics.
 * **Keep out of v1.1 core flow:** mandatory AIRR-seq assembly dependencies or repertoire-only boundary inference replacing structure-driven extraction.
 * **VHH profile rule:** treat heavy-only single-domain antibody inputs as first-class in this same boundary contract; do not require light-chain region resolution to report `cdr_annotation.available=true`.
-* **Current execution status:** CompDetRAE Phases 0–6 and the Part 7 testing/quality gates are implemented, including deterministic descriptor-hash regression coverage and committed mmCIF insertion/discontinuity fixtures under `validation_dataset/ANDD_pdb/CompDetRAE_edge_cases/`.
+* **Current execution status:** CompDetRAE Phases 0–6, the Part 7 quality gates, and Appendix A RepSeq interoperability are implemented. Available annotations carry numbering aliases, boundary evidence, a deterministic CompDetRAE toolchain parameter hash, and `interop_profile=abby_structural_v1_1`; the AIRR-style exchange map remains optional, disabled in default prediction flow, and subordinate to mmCIF-derived boundaries.
 * **Dataset governance status:** reusable sequence-level CDR training/QA artifacts should now carry structured dataset-source provenance (source, version/DOI, preprocessing method) and pass license/attribution validation before use.
 
 ### Aptamer support extension track (v1.1+)

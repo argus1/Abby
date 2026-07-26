@@ -993,12 +993,41 @@ components:
             scheme:
               type: string
               nullable: true
+            numbering_scheme:
+              type: string
+              enum: [imgt, kabat, chothia, aho, motif_fallback]
+              nullable: true
             boundary_source:
               type: string
               nullable: true
             boundary_confidence:
               type: string
               enum: [high, medium, low]
+            boundary_evidence:
+              type: array
+              items:
+                type: string
+            annotation_toolchain:
+              type: object
+              nullable: true
+              properties:
+                engine_name:
+                  type: string
+                engine_version:
+                  type: string
+                parameters_hash:
+                  type: string
+                reference_data_version:
+                  type: string
+                  nullable: true
+              required:
+                - engine_name
+                - engine_version
+                - parameters_hash
+            interop_profile:
+              type: string
+              enum: [abby_structural_v1_1]
+              nullable: true
             selected_heavy_chain:
               type: string
               nullable: true

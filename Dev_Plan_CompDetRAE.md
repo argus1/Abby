@@ -768,9 +768,36 @@ Define an optional adapter map from Abby CDR annotations to AIRR-compatible fiel
 
 Checklist:
 
-- [ ] Add design note mapping Abby `cdr_annotation` concepts to AIRR-style annotation objects.
-- [ ] Mark adapter path as optional and disabled in default prediction flow.
-- [ ] Keep mmCIF-first structural extraction path authoritative when both are present.
+- [x] Add design note mapping Abby `cdr_annotation` concepts to AIRR-style annotation objects.
+- [x] Mark adapter path as optional and disabled in default prediction flow.
+- [x] Keep mmCIF-first structural extraction path authoritative when both are present.
+
+#### AIRR-style exchange design note
+
+The optional adapter emits one sequence-annotation exchange object per Abby antibody
+chain. It is an explicit export/import boundary for repertoire-heavy workflows, not a
+step in upload, validation, descriptor generation, or prediction.
+
+| Abby source | AIRR-style exchange target | Mapping rule |
+| --- | --- | --- |
+| chain ID and chain role | `sequence_id`, plus locus/chain extension metadata | Preserve the Abby chain ID; emit `IGH`, `IGK`, or `IGL` locus only when sequence evidence resolves it, never from a chain-name guess alone. |
+| `chains.*.regions.CDR-H1/L1` | per-chain `cdr1` / `cdr1_aa` and supported start/end fields | Export the selected chain's region sequence and convert Abby residue keys to the target schema's declared coordinate convention. |
+| `chains.*.regions.CDR-H2/L2` | per-chain `cdr2` / `cdr2_aa` and supported start/end fields | Apply the same explicit coordinate conversion and retain insertion-code-bearing Abby residue keys in an extension block. |
+| `chains.*.regions.CDR-H3/L3` | per-chain `cdr3` / `cdr3_aa` and supported start/end fields | Preserve the complete structural region; do not replace it with a repertoire-derived junction when they disagree. |
+| `numbering_scheme`, `boundary_source`, `boundary_confidence` | annotation extension metadata | Preserve values verbatim because an AIRR target release may not define direct core fields for structural numbering provenance. |
+| `boundary_evidence` | annotation evidence extension | Preserve the ordered machine-readable evidence tags. |
+| `annotation_toolchain` | data-processing/software metadata plus Abby extension | Map engine/version where supported and retain `parameters_hash` and `reference_data_version` losslessly. |
+| `interop_profile` | profile extension | Emit `abby_structural_v1_1` so consumers can distinguish this structural-first profile from repertoire-only annotation. |
+
+Adapter constraints:
+
+- The adapter is disabled by default and has no call site in the v1.1 prediction flow.
+- A future adapter must be invoked only by an explicit exchange operation and must
+  validate the selected AIRR schema release before serialization.
+- Imported AIRR-style values may supplement missing exchange metadata, but cannot
+  overwrite CDR boundaries derived from the uploaded mmCIF/PDB structure.
+- Conflicts are retained as typed exchange diagnostics; the mmCIF-first CompDetRAE
+  result remains authoritative.
 
 ### A.4 Verification implications
 
@@ -778,11 +805,21 @@ Add explicit tests to ensure RepSeq-informed metadata does not change determinis
 
 Checklist:
 
-- [ ] Boundary determinism test: identical input => identical CDR boundary output and provenance hash.
-- [ ] Ambiguity test: unresolved chain role sets typed warning and lowers confidence without crashing.
-- [ ] Fallback test: motif fallback is recorded and never overrides numbering-derived regions.
-- [ ] Schema test: required provenance fields are present when `cdr_annotation.available=true`.
-- [ ] Compatibility test: legacy consumers continue to work when new fields are present.
+- [x] Boundary determinism test: identical input => identical CDR boundary output and provenance hash.
+- [x] Ambiguity test: unresolved chain role sets typed warning and lowers confidence without crashing.
+- [x] Fallback test: motif fallback is recorded and never overrides numbering-derived regions.
+- [x] Schema test: required provenance fields are present when `cdr_annotation.available=true`.
+- [x] Compatibility test: legacy consumers continue to work when new fields are present.
+
+Verification evidence:
+
+- `tests/test_cdr_annotation.py` covers deterministic region output and toolchain
+  parameter hashes, tied-chain ambiguity, numbering precedence, motif evidence,
+  insertion-code evidence, and legacy payload validation.
+- `tests/test_structure_flow.py` verifies the complete RepSeq provenance envelope
+  through upload → validation → prediction.
+- `src/abby_api/schemas/common.py`, `OpenAPI_Abby_v1.yaml`, and
+  `frontend/src/types/api.ts` define the same additive client contract.
 
 ### A.5 Non-goals guardrail
 

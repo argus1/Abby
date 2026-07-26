@@ -292,12 +292,26 @@ def create_prediction(request: PredictionRequest) -> PredictionQueuedResponse:
                 if cdr_annotation_metadata.get("scheme") is not None
                 else None
             ),
+            numbering_scheme=(
+                str(cdr_annotation_metadata.get("numbering_scheme"))
+                if cdr_annotation_metadata.get("numbering_scheme") is not None
+                else None
+            ),
             boundary_source=(
                 str(cdr_annotation_metadata.get("boundary_source"))
                 if cdr_annotation_metadata.get("boundary_source") is not None
                 else None
             ),
             boundary_confidence=str(cdr_annotation_metadata.get("boundary_confidence", "low")),
+            boundary_evidence=[
+                str(item) for item in cdr_annotation_metadata.get("boundary_evidence", [])
+            ],
+            annotation_toolchain=cdr_annotation_metadata.get("annotation_toolchain"),
+            interop_profile=(
+                str(cdr_annotation_metadata.get("interop_profile"))
+                if cdr_annotation_metadata.get("interop_profile") is not None
+                else None
+            ),
             selected_heavy_chain=(
                 str(cdr_annotation_metadata.get("selected_heavy_chain"))
                 if cdr_annotation_metadata.get("selected_heavy_chain") is not None

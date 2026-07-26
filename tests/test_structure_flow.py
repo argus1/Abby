@@ -1317,6 +1317,11 @@ def test_prediction_cdr_annotation_stays_on_source_chain_ids_after_md_remap() ->
     assert cdr_provenance["quality_baseline"]["model_contract"]["contract_version"] == (
         "cdr_boundary_quality_contract_v1"
     )
+    assert cdr_provenance["numbering_scheme"] == cdr_provenance["scheme"] == "kabat"
+    assert cdr_provenance["boundary_evidence"] == ["numbering_interval_match"]
+    assert cdr_provenance["annotation_toolchain"]["engine_name"] == "CompDetRAE"
+    assert len(cdr_provenance["annotation_toolchain"]["parameters_hash"]) == 64
+    assert cdr_provenance["interop_profile"] == "abby_structural_v1_1"
 
 
 def test_vhh_heavy_only_structure_threads_format_and_light_region_applicability() -> None:

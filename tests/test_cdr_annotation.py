@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from abby_api.schemas.common import CDRAnnotationProvenance
 from abby_api.schemas.structures import ChainMapping, StructureSummary, StructureValidationResult
 from abby_api.services.cdr_annotation import (
     CDR_BOUNDARY_AMBIGUOUS,
@@ -175,6 +176,47 @@ def test_cdr_h3_numbering_annotation_selects_heavy_chain_without_h_name() -> Non
     )
 
 
+def test_available_numbered_annotation_includes_repseq_provenance_envelope() -> None:
+    heavy_sequence = ("A" * 9) + "C" + ("A" * 130)
+    annotation = annotate_cdr_h3(
+        _Structure([_chain_from_sequence("H", 1, heavy_sequence)])
+    )
+
+    assert annotation["available"] is True
+    assert annotation["numbering_scheme"] == annotation["scheme"] == "kabat"
+    assert annotation["boundary_evidence"] == ["numbering_interval_match"]
+    assert annotation["annotation_toolchain"] == {
+        "engine_name": "CompDetRAE",
+        "engine_version": "0.1.0",
+        "parameters_hash": annotation["annotation_toolchain"]["parameters_hash"],
+        "reference_data_version": None,
+    }
+    assert len(annotation["annotation_toolchain"]["parameters_hash"]) == 64
+    assert annotation["interop_profile"] == "abby_structural_v1_1"
+
+
+def test_legacy_cdr_provenance_payload_remains_compatible() -> None:
+    legacy_payload = {
+        "available": True,
+        "antibody_format": "vhh_single_domain",
+        "scheme": "kabat",
+        "boundary_source": "numbered",
+        "boundary_confidence": "high",
+        "selected_heavy_chain": "H",
+        "chains": {"H": {"role": "heavy", "regions": {"CDR-H3": {"length": 8}}}},
+        "warnings": [],
+    }
+
+    validated = CDRAnnotationProvenance.model_validate(legacy_payload).model_dump()
+
+    for field_name, value in legacy_payload.items():
+        assert validated[field_name] == value
+    assert validated["numbering_scheme"] is None
+    assert validated["boundary_evidence"] == []
+    assert validated["annotation_toolchain"] is None
+    assert validated["interop_profile"] is None
+
+
 def test_cdr_h3_motif_fallback_annotation_records_typed_warning() -> None:
     structure = _Structure([_chain_from_sequence("Z", 1, "AAAAACAAAAAWGQGAAAAA")])
 
@@ -183,11 +225,40 @@ def test_cdr_h3_motif_fallback_annotation_records_typed_warning() -> None:
     assert annotation["available"] is True
     assert annotation["scheme"] == "motif_fallback"
     assert annotation["boundary_source"] == "motif_fallback"
+    assert annotation["boundary_evidence"] == ["conserved_anchor_match"]
     assert CDR_NUMBERING_MISSING in annotation["warnings"]
     assert CDR_MOTIF_FALLBACK_USED in annotation["warnings"]
     assert annotation["quality_baseline"]["drift_flag"] is True
     assert "FALLBACK_BOUNDARY_SOURCE" in annotation["quality_baseline"]["drift_reason_codes"]
     assert "CDR_BASELINE_DRIFT_FLAGGED" in annotation["warnings"]
+
+
+def test_motif_fallback_never_overrides_numbering_derived_regions() -> None:
+    numbered_sequence_with_motif = "C" + "AAAAA" + "WGQG" + ("A" * 30)
+    annotation = annotate_cdr_h3(
+        _Structure([_chain_from_sequence("H", 90, numbered_sequence_with_motif)])
+    )
+
+    assert annotation["available"] is True
+    assert annotation["numbering_scheme"] == "kabat"
+    assert annotation["boundary_source"] == "numbered"
+    assert annotation["boundary_evidence"] == ["numbering_interval_match"]
+    assert CDR_MOTIF_FALLBACK_USED not in annotation["warnings"]
+
+
+def test_hybrid_boundary_records_numbering_and_anchor_evidence() -> None:
+    partial_numbered_sequence = "AAAAACAAAAAWGQG" + ("A" * 64)
+    annotation = annotate_cdr_h3(
+        _Structure([_chain_from_sequence("H", 1, partial_numbered_sequence)])
+    )
+
+    assert annotation["available"] is True
+    assert annotation["numbering_scheme"] == "motif_fallback"
+    assert annotation["boundary_source"] == "hybrid"
+    assert annotation["boundary_evidence"] == [
+        "numbering_interval_match",
+        "conserved_anchor_match",
+    ]
 
 
 def test_cdr_h3_ambiguous_motif_returns_boundary_ambiguity_warning() -> None:
@@ -199,6 +270,24 @@ def test_cdr_h3_ambiguous_motif_returns_boundary_ambiguity_warning() -> None:
     assert CDR_BOUNDARY_AMBIGUOUS in annotation["warnings"]
     assert annotation["quality_baseline"]["predicted_confidence_class"] == "low"
     assert "ANNOTATION_UNAVAILABLE" in annotation["quality_baseline"]["drift_reason_codes"]
+
+
+def test_ambiguous_heavy_chain_role_lowers_confidence_without_crashing() -> None:
+    heavy_sequence = ("A" * 9) + "C" + ("A" * 130)
+    structure = _Structure(
+        [
+            _chain_from_sequence("H1", 1, heavy_sequence),
+            _chain_from_sequence("H2", 1, heavy_sequence),
+        ]
+    )
+
+    annotation = annotate_cdr_h3(structure)
+
+    assert annotation["available"] is True
+    assert annotation["selected_heavy_chain"] == "H1"
+    assert "CDR_CHAIN_ROLE_AMBIGUOUS" in annotation["warnings"]
+    assert annotation["boundary_confidence"] == "medium"
+    assert "ambiguous_chain_role" in annotation["boundary_evidence"]
 
 
 def test_cdr_annotation_reports_unknown_antibody_format_without_heavy_evidence() -> None:
@@ -218,6 +307,12 @@ def test_cdr_h3_annotation_is_deterministic() -> None:
     second = annotate_cdr_h3(structure)
 
     assert first == second
+    assert first["chains"]["X"]["regions"]["CDR-H3"] == (
+        second["chains"]["X"]["regions"]["CDR-H3"]
+    )
+    assert first["annotation_toolchain"]["parameters_hash"] == (
+        second["annotation_toolchain"]["parameters_hash"]
+    )
 
 
 def test_cdr_bookkeeping_ready_flag_requires_actual_annotation() -> None:
@@ -398,6 +493,7 @@ def test_cdr_region_payload_keeps_insertion_code_ordering() -> None:
     assert "A" in insertion_codes
     assert "B" in insertion_codes
     assert insertion_codes.index("") < insertion_codes.index("A") < insertion_codes.index("B")
+    assert "insertion_code_normalized" in annotation["boundary_evidence"]
 
 
 def test_discontinuous_numbering_yields_partial_heavy_completeness() -> None:

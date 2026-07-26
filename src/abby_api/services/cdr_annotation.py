@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 import re
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from abby_api import __version__
 from abby_api.schemas.common import AntibodyFormat, CDRRegionApplicability
 
 CDR_REGION_NAMES: tuple[str, ...] = (
@@ -144,6 +147,51 @@ _LIGHT_REGION_WINDOWS: dict[str, tuple[tuple[str, int, int], ...]] = {
         ("CDR-L3", 105, 117),
     ),
 }
+
+_CDR_ANNOTATION_ENGINE_NAME = "CompDetRAE"
+_CDR_INTEROP_PROFILE = "abby_structural_v1_1"
+_CDR_PARAMETERS_HASH = hashlib.sha256(
+    json.dumps(
+        {
+            "heavy_region_windows": _HEAVY_REGION_WINDOWS,
+            "light_region_windows": _LIGHT_REGION_WINDOWS,
+            "h3_motif": _H3_MOTIF.pattern,
+            "numbering_priority": ["kabat", "imgt"],
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+).hexdigest()
+
+
+def _repseq_provenance_envelope(
+    *,
+    scheme: str | None,
+    boundary_source: CDRBoundarySource | None,
+    warnings: list[str],
+    insertion_codes_present: bool,
+) -> dict[str, Any]:
+    boundary_evidence: list[str] = []
+    if boundary_source in {"numbered", "hybrid"}:
+        boundary_evidence.append("numbering_interval_match")
+    if boundary_source in {"motif_fallback", "hybrid"}:
+        boundary_evidence.append("conserved_anchor_match")
+    if CDR_CHAIN_ROLE_AMBIGUOUS in warnings:
+        boundary_evidence.append("ambiguous_chain_role")
+    if insertion_codes_present:
+        boundary_evidence.append("insertion_code_normalized")
+
+    return {
+        "numbering_scheme": scheme,
+        "boundary_evidence": boundary_evidence,
+        "annotation_toolchain": {
+            "engine_name": _CDR_ANNOTATION_ENGINE_NAME,
+            "engine_version": __version__,
+            "parameters_hash": _CDR_PARAMETERS_HASH,
+            "reference_data_version": None,
+        },
+        "interop_profile": _CDR_INTEROP_PROFILE,
+    }
 
 
 def _chain_residues_from_structure(structure: Any) -> dict[str, list[_ChainResidue]]:
@@ -738,6 +786,11 @@ def annotate_cdr_h3(structure: Any) -> dict[str, Any]:
     }
 
     deduped_warnings = sorted(set(warnings))
+    boundary_confidence: CDRBoundaryConfidence = (
+        annotation_window.confidence if annotation_window is not None else "low"
+    )
+    if CDR_CHAIN_ROLE_AMBIGUOUS in deduped_warnings and boundary_confidence == "high":
+        boundary_confidence = "medium"
     h3_position_signal = 0.0
     h3_length_signal = 0.0
     h3_aromatic_fraction = 0.0
@@ -757,9 +810,7 @@ def annotate_cdr_h3(structure: Any) -> dict[str, Any]:
     quality_baseline = _build_boundary_quality_baseline(
         available=available,
         boundary_source=boundary_source,
-        boundary_confidence=(
-            annotation_window.confidence if annotation_window is not None else "low"
-        ),
+        boundary_confidence=boundary_confidence,
         selected_heavy_chain=selected_heavy_chain,
         chains_payload=chains_payload,
         warnings=deduped_warnings,
@@ -775,21 +826,30 @@ def annotate_cdr_h3(structure: Any) -> dict[str, Any]:
     if bool(quality_baseline.get("drift_flag", False)):
         output_warnings.add("CDR_BASELINE_DRIFT_FLAGGED")
 
+    scheme = annotation_window.scheme if annotation_window is not None else heavy_region_scheme
+    insertion_codes_present = any(
+        bool(residue_key.get("insertion_code"))
+        for chain_payload in chains_payload.values()
+        for region_payload in chain_payload.get("regions", {}).values()
+        for residue_key in region_payload.get("residue_keys", [])
+    )
     return {
         "available": available,
         "antibody_format": antibody_format,
-        "scheme": (
-            annotation_window.scheme if annotation_window is not None else heavy_region_scheme
-        ),
+        "scheme": scheme,
         "boundary_source": boundary_source,
-        "boundary_confidence": (
-            annotation_window.confidence if annotation_window is not None else "low"
-        ),
+        "boundary_confidence": boundary_confidence,
         "selected_heavy_chain": selected_heavy_chain,
         "chains": chains_payload,
         "region_applicability": region_applicability,
         "warnings": sorted(output_warnings),
         "quality_baseline": quality_baseline,
+        **_repseq_provenance_envelope(
+            scheme=scheme,
+            boundary_source=boundary_source,
+            warnings=sorted(output_warnings),
+            insertion_codes_present=insertion_codes_present,
+        ),
     }
 
 
