@@ -59,6 +59,19 @@ TER
 END
 """
 
+PDB_APTAMER_TARGET_FIXTURE = """\
+ATOM      1  P    DA D   1      11.104  13.207   9.111  1.00 20.00           P
+ATOM      2  O5'  DA D   1      12.560  13.102   9.262  1.00 20.00           O
+ATOM      3  P    DC D   2      13.030  11.670   9.634  1.00 20.00           P
+ATOM      4  O5'  DC D   2      12.284  10.719   9.434  1.00 20.00           O
+ATOM      5  N   ALA T   1      14.300  11.500  10.100  1.00 20.00           N
+ATOM      6  CA  ALA T   1      14.900  10.170  10.420  1.00 20.00           C
+ATOM      7  C   ALA T   1      16.350  10.200  10.900  1.00 20.00           C
+ATOM      8  O   ALA T   1      17.020   9.180  10.810  1.00 20.00           O
+TER
+END
+"""
+
 
 # ---------------------------------------------------------------------------
 # Helpers for integration tests
@@ -556,6 +569,101 @@ class TestSimulationRunRoute:
             f"Unexpected simulation source: {pred['provenance']['simulation']['source']!r}"
         )
         _shutdown()
+
+    def test_aptamer_simulation_run_persists_protocol_fields(self, monkeypatch) -> None:
+        project_resp = client.post(
+            "/api/v1/projects",
+            headers=HEADERS,
+            json={"name": "aptamer-simulation-run"},
+        )
+        assert project_resp.status_code == 201, project_resp.text
+        project_id = project_resp.json()["project_id"]
+
+        upload_resp = client.post(
+            "/api/v1/structures:upload",
+            headers=HEADERS,
+            files={
+                "file": (
+                    "aptamer_sim_run.pdb",
+                    PDB_APTAMER_TARGET_FIXTURE,
+                    "chemical/x-pdb",
+                )
+            },
+            data={"mode": "aptamer_target"},
+        )
+        assert upload_resp.status_code == 201, upload_resp.text
+        structure_id = upload_resp.json()["structure_id"]
+
+        validate_resp = client.post(
+            "/api/v1/structures:validate",
+            headers=HEADERS,
+            json={
+                "structure_id": structure_id,
+                "mode": "aptamer_target",
+                "chains": {"partner_1": ["D"], "partner_2": ["T"]},
+            },
+        )
+        assert validate_resp.status_code == 200, validate_resp.text
+        assert validate_resp.json()["valid"] is True
+
+        prediction_resp = client.post(
+            "/api/v1/predictions",
+            headers=HEADERS,
+            json={
+                "project_id": project_id,
+                "mode": "aptamer_target",
+                "structure_id": structure_id,
+            },
+        )
+        assert prediction_resp.status_code == 202, prediction_resp.text
+        prediction_id = prediction_resp.json()["prediction_id"]
+
+        monkeypatch.setattr("abby_api.services.simulation.is_gromacs_available", lambda: False)
+        from abby_api.workers.tasks import (
+            initialize_simulation_worker_backend as _init,
+        )
+        from abby_api.workers.tasks import (
+            shutdown_simulation_worker_backend as _shutdown,
+        )
+
+        _shutdown()
+        _init(backend_type="inline")
+        try:
+            run_resp = client.post(
+                f"/api/v1/predictions/{prediction_id}/simulation:run",
+                headers=HEADERS,
+                json={
+                    "force_field": "amber14sb",
+                    "water_model": "tip4p-ew",
+                    "ionization": "neutralized_with_mg",
+                    "minimization_protocol": "aptamer_relax_2000",
+                    "seed": 919,
+                },
+            )
+            assert run_resp.status_code == 202, run_resp.text
+
+            prediction_fetch = client.get(
+                f"/api/v1/predictions/{prediction_id}",
+                headers=HEADERS,
+            )
+            assert prediction_fetch.status_code == 200, prediction_fetch.text
+            payload = prediction_fetch.json()
+
+            assert payload["mode"] == "aptamer_target"
+            assert payload["provenance"]["nucleic_acid_profile"]["available"] is True
+            assert payload["provenance"]["simulation"]["source"] in {
+                "gromacs_stub",
+                "none",
+            }
+            assert payload["provenance"]["simulation"]["force_field"] == "amber14sb"
+            assert payload["provenance"]["simulation"]["water_model"] == "tip4p-ew"
+            assert payload["provenance"]["simulation"]["ionization"] == "neutralized_with_mg"
+            assert payload["provenance"]["simulation"]["minimization_protocol"] == (
+                "aptamer_relax_2000"
+            )
+            assert payload["provenance"]["simulation"]["seed"] == 919
+        finally:
+            _shutdown()
 
 
 # ---------------------------------------------------------------------------

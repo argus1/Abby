@@ -181,8 +181,8 @@ export function ProjectPage() {
       <section className="card">
         <h2>{currentProjectName}</h2>
         <p className="muted">
-          This page mixes real backend calls with service-layer stubs, so Abby can exercise the
-          upload → validate → predict flow while structure analytics mature underneath.
+          This page runs the live backend workflow end-to-end (upload → validate → predict), while
+          the service cards summarize implementation boundaries and roadmap context.
         </p>
         {!projectIsUuid && (
           <div className="inline-actions">

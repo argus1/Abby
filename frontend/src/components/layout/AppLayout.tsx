@@ -5,7 +5,7 @@ export function AppLayout() {
     <div className="app-shell">
       <aside className="sidebar">
         <h1>Abby</h1>
-        <p className="sidebar-copy">Affinity prediction workflow with service-layer feature stubs.</p>
+          <p className="sidebar-copy">Affinity prediction workflow with live backend services and auditable artifacts.</p>
         <nav>
           <NavLink to="/">Dashboard</NavLink>
           <NavLink to="/projects/demo-project">Project</NavLink>

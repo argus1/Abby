@@ -1250,6 +1250,101 @@ def test_prediction_supports_external_simulation_summary_import() -> None:
     assert ObjectStore().exists(trajectory_key)
 
 
+def test_aptamer_prediction_supports_external_simulation_summary_import() -> None:
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                "test_aptamer_import_simulation.pdb",
+                PDB_APTAMER_TARGET_FIXTURE,
+                "chemical/x-pdb",
+            )
+        },
+        data={"mode": "aptamer_target"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    structure_id = upload_response.json()["structure_id"]
+
+    validate_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": structure_id,
+            "mode": "aptamer_target",
+            "chains": {"partner_1": ["D"], "partner_2": ["T"]},
+        },
+    )
+    assert validate_response.status_code == 200, validate_response.text
+    assert validate_response.json()["valid"] is True
+
+    project_response = client.post(
+        "/api/v1/projects",
+        headers=HEADERS,
+        json={"name": "Aptamer simulation provenance import"},
+    )
+    assert project_response.status_code == 201, project_response.text
+    project_id = project_response.json()["project_id"]
+
+    prediction_response = client.post(
+        "/api/v1/predictions",
+        headers=HEADERS,
+        json={
+            "project_id": project_id,
+            "structure_id": structure_id,
+            "mode": "aptamer_target",
+        },
+    )
+    assert prediction_response.status_code == 202, prediction_response.text
+    prediction_id = prediction_response.json()["prediction_id"]
+
+    import_response = client.post(
+        f"/api/v1/predictions/{prediction_id}/simulation-summary:import",
+        headers=HEADERS,
+        json={
+            "force_field": "amber14sb",
+            "water_model": "tip4p-ew",
+            "ionization": "neutralized_with_mg",
+            "minimization_protocol": "aptamer_relax_2000",
+            "seed": 777,
+            "engine": "gromacs_external",
+            "engine_version": "2026.1-cif",
+            "trajectory_summary": {
+                "frame_count": 2400,
+                "aptamer_rmsd_mean": 1.9,
+            },
+            "notes": ["aptamer-imported-summary"],
+        },
+    )
+    assert import_response.status_code == 200, import_response.text
+    imported = import_response.json()
+    assert imported["status"] == "imported"
+    assert imported["simulation"]["imported"] is True
+    assert imported["simulation"]["force_field"] == "amber14sb"
+    assert imported["simulation"]["water_model"] == "tip4p-ew"
+    assert imported["simulation"]["ionization"] == "neutralized_with_mg"
+    assert imported["simulation"]["minimization_protocol"] == "aptamer_relax_2000"
+    assert imported["simulation"]["seed"] == 777
+
+    prediction_fetch = client.get(f"/api/v1/predictions/{prediction_id}", headers=HEADERS)
+    assert prediction_fetch.status_code == 200, prediction_fetch.text
+    prediction_payload = prediction_fetch.json()
+    assert prediction_payload["mode"] == "aptamer_target"
+    assert prediction_payload["provenance"]["simulation"]["force_field"] == "amber14sb"
+    assert prediction_payload["provenance"]["simulation"]["water_model"] == "tip4p-ew"
+    assert prediction_payload["provenance"]["simulation"]["ionization"] == "neutralized_with_mg"
+    assert prediction_payload["provenance"]["simulation"]["minimization_protocol"] == (
+        "aptamer_relax_2000"
+    )
+    assert prediction_payload["provenance"]["simulation"]["seed"] == 777
+    assert prediction_payload["provenance"]["nucleic_acid_profile"]["available"] is True
+    trajectory_key = prediction_payload["provenance"]["artifacts"]["trajectory_summary"][
+        "artifact_key"
+    ]
+    assert trajectory_key
+    assert ObjectStore().exists(trajectory_key)
+
+
 def test_prediction_cdr_annotation_stays_on_source_chain_ids_after_md_remap() -> None:
     upload_response = client.post(
         "/api/v1/structures:upload",

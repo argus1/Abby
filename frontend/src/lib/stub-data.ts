@@ -36,13 +36,13 @@ export const serviceLayerModules: ServiceLayerModule[] = [
   },
   {
     title: 'Exports and scientist artifacts',
-    service: 'services/exports.py',
+    service: 'services/batch_jobs.py + services/predictions.py',
     status: 'available',
     bullets: [
-      'Contact list download',
-      'PyMOL selection script artifact',
-      'Descriptor bundle snapshots',
-      'CSV/JSON result exports',
+      'Project-scoped batch CSV/JSON exports',
+      'Feature-summary and normalized-structure artifacts',
+      'Optional AIRR v2.0.0 CDR export with signed download link',
+      'Optional simulation summary import and provenance artifacts',
     ],
   },
 ];
@@ -65,6 +65,9 @@ export const stubPrediction = {
     surface: ['relative solvent accessibility', 'surface composition buckets'],
     baseline: ['ΔG baseline', 'log(K) baseline', 'Kd derivation'],
     exports: ['contact list CSV', 'PyMOL script', 'JSON descriptor bundle'],
-    exportNotes: ['Exports preserve contact cutoff provenance for auditability'],
+    exportNotes: [
+      'Exports preserve contact cutoff provenance for auditability',
+      'Optional AIRR exports are explicit opt-in actions and stay off the default prediction path',
+    ],
   },
 };
