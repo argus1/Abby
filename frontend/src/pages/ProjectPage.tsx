@@ -8,6 +8,7 @@ import {
   createBatchJob,
   createPrediction,
   createProject,
+  exportPredictionCDRAIRR,
   getProject,
   uploadStructure,
   validateStructure,
@@ -26,6 +27,8 @@ function isUuid(value: string | undefined): boolean {
   return Boolean(value?.match(/^[0-9a-fA-F-]{36}$/));
 }
 
+const LAST_PREDICTION_ID_STORAGE_KEY = 'abby:lastPredictionId';
+
 export function ProjectPage() {
   const navigate = useNavigate();
   const { projectId } = useParams();
@@ -39,6 +42,12 @@ export function ProjectPage() {
   const [partner2, setPartner2] = useState(stubPrediction.partner2.join(', '));
   const [activeStructureId, setActiveStructureId] = useState<string | null>(null);
   const [batchStructureIds, setBatchStructureIds] = useState('');
+  const [exportPredictionId, setExportPredictionId] = useState(() => {
+    if (typeof window === 'undefined') {
+      return '';
+    }
+    return window.localStorage.getItem(LAST_PREDICTION_ID_STORAGE_KEY) ?? '';
+  });
 
   const projectQuery = useQuery({
     queryKey: ['project', projectId],
@@ -101,7 +110,13 @@ export function ProjectPage() {
         metadata: { candidate_id: 'frontend-demo' },
       });
     },
-    onSuccess: (prediction) => navigate(`/predictions/${prediction.prediction_id}`),
+    onSuccess: (prediction) => {
+      setExportPredictionId(prediction.prediction_id);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(LAST_PREDICTION_ID_STORAGE_KEY, prediction.prediction_id);
+      }
+      navigate(`/predictions/${prediction.prediction_id}`);
+    },
   });
 
   const batchMutation = useMutation({
@@ -135,12 +150,31 @@ export function ProjectPage() {
     onSuccess: (job) => navigate(`/projects/${projectId}/batch-jobs/${job.job_id}`),
   });
 
+  const airrExportMutation = useMutation({
+    mutationFn: async () => {
+      if (!projectId || !projectIsUuid) {
+        throw new Error('Create a backend project before exporting AIRR results.');
+      }
+      const predictionId = exportPredictionId.trim();
+      if (!isUuid(predictionId)) {
+        throw new Error('Enter a valid prediction ID before exporting AIRR results.');
+      }
+      return exportPredictionCDRAIRR(predictionId, {});
+    },
+  });
+
   const currentProjectName = useMemo(() => {
     if (projectQuery.data?.name) {
       return projectQuery.data.name;
     }
     return stubPrediction.projectName;
   }, [projectQuery.data?.name]);
+
+  const latestPredictionId =
+    predictionMutation.data?.prediction_id ||
+    (typeof window !== 'undefined'
+      ? window.localStorage.getItem(LAST_PREDICTION_ID_STORAGE_KEY) ?? ''
+      : '');
 
   return (
     <div className="page-stack">
@@ -305,6 +339,67 @@ export function ProjectPage() {
         )}
         {batchMutation.error && (
           <p className="status-error">{(batchMutation.error as Error).message}</p>
+        )}
+      </section>
+
+      <section className="card">
+        <h3>AIRR transport export</h3>
+        <p className="muted">
+          Generate an explicit AIRR v2.0.0 export for an existing prediction and get a signed
+          download link.
+        </p>
+        <label className="field">
+          <span>Prediction ID</span>
+          <input
+            type="text"
+            placeholder="paste prediction UUID"
+            value={exportPredictionId}
+            onChange={(event) => setExportPredictionId(event.target.value)}
+          />
+        </label>
+        <div className="inline-actions">
+          <button
+            className="button secondary"
+            onClick={() => setExportPredictionId(latestPredictionId)}
+            disabled={!isUuid(latestPredictionId)}
+            title={
+              isUuid(latestPredictionId)
+                ? `Use latest prediction ID: ${latestPredictionId}`
+                : 'No recent prediction ID available yet'
+            }
+          >
+            Use latest prediction ID
+          </button>
+          <button className="button" onClick={() => airrExportMutation.mutate()}>
+            {airrExportMutation.isPending ? 'Exporting AIRR...' : 'Export AIRR Results'}
+          </button>
+        </div>
+        {!isUuid(latestPredictionId) && (
+          <p className="muted">No recent prediction ID found yet. Submit a prediction first.</p>
+        )}
+        {airrExportMutation.data && (
+          <div className="status-panel">
+            <p className="status-success">
+              AIRR export ready for prediction <code>{airrExportMutation.data.prediction_id}</code>.
+            </p>
+            <p className="muted">
+              Records: {airrExportMutation.data.record_count} · Hash:{' '}
+              <code>{airrExportMutation.data.export_hash}</code>
+            </p>
+            {airrExportMutation.data.artifact.artifact_url ? (
+              <p>
+                Signed download:{' '}
+                <a href={airrExportMutation.data.artifact.artifact_url} target="_blank" rel="noreferrer">
+                  {airrExportMutation.data.artifact.artifact_url}
+                </a>
+              </p>
+            ) : (
+              <p className="status-warning">No signed download URL was returned for this export.</p>
+            )}
+          </div>
+        )}
+        {airrExportMutation.error && (
+          <p className="status-error">{(airrExportMutation.error as Error).message}</p>
         )}
       </section>
     </div>

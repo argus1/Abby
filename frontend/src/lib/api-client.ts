@@ -1,5 +1,7 @@
 import { config } from './config';
 import type {
+  AIRRCDRExportRequest,
+  AIRRCDRExportResponse,
   BatchJob,
   BatchJobQueuedResponse,
   BatchJobRequest,
@@ -122,6 +124,17 @@ export async function createPrediction(
 
 export async function getPrediction(predictionId: string): Promise<PredictionResult> {
   return apiFetch<PredictionResult>(`/predictions/${predictionId}`);
+}
+
+export async function exportPredictionCDRAIRR(
+  predictionId: string,
+  payload: AIRRCDRExportRequest = {},
+): Promise<AIRRCDRExportResponse> {
+  return apiFetch<AIRRCDRExportResponse>(`/predictions/${predictionId}/cdr:export-airr`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function createBatchJob(payload: BatchJobRequest): Promise<BatchJobQueuedResponse> {
