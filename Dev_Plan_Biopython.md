@@ -108,7 +108,7 @@ For antibody-specific CDR bookkeeping implementation details, use `Dev_Plan_Comp
 * **Optional interoperability:** AIRR-oriented schema/adapter mapping may be added as a non-blocking extension.
 * **Guardrail:** do not introduce mandatory repertoire-pipeline preprocessing in the default BioPython parsing/normalization path.
 * **VHH guardrail:** do not couple CDR readiness to light-chain presence when `antibody_format=vhh_single_domain`.
-* **Current execution status:** CompDetRAE Phases 0–6, Part 7, and Appendix A are implemented. BioPython-derived annotations expose deterministic RepSeq provenance (`numbering_scheme`, evidence tags, toolchain hash, and structural interop profile). The optional library serializer targets pinned AIRR Standards `v2.0.0`, declares partial Rearrangement compliance, preserves structural residue metadata in an Abby extension, omits unsupported nucleotide coordinates, and cannot override mmCIF-derived regions.
+* **Current execution status:** CompDetRAE Phases 0–6, Part 7, and Appendix A are implemented. BioPython-derived annotations expose deterministic RepSeq provenance (`numbering_scheme`, evidence tags, toolchain hash, and structural interop profile). The optional serializer and explicit POST transport endpoint target pinned AIRR Standards `v2.0.0`; transport persists a project-scoped signed artifact while remaining outside the default flow. Exports declare partial Rearrangement compliance, preserve structural residue metadata in an Abby extension, omit unsupported nucleotide coordinates, and cannot override mmCIF-derived regions.
 
 ### 7. Aptamer support implementation boundary (v1.1+)
 

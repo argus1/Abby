@@ -773,6 +773,7 @@ Checklist:
 - [x] Mark adapter path as optional and disabled in default prediction flow.
 - [x] Keep mmCIF-first structural extraction path authoritative when both are present.
 - [x] Implement deterministic export against pinned AIRR Standards `v2.0.0`.
+- [x] Add an explicit opt-in endpoint that persists the export and returns a signed artifact reference.
 
 #### AIRR-style exchange design note
 
@@ -781,7 +782,10 @@ Checklist:
 record per Abby antibody chain inside a DataFile-like JSON document. The serializer
 is pinned to AIRR Standards `v2.0.0` and rejects other release identifiers. It is an
 explicit export boundary for repertoire-heavy workflows, not a step in upload,
-validation, descriptor generation, or prediction.
+validation, descriptor generation, or prediction. When transport is requested,
+`POST /api/v1/predictions/{prediction_id}/cdr:export-airr` persists the document at
+`projects/{project_id}/predictions/{prediction_id}/exports/cdr_airr_v2.0.0.json`,
+records the artifact in prediction provenance, and returns its signed reference.
 
 | Abby source | AIRR-style exchange target | Mapping rule |
 | --- | --- | --- |
@@ -797,8 +801,8 @@ validation, descriptor generation, or prediction.
 Adapter constraints:
 
 - The adapter is disabled by default and has no call site in the v1.1 prediction flow.
-- The serializer is invoked only through its explicit library interface and validates
-  the pinned AIRR schema release before serialization.
+- The serializer is invoked through its library interface or explicit POST export
+  action and validates the pinned AIRR schema release before serialization.
 - AIRR `cdr*_start`/`cdr*_end` fields are 1-based closed coordinates in the
   nucleotide query sequence. Abby structural residue indexes are amino-acid
   coordinates, so the serializer does not emit those AIRR core coordinate fields or
@@ -833,7 +837,8 @@ Verification evidence:
   through upload → validation → prediction.
 - `tests/test_airr_exchange.py` covers the pinned release, deterministic bytes/hash,
   partial-compliance diagnostics, non-fabrication behavior, insertion-code retention,
-  hybrid-boundary provenance, and paired heavy/light record mapping.
+  hybrid-boundary provenance, paired heavy/light record mapping, explicit API
+  persistence, signed references, repeat-export determinism, and request validation.
 - `src/abby_api/schemas/common.py`, `OpenAPI_Abby_v1.yaml`, and
   `frontend/src/types/api.ts` define the same additive client contract.
 

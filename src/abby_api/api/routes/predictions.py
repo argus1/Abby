@@ -7,6 +7,8 @@ from fastapi import APIRouter, Depends
 from abby_api.core.security import require_api_key
 from abby_api.schemas.common import Explainability
 from abby_api.schemas.predictions import (
+    AIRRCDRExportRequest,
+    AIRRCDRExportResponse,
     LearnedModelInferenceResult,
     LearnedModelRunRequest,
     LearnedModelRunResponse,
@@ -39,6 +41,20 @@ def get_prediction(prediction_id: UUID) -> PredictionResult:
 def get_explainability(prediction_id: UUID) -> Explainability:
     prediction = predictions.get_prediction(prediction_id)
     return prediction.explainability or Explainability(top_descriptors=[])
+
+
+@router.post(
+    "/{prediction_id}/cdr:export-airr",
+    response_model=AIRRCDRExportResponse,
+    status_code=201,
+)
+def export_cdr_airr(
+    prediction_id: UUID,
+    payload: AIRRCDRExportRequest,
+) -> AIRRCDRExportResponse:
+    """Persist an optional AIRR v2.0.0 structural CDR exchange artifact."""
+
+    return predictions.export_cdr_airr(prediction_id, payload)
 
 
 @router.post("/{prediction_id}/simulation-summary:import", response_model=SimulationImportResponse)

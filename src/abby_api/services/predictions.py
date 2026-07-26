@@ -11,6 +11,7 @@ from fastapi import HTTPException, status
 
 from abby_api.core.config import get_settings
 from abby_api.repositories.memory import (
+    get_feature_summary_artifact,
     get_structure,
     get_structure_file,
     save_feature_summary_artifact,
@@ -29,6 +30,8 @@ from abby_api.schemas.common import (
     TopologyHandoffMetadata,
 )
 from abby_api.schemas.predictions import (
+    AIRRCDRExportRequest,
+    AIRRCDRExportResponse,
     LearnedModelInferenceResult,
     LearnedModelRunRequest,
     LearnedModelRunResponse,
@@ -409,6 +412,73 @@ def get_prediction(prediction_id: UUID) -> PredictionResult:
     if prediction is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prediction not found.")
     return prediction
+
+
+def export_cdr_airr(
+    prediction_id: UUID,
+    payload: AIRRCDRExportRequest,
+) -> AIRRCDRExportResponse:
+    """Persist an explicit AIRR CDR exchange artifact for a prediction."""
+
+    from abby_api.services.airr_exchange import build_airr_cdr_export
+
+    prediction = get_prediction(prediction_id)
+    if prediction.provenance is None or prediction.provenance.cdr_annotation is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Prediction does not include CDR annotation provenance for AIRR export.",
+        )
+
+    source_artifact = get_feature_summary_artifact(prediction_id)
+    if source_artifact is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Prediction does not include structure identity metadata for AIRR export.",
+        )
+
+    try:
+        export_payload = build_airr_cdr_export(
+            prediction.provenance.cdr_annotation,
+            structure_id=str(source_artifact.structure_id),
+            chain_amino_acid_sequences=payload.chain_amino_acid_sequences,
+            chain_loci=payload.chain_loci,
+            schema_release=payload.schema_release,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    artifact_key = (
+        f"projects/{source_artifact.project_id}/predictions/{prediction_id}"
+        f"/exports/cdr_airr_v{payload.schema_release}.json"
+    )
+    object_store = ObjectStore()
+    object_store.put_json(artifact_key, export_payload)
+    artifact = ArtifactReference(
+        artifact_type="airr_cdr_export",
+        artifact_key=artifact_key,
+        artifact_url=object_store.signed_download_url(artifact_key),
+        format="json",
+    )
+
+    artifacts = prediction.provenance.artifacts or ArtifactRegistry()
+    artifacts.airr_cdr_export = artifact
+    prediction.provenance.artifacts = artifacts
+    save_prediction(prediction)
+
+    interop = export_payload["abby_interop"]
+    records = export_payload["Rearrangement"]
+    return AIRRCDRExportResponse(
+        prediction_id=prediction_id,
+        status="exported",
+        schema_release=payload.schema_release,
+        compliance="partial",
+        record_count=len(records),
+        export_hash=str(interop["export_hash"]),
+        artifact=artifact,
+    )
 
 
 def import_simulation_summary(

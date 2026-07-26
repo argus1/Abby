@@ -186,12 +186,15 @@ Dataset-backed validation requirement:
 
 ### 4.4.1 Optional AIRR structural CDR exchange
 
-`src/abby_api/services/airr_exchange.py` provides a pure, library-only export
-boundary for repertoire interoperability. It serializes available CompDetRAE CDR
-annotations to deterministic JSON pinned to AIRR Standards `v2.0.0`, with one
-partial Rearrangement record per annotated heavy/light chain.
+`src/abby_api/services/airr_exchange.py` provides a pure serialization boundary
+for repertoire interoperability. It serializes available CompDetRAE CDR annotations
+to deterministic JSON pinned to AIRR Standards `v2.0.0`, with one partial
+Rearrangement record per annotated heavy/light chain. The explicit opt-in endpoint
+`POST /api/v1/predictions/{prediction_id}/cdr:export-airr` stores that JSON under
+the prediction's project-scoped object-store prefix, registers the artifact in
+prediction provenance, and returns a signed `ArtifactReference`.
 
-This service is intentionally absent from the default upload, validation, and
+The endpoint is intentionally absent from the default upload, validation, and
 prediction call graph. It accepts optional caller-supplied amino-acid sequences and
 locus evidence, preserves Abby residue keys and insertion codes in
 `x_abby_structural_annotation`, and reports missing mandatory AIRR Rearrangement

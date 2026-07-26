@@ -241,6 +241,30 @@ export interface PredictionQueuedResponse {
   status: 'queued';
 }
 
+export interface ArtifactReference {
+  artifact_type: string;
+  artifact_key?: string | null;
+  artifact_url?: string | null;
+  external_url?: string | null;
+  format?: string | null;
+}
+
+export interface AIRRCDRExportRequest {
+  schema_release?: '2.0.0';
+  chain_amino_acid_sequences?: Record<string, string>;
+  chain_loci?: Record<string, 'IGH' | 'IGI' | 'IGK' | 'IGL'>;
+}
+
+export interface AIRRCDRExportResponse {
+  prediction_id: string;
+  status: 'exported';
+  schema_release: '2.0.0';
+  compliance: 'partial';
+  record_count: number;
+  export_hash: string;
+  artifact: ArtifactReference;
+}
+
 export interface PredictionOptions {
   return_all_models?: boolean;
   include_explainability?: boolean;
@@ -283,6 +307,10 @@ export interface PredictionResult {
     dataset_sources?: DatasetSourceProvenance[];
     cdr_annotation?: CDRAnnotationSummary | null;
     nucleic_acid_profile?: NucleicAcidProfile | null;
+    artifacts?: {
+      airr_cdr_export?: ArtifactReference | null;
+      [artifactName: string]: ArtifactReference | null | undefined;
+    } | null;
   } | null;
 }
 

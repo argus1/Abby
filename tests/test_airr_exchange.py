@@ -3,10 +3,33 @@ from __future__ import annotations
 import hashlib
 import json
 from copy import deepcopy
+from uuid import uuid4
 
 import pytest
+from fastapi.testclient import TestClient
 
+from abby_api.main import app
 from abby_api.services.airr_exchange import serialize_cdr_annotation_to_airr
+from abby_api.storage.object_store import ObjectStore
+
+client = TestClient(app)
+HEADERS = {"X-API-Key": "dev-local-key"}
+
+PDB_ANTIBODY_MOTIF_FIXTURE = """\
+ATOM      1  N   CYS H   1      11.104  13.207   9.111  1.00 20.00           N
+ATOM      2  N   ALA H   2      12.560  13.102   9.262  1.00 20.00           N
+ATOM      3  N   ALA H   3      13.030  11.670   9.634  1.00 20.00           N
+ATOM      4  N   ALA H   4      12.284  10.719   9.434  1.00 20.00           N
+ATOM      5  N   ALA H   5      14.300  11.500  10.100  1.00 20.00           N
+ATOM      6  N   ALA H   6      14.900  10.170  10.420  1.00 20.00           N
+ATOM      7  N   TRP H   7      16.350  10.200  10.900  1.00 20.00           N
+ATOM      8  N   GLY H   8      17.020   9.180  10.810  1.00 20.00           N
+ATOM      9  N   ALA H   9      18.200  10.700  11.400  1.00 20.00           N
+ATOM     10  N   GLY H  10      19.100  10.900  12.500  1.00 20.00           N
+ATOM     11  N   ALA A   1      19.900  12.100  12.900  1.00 20.00           N
+TER
+END
+"""
 
 
 def _numbered_heavy_annotation() -> dict[str, object]:
@@ -222,3 +245,124 @@ def test_airr_serializer_emits_sorted_heavy_and_light_chain_records() -> None:
     assert records[0]["locus"] == "IGH"
     assert records[1]["locus"] == "IGK"
     assert records[1]["cdr1_aa"] == "KAPPAONE"
+
+
+def test_prediction_airr_export_endpoint_persists_signed_json_artifact() -> None:
+    project_response = client.post(
+        "/api/v1/projects",
+        headers=HEADERS,
+        json={"name": "AIRR transport"},
+    )
+    assert project_response.status_code == 201, project_response.text
+
+    upload_response = client.post(
+        "/api/v1/structures:upload",
+        headers=HEADERS,
+        files={
+            "file": (
+                "airr_export_antibody.pdb",
+                PDB_ANTIBODY_MOTIF_FIXTURE,
+                "chemical/x-pdb",
+            )
+        },
+        data={"mode": "antibody_antigen"},
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    structure_id = upload_response.json()["structure_id"]
+
+    validation_response = client.post(
+        "/api/v1/structures:validate",
+        headers=HEADERS,
+        json={
+            "structure_id": structure_id,
+            "mode": "antibody_antigen",
+            "chains": {"partner_1": ["H"], "partner_2": ["A"]},
+        },
+    )
+    assert validation_response.status_code == 200, validation_response.text
+    assert validation_response.json()["valid"] is True
+
+    prediction_response = client.post(
+        "/api/v1/predictions",
+        headers=HEADERS,
+        json={
+            "project_id": project_response.json()["project_id"],
+            "structure_id": structure_id,
+            "mode": "antibody_antigen",
+        },
+    )
+    assert prediction_response.status_code == 202, prediction_response.text
+    prediction_id = prediction_response.json()["prediction_id"]
+
+    before_export = client.get(
+        f"/api/v1/predictions/{prediction_id}", headers=HEADERS
+    )
+    assert before_export.status_code == 200
+    assert (
+        before_export.json()["provenance"]["artifacts"].get("airr_cdr_export")
+        is None
+    )
+
+    export_response = client.post(
+        f"/api/v1/predictions/{prediction_id}/cdr:export-airr",
+        headers=HEADERS,
+        json={},
+    )
+
+    assert export_response.status_code == 201, export_response.text
+    exported = export_response.json()
+    assert exported["prediction_id"] == prediction_id
+    assert exported["status"] == "exported"
+    assert exported["schema_release"] == "2.0.0"
+    assert exported["compliance"] == "partial"
+    assert exported["record_count"] == 1
+    assert len(exported["export_hash"]) == 64
+    assert exported["artifact"]["artifact_type"] == "airr_cdr_export"
+    assert exported["artifact"]["format"] == "json"
+    assert exported["artifact"]["artifact_url"]
+
+    artifact_key = exported["artifact"]["artifact_key"]
+    payload_bytes = ObjectStore().get_bytes(artifact_key)
+    assert payload_bytes is not None
+    payload = json.loads(payload_bytes.decode("utf-8"))
+    assert payload["abby_interop"]["export_hash"] == exported["export_hash"]
+    assert payload["Rearrangement"][0]["sequence_id"] == f"{structure_id}:H"
+
+    repeated_response = client.post(
+        f"/api/v1/predictions/{prediction_id}/cdr:export-airr",
+        headers=HEADERS,
+        json={},
+    )
+    assert repeated_response.status_code == 201
+    repeated = repeated_response.json()
+    assert repeated["export_hash"] == exported["export_hash"]
+    assert repeated["artifact"]["artifact_key"] == artifact_key
+    assert ObjectStore().get_bytes(artifact_key) == payload_bytes
+
+    after_export = client.get(
+        f"/api/v1/predictions/{prediction_id}", headers=HEADERS
+    )
+    assert after_export.status_code == 200
+    registered = after_export.json()["provenance"]["artifacts"]["airr_cdr_export"]
+    assert registered["artifact_key"] == artifact_key
+
+
+def test_prediction_airr_export_endpoint_rejects_unknown_prediction() -> None:
+    response = client.post(
+        f"/api/v1/predictions/{uuid4()}/cdr:export-airr",
+        headers=HEADERS,
+        json={},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Prediction not found."
+
+
+def test_prediction_airr_export_endpoint_validates_locus_values() -> None:
+    response = client.post(
+        f"/api/v1/predictions/{uuid4()}/cdr:export-airr",
+        headers=HEADERS,
+        json={"chain_loci": {"H": "TRA"}},
+    )
+
+    assert response.status_code == 422

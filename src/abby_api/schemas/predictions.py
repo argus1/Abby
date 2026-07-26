@@ -119,6 +119,24 @@ class ExportResponse(AbbyBaseModel):
     download_url: str
 
 
+class AIRRCDRExportRequest(AbbyBaseModel):
+    schema_release: Literal["2.0.0"] = "2.0.0"
+    chain_amino_acid_sequences: dict[str, str] = Field(default_factory=dict)
+    chain_loci: dict[str, Literal["IGH", "IGI", "IGK", "IGL"]] = Field(
+        default_factory=dict
+    )
+
+
+class AIRRCDRExportResponse(AbbyBaseModel):
+    prediction_id: UUID
+    status: Literal["exported"]
+    schema_release: Literal["2.0.0"]
+    compliance: Literal["partial"]
+    record_count: int
+    export_hash: str
+    artifact: ArtifactReference
+
+
 class SimulationImportRequest(AbbyBaseModel):
     force_field: str | None = None
     water_model: str | None = None

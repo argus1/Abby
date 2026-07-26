@@ -84,6 +84,7 @@ class ArtifactRegistry(AbbyBaseModel):
     topology_reference: ArtifactReference | None = None
     trajectory_summary: ArtifactReference | None = None
     feature_summary: ArtifactReference | None = None
+    airr_cdr_export: ArtifactReference | None = None
     structure_graph: ArtifactReference | None = None
     learned_model_result: ArtifactReference | None = None
     structure_generation: ArtifactReference | None = None

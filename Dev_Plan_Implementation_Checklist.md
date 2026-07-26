@@ -159,7 +159,7 @@ Audit baseline: **2026-07-07**
 
 | Status | Priority / Effort | Item | Target area / notes |
 | --- | --- | --- | --- |
-| `[x]` | `P1 / M` | Add CDR-aware structural bookkeeping if antibody-specific mode needs it | CompDetRAE Phases 0–6, Part 7, and Appendix A are complete: numbering-first + motif fallback, typed confidence/warnings, persisted metadata/provenance, RepSeq boundary evidence/toolchain hash/interop profile, optional deterministic AIRR `v2.0.0` partial-Rearrangement serializer with non-fabrication diagnostics, dedicated descriptor-hash regression coverage, and mmCIF numbering edge fixtures under `validation_dataset/ANDD_pdb/CompDetRAE_edge_cases/` |
+| `[x]` | `P1 / M` | Add CDR-aware structural bookkeeping if antibody-specific mode needs it | CompDetRAE Phases 0–6, Part 7, and Appendix A are complete: numbering-first + motif fallback, typed confidence/warnings, persisted metadata/provenance, RepSeq boundary evidence/toolchain hash/interop profile, optional deterministic AIRR `v2.0.0` partial-Rearrangement serializer plus explicit project-scoped signed export endpoint with non-fabrication diagnostics, dedicated descriptor-hash regression coverage, and mmCIF numbering edge fixtures under `validation_dataset/ANDD_pdb/CompDetRAE_edge_cases/` |
 | `[x]` | `P2 / M` | Add electrostatics / surface pKa integration hooks for future PlayMolecule-style enrichment | Contract/hook only is sufficient in this phase if implementation is deferred |
 
 ### 3C. VHH nanobody parity for antibody workflows

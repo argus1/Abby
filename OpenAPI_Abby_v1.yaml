@@ -341,6 +341,37 @@ paths:
                 $ref: '#/components/schemas/Explainability'
         '404':
           $ref: '#/components/responses/NotFound'
+  /predictions/{prediction_id}/cdr:export-airr:
+    post:
+      tags: [Predictions]
+      summary: Export structural CDR annotations as AIRR JSON
+      description: >-
+        Explicitly creates a deterministic partial AIRR Standards v2.0.0
+        Rearrangement export. This action is not invoked by the default prediction
+        flow. Optional amino-acid sequence and locus evidence may be supplied; the
+        export never fabricates missing repertoire evidence.
+      operationId: exportPredictionCDRAIRR
+      parameters:
+        - $ref: '#/components/parameters/PredictionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIRRCDRExportRequest'
+      responses:
+        '201':
+          description: AIRR export persisted and signed download reference created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIRRCDRExportResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: Request validation error
   /batch-jobs:
     post:
       tags: [Batch Jobs]
@@ -713,6 +744,75 @@ components:
           additionalProperties:
             type: string
       required: [project_id, mode, structure_id]
+    AIRRCDRExportRequest:
+      type: object
+      properties:
+        schema_release:
+          type: string
+          enum: ['2.0.0']
+          default: '2.0.0'
+        chain_amino_acid_sequences:
+          type: object
+          additionalProperties:
+            type: string
+          default: {}
+        chain_loci:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [IGH, IGI, IGK, IGL]
+          default: {}
+      additionalProperties: false
+    ArtifactReference:
+      type: object
+      properties:
+        artifact_type:
+          type: string
+        artifact_key:
+          type: string
+          nullable: true
+        artifact_url:
+          type: string
+          format: uri
+          nullable: true
+        external_url:
+          type: string
+          format: uri
+          nullable: true
+        format:
+          type: string
+          nullable: true
+      required: [artifact_type]
+    AIRRCDRExportResponse:
+      type: object
+      properties:
+        prediction_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [exported]
+        schema_release:
+          type: string
+          enum: ['2.0.0']
+        compliance:
+          type: string
+          enum: [partial]
+        record_count:
+          type: integer
+          minimum: 0
+        export_hash:
+          type: string
+        artifact:
+          $ref: '#/components/schemas/ArtifactReference'
+      required:
+        - prediction_id
+        - status
+        - schema_release
+        - compliance
+        - record_count
+        - export_hash
+        - artifact
     PredictionInterval:
       type: object
       properties:
