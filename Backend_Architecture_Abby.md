@@ -184,6 +184,21 @@ Dataset-backed validation requirement:
 - keep the validation service aligned with that corpus so future parser or chain-mapping changes can be verified against representative Abby inputs
 - extend validation summaries and tests whenever the dataset grows so roadmap docs and runtime behavior stay synchronized
 
+### 4.4.1 Optional AIRR structural CDR exchange
+
+`src/abby_api/services/airr_exchange.py` provides a pure, library-only export
+boundary for repertoire interoperability. It serializes available CompDetRAE CDR
+annotations to deterministic JSON pinned to AIRR Standards `v2.0.0`, with one
+partial Rearrangement record per annotated heavy/light chain.
+
+This service is intentionally absent from the default upload, validation, and
+prediction call graph. It accepts optional caller-supplied amino-acid sequences and
+locus evidence, preserves Abby residue keys and insertion codes in
+`x_abby_structural_annotation`, and reports missing mandatory AIRR Rearrangement
+fields explicitly. It does not fabricate nucleotide sequences, V(D)J calls,
+alignments, junctions, CIGAR strings, or nucleotide CDR coordinates. The uploaded
+structure and CompDetRAE boundaries remain authoritative.
+
 ### 4.5 Descriptor generation service
 
 Responsibilities:

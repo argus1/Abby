@@ -733,7 +733,8 @@ This appendix captures how repertoire-sequencing guidance (RepSeq ecosystem conc
 
 #### Use later / optional extensions (medium relevance)
 
-- AIRR-compliant import/export adapters for repertoire-heavy datasets.
+- Full AIRR-compliant import/export adapters for repertoire-heavy datasets; the
+  optional structural CDR serializer currently emits an explicit partial profile.
 - Sequence preprocessing adapters inspired by pRESTO/Change-O style QC pipelines.
 - Cohort-level clonotype/repertoire analytics as separate, post-v1.1 modules.
 
@@ -771,19 +772,23 @@ Checklist:
 - [x] Add design note mapping Abby `cdr_annotation` concepts to AIRR-style annotation objects.
 - [x] Mark adapter path as optional and disabled in default prediction flow.
 - [x] Keep mmCIF-first structural extraction path authoritative when both are present.
+- [x] Implement deterministic export against pinned AIRR Standards `v2.0.0`.
 
 #### AIRR-style exchange design note
 
-The optional adapter emits one sequence-annotation exchange object per Abby antibody
-chain. It is an explicit export/import boundary for repertoire-heavy workflows, not a
-step in upload, validation, descriptor generation, or prediction.
+`serialize_cdr_annotation_to_airr()` in
+`src/abby_api/services/airr_exchange.py` emits one partial AIRR Rearrangement
+record per Abby antibody chain inside a DataFile-like JSON document. The serializer
+is pinned to AIRR Standards `v2.0.0` and rejects other release identifiers. It is an
+explicit export boundary for repertoire-heavy workflows, not a step in upload,
+validation, descriptor generation, or prediction.
 
 | Abby source | AIRR-style exchange target | Mapping rule |
 | --- | --- | --- |
 | chain ID and chain role | `sequence_id`, plus locus/chain extension metadata | Preserve the Abby chain ID; emit `IGH`, `IGK`, or `IGL` locus only when sequence evidence resolves it, never from a chain-name guess alone. |
-| `chains.*.regions.CDR-H1/L1` | per-chain `cdr1` / `cdr1_aa` and supported start/end fields | Export the selected chain's region sequence and convert Abby residue keys to the target schema's declared coordinate convention. |
-| `chains.*.regions.CDR-H2/L2` | per-chain `cdr2` / `cdr2_aa` and supported start/end fields | Apply the same explicit coordinate conversion and retain insertion-code-bearing Abby residue keys in an extension block. |
-| `chains.*.regions.CDR-H3/L3` | per-chain `cdr3` / `cdr3_aa` and supported start/end fields | Preserve the complete structural region; do not replace it with a repertoire-derived junction when they disagree. |
+| `chains.*.regions.CDR-H1/L1` | per-chain `cdr1_aa` when an AA sequence is supplied | Slice the caller-supplied chain AA sequence; retain structural indexes and residue keys under `x_abby_structural_annotation`. |
+| `chains.*.regions.CDR-H2/L2` | per-chain `cdr2_aa` when an AA sequence is supplied | Preserve insertion-code-bearing residue keys losslessly in the Abby extension. |
+| `chains.*.regions.CDR-H3/L3` | per-chain `cdr3_aa` when an AA sequence is supplied | Preserve the complete structural region; do not fabricate AIRR `junction`/`junction_aa` or replace it with repertoire-derived data. |
 | `numbering_scheme`, `boundary_source`, `boundary_confidence` | annotation extension metadata | Preserve values verbatim because an AIRR target release may not define direct core fields for structural numbering provenance. |
 | `boundary_evidence` | annotation evidence extension | Preserve the ordered machine-readable evidence tags. |
 | `annotation_toolchain` | data-processing/software metadata plus Abby extension | Map engine/version where supported and retain `parameters_hash` and `reference_data_version` losslessly. |
@@ -792,8 +797,16 @@ step in upload, validation, descriptor generation, or prediction.
 Adapter constraints:
 
 - The adapter is disabled by default and has no call site in the v1.1 prediction flow.
-- A future adapter must be invoked only by an explicit exchange operation and must
-  validate the selected AIRR schema release before serialization.
+- The serializer is invoked only through its explicit library interface and validates
+  the pinned AIRR schema release before serialization.
+- AIRR `cdr*_start`/`cdr*_end` fields are 1-based closed coordinates in the
+  nucleotide query sequence. Abby structural residue indexes are amino-acid
+  coordinates, so the serializer does not emit those AIRR core coordinate fields or
+  invent a codon mapping.
+- AIRR Rearrangement requires nucleotide sequence, gene-call, alignment, junction,
+  and CIGAR fields that CompDetRAE cannot infer. The export declares
+  `compliance=partial` and lists every absent required field rather than fabricating
+  repertoire evidence.
 - Imported AIRR-style values may supplement missing exchange metadata, but cannot
   overwrite CDR boundaries derived from the uploaded mmCIF/PDB structure.
 - Conflicts are retained as typed exchange diagnostics; the mmCIF-first CompDetRAE
@@ -818,6 +831,9 @@ Verification evidence:
   insertion-code evidence, and legacy payload validation.
 - `tests/test_structure_flow.py` verifies the complete RepSeq provenance envelope
   through upload → validation → prediction.
+- `tests/test_airr_exchange.py` covers the pinned release, deterministic bytes/hash,
+  partial-compliance diagnostics, non-fabrication behavior, insertion-code retention,
+  hybrid-boundary provenance, and paired heavy/light record mapping.
 - `src/abby_api/schemas/common.py`, `OpenAPI_Abby_v1.yaml`, and
   `frontend/src/types/api.ts` define the same additive client contract.
 
