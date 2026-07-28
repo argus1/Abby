@@ -40,6 +40,7 @@ from abby_api.services.dataset_governance import (
 from abby_api.services.predictions import create_prediction
 from abby_api.services.simulation import (
     SimulationRunConfig,
+    is_gromacs_available,
     run_gromacs_cif_simulation,
 )
 from abby_api.services.structure_parsing import (
@@ -390,7 +391,10 @@ def _select_primary_reference(references: list[AnddReference]) -> AnddReference 
 
 
 def _chain_mapping_from_reference(
-    reference: AnddReference | None, available_chains: list[str]
+    reference: AnddReference | None,
+    available_chains: list[str],
+    *,
+    cdr_annotation: dict[str, Any] | None = None,
 ) -> ChainMapping:
     available = [chain.strip() for chain in available_chains if chain.strip()]
     if reference is None:
@@ -409,10 +413,69 @@ def _chain_mapping_from_reference(
     if not partner_2:
         remaining = [chain for chain in available if chain not in partner_1]
         partner_2 = remaining[:1]
-    if not partner_2 and len(available) > 1:
-        partner_2 = available[1:2]
+
+    if not partner_2:
+        inferred = _infer_chain_mapping_from_cdr_annotation(available, cdr_annotation)
+        if inferred is not None:
+            partner_1 = inferred.partner_1
+            partner_2 = inferred.partner_2
+
+    # Preserve non-overlap invariants: if no non-overlapping partner_2 chain can
+    # be inferred, keep partner_2 empty so downstream validation reports
+    # EMPTY_PARTNER_SELECTION rather than an artificial CHAIN_GROUP_OVERLAP.
 
     return ChainMapping(partner_1=partner_1, partner_2=partner_2)
+
+
+def _infer_chain_mapping_from_cdr_annotation(
+    available_chains: list[str],
+    cdr_annotation: dict[str, Any] | None,
+) -> ChainMapping | None:
+    if not available_chains or not isinstance(cdr_annotation, dict):
+        return None
+
+    chains_payload = cdr_annotation.get("chains")
+    if not isinstance(chains_payload, dict) or not chains_payload:
+        return None
+
+    selected_heavy_chain = cdr_annotation.get("selected_heavy_chain")
+    heavy_chain = (
+        str(selected_heavy_chain).strip()
+        if isinstance(selected_heavy_chain, str) and str(selected_heavy_chain).strip()
+        else None
+    )
+    if heavy_chain not in available_chains:
+        heavy_chain = None
+
+    antibody_chains: list[str] = []
+    for chain_id in available_chains:
+        chain_info = chains_payload.get(chain_id)
+        if not isinstance(chain_info, dict):
+            continue
+        role = str(chain_info.get("role", "")).strip().lower()
+        if role == "heavy" or role.startswith("light"):
+            antibody_chains.append(chain_id)
+
+    if not antibody_chains:
+        return None
+
+    non_antibody_chains = [chain for chain in available_chains if chain not in antibody_chains]
+    if non_antibody_chains:
+        return ChainMapping(
+            partner_1=[chain for chain in available_chains if chain in antibody_chains],
+            partner_2=non_antibody_chains,
+        )
+
+    # If all chains are antibody-classified and no explicit antigen label exists,
+    # split heavy vs light so validation can proceed deterministically.
+    light_candidates = [chain for chain in antibody_chains if chain != heavy_chain]
+    if heavy_chain is not None and light_candidates:
+        return ChainMapping(partner_1=[heavy_chain], partner_2=[light_candidates[0]])
+
+    if len(antibody_chains) >= 2:
+        return ChainMapping(partner_1=[antibody_chains[0]], partner_2=[antibody_chains[1]])
+
+    return None
 
 
 def _experimental_log_k(
@@ -894,6 +957,36 @@ def _build_sequence_annotation_dataset_artifact(
     )
 
 
+def _select_pdb_paths_to_process(
+    all_pdb_paths: list[Path],
+    converted_dir: Path,
+    existing_case_ids: set[str] | None = None,
+) -> list[Path]:
+    processed_ids = {case_id.upper() for case_id in (existing_case_ids or set())}
+    for converted_path in converted_dir.glob("*.mmcif"):
+        if converted_path.is_file():
+            processed_ids.add(converted_path.stem.upper())
+
+    return [path for path in all_pdb_paths if path.stem.upper() not in processed_ids]
+
+
+def _load_existing_cases(output_dir: Path) -> list[ValidationCaseResult]:
+    report_path = output_dir / "reports" / "validation_report.json"
+    if not report_path.exists():
+        return []
+
+    try:
+        payload = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+
+    cases_payload = payload.get("cases", [])
+    if not isinstance(cases_payload, list):
+        return []
+
+    return [ValidationCaseResult(**case_payload) for case_payload in cases_payload]
+
+
 def run_andd_validation_harness(
     *,
     dataset_root: Path = DEFAULT_DATASET_ROOT,
@@ -936,12 +1029,21 @@ def run_andd_validation_harness(
     if pdb_ids:
         wanted = {pdb_id.upper() for pdb_id in pdb_ids}
         all_pdb_paths = [path for path in all_pdb_paths if path.stem.upper() in wanted]
+
+    existing_cases = _load_existing_cases(output_dir)
+    existing_case_ids = {case.pdb_id.upper() for case in existing_cases}
+    all_pdb_paths = _select_pdb_paths_to_process(
+        all_pdb_paths,
+        converted_dir,
+        existing_case_ids=existing_case_ids,
+    )
     if limit is not None:
         all_pdb_paths = all_pdb_paths[:limit]
 
     project = new_project(f"ANDD validation {datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}")
-    cases: list[ValidationCaseResult] = []
+    cases: list[ValidationCaseResult] = list(existing_cases)
     structure_chain_universe: set[str] = set()
+    gromacs_cif_runtime_available = is_gromacs_available()
 
     for pdb_path in all_pdb_paths:
         pdb_id = pdb_path.stem.upper()
@@ -951,6 +1053,7 @@ def run_andd_validation_harness(
             pdb_id=pdb_id,
             source_pdb_path=str(pdb_path),
             converted_mmcif_path=str(converted_path),
+            gromacs_cif_available=gromacs_cif_runtime_available,
             ground_truth_row_count=len(references_for_pdb),
         )
 
@@ -984,7 +1087,15 @@ def run_andd_validation_harness(
                 case.experimental_delta_g_kcal_mol = _experimental_delta_g_kcal_mol(
                     reference, temperature_kelvin
                 )
-            chain_mapping = _chain_mapping_from_reference(reference, summary.available_chains)
+            chain_mapping = _chain_mapping_from_reference(
+                reference,
+                summary.available_chains,
+                cdr_annotation=(
+                    summary.metadata.get("cdr_annotation")
+                    if isinstance(summary.metadata.get("cdr_annotation"), dict)
+                    else None
+                ),
+            )
             validation = validate_structure(
                 StructureValidationRequest(
                     structure_id=structure_input.structure_id,
@@ -1039,7 +1150,6 @@ def run_andd_validation_harness(
                 case.simulation_status = (
                     "completed" if simulation_result.gromacs_available else "stubbed"
                 )
-                case.gromacs_cif_available = simulation_result.gromacs_available
                 case.simulation_notes = list(simulation_result.notes)
             else:
                 case.simulation_status = "skipped"

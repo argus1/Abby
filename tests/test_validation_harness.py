@@ -2,13 +2,20 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import UUID
 
 from openpyxl import Workbook
 
 from abby_api.repositories.memory import get_prediction
 from abby_api.schemas.common import DatasetSourceProvenance
-from abby_api.validation_harness import run_andd_validation_harness
+import abby_api.validation_harness as validation_harness_module
+from abby_api.validation_harness import (
+    AnddReference,
+    _chain_mapping_from_reference,
+    _select_pdb_paths_to_process,
+    run_andd_validation_harness,
+)
 
 _REQUIRED_MATRIX_ROW_FIELDS = frozenset({
     "pdb_id",
@@ -151,6 +158,24 @@ def _build_test_workbook(path: Path) -> None:
     workbook.save(path)
 
 
+def test_select_pdb_paths_to_process_skips_existing_converted_outputs(tmp_path) -> None:
+    structures_dir = tmp_path / "All_structures"
+    structures_dir.mkdir(parents=True)
+    (structures_dir / "ONE.pdb").write_text(PDB_FIXTURE)
+    (structures_dir / "TWO.pdb").write_text(PDB_FIXTURE)
+
+    converted_dir = tmp_path / "converted_mmcif"
+    converted_dir.mkdir(parents=True)
+    (converted_dir / "ONE.mmcif").write_text("existing", encoding="utf-8")
+
+    selected = _select_pdb_paths_to_process(
+        [structures_dir / "ONE.pdb", structures_dir / "TWO.pdb"],
+        converted_dir,
+    )
+
+    assert selected == [structures_dir / "TWO.pdb"]
+
+
 def test_andd_validation_harness_runs_end_to_end_on_small_fixture(tmp_path) -> None:
     dataset_root = tmp_path / "ANDD_pdb"
     structures_dir = dataset_root / "All_structures"
@@ -196,6 +221,122 @@ def test_andd_validation_harness_runs_end_to_end_on_small_fixture(tmp_path) -> N
     assert manifest_path.exists()
     assert cases_path.exists()
     assert converted_path.exists()
+
+
+def test_harness_reports_gromacs_availability_even_when_simulation_skipped(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    dataset_root = tmp_path / "ANDD_pdb"
+    structures_dir = dataset_root / "All_structures"
+    structures_dir.mkdir(parents=True)
+    (structures_dir / "TEST.pdb").write_text(PDB_FIXTURE)
+
+    workbook_path = dataset_root / "Antibody and Nanobody Design Dataset (ANDD)_v2.xlsx"
+    _build_test_workbook(workbook_path)
+
+    monkeypatch.setattr(validation_harness_module, "is_gromacs_available", lambda: True)
+
+    report = run_andd_validation_harness(
+        dataset_root=dataset_root,
+        workbook_path=workbook_path,
+        output_dir=tmp_path / "validation_output",
+        pdb_ids=["TEST"],
+        simulation_policy="skip",
+    )
+
+    assert report.cases[0].simulation_status == "skipped"
+    assert report.cases[0].gromacs_cif_available is True
+    assert report.simulation_available_structures == 1
+
+
+def test_harness_gromacs_availability_is_independent_of_simulation_outcome(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    dataset_root = tmp_path / "ANDD_pdb"
+    structures_dir = dataset_root / "All_structures"
+    structures_dir.mkdir(parents=True)
+    (structures_dir / "TEST.pdb").write_text(PDB_FIXTURE)
+
+    workbook_path = dataset_root / "Antibody and Nanobody Design Dataset (ANDD)_v2.xlsx"
+    _build_test_workbook(workbook_path)
+
+    monkeypatch.setattr(validation_harness_module, "is_gromacs_available", lambda: True)
+    monkeypatch.setattr(
+        validation_harness_module,
+        "run_gromacs_cif_simulation",
+        lambda *args, **kwargs: SimpleNamespace(
+            gromacs_available=False,
+            notes=["SIMULATION_STUB_RESULT"],
+        ),
+    )
+
+    report = run_andd_validation_harness(
+        dataset_root=dataset_root,
+        workbook_path=workbook_path,
+        output_dir=tmp_path / "validation_output",
+        pdb_ids=["TEST"],
+        simulation_policy="run_if_available",
+    )
+
+    assert report.cases[0].simulation_status == "stubbed"
+    assert report.cases[0].gromacs_cif_available is True
+    assert report.simulation_available_structures == 1
+
+
+def test_chain_mapping_does_not_create_overlap_when_antigen_chain_missing() -> None:
+    reference = AnddReference(
+        row_index=2,
+        source="ANDD",
+        pdb_id="TEST",
+        affinity_kd_m=None,
+        delta_g_kj_mol=None,
+        affinity_method=None,
+        reason_code=None,
+        predicted_or_not=None,
+        provenance=None,
+        heavy_chain_auth_ids=["H"],
+        light_chain_auth_ids=["L"],
+        antigen_chain_auth_ids=[],
+    )
+
+    mapping = _chain_mapping_from_reference(reference, ["H", "L"])
+    assert mapping.partner_1 == ["H", "L"]
+    assert mapping.partner_2 == []
+    assert set(mapping.partner_1).isdisjoint(mapping.partner_2)
+
+
+def test_chain_mapping_uses_cdr_annotation_when_antigen_chain_missing() -> None:
+    reference = AnddReference(
+        row_index=2,
+        source="ANDD",
+        pdb_id="TEST",
+        affinity_kd_m=None,
+        delta_g_kj_mol=None,
+        affinity_method=None,
+        reason_code=None,
+        predicted_or_not=None,
+        provenance=None,
+        heavy_chain_auth_ids=["H"],
+        light_chain_auth_ids=["L"],
+        antigen_chain_auth_ids=[],
+    )
+
+    mapping = _chain_mapping_from_reference(
+        reference,
+        ["H", "L"],
+        cdr_annotation={
+            "selected_heavy_chain": "H",
+            "chains": {
+                "H": {"role": "heavy", "confidence": "high"},
+                "L": {"role": "light_unknown", "confidence": "medium"},
+            },
+        },
+    )
+    assert mapping.partner_1 == ["H"]
+    assert mapping.partner_2 == ["L"]
+    assert set(mapping.partner_1).isdisjoint(mapping.partner_2)
 
 
 def test_andd_validation_harness_optionally_writes_cdr_stress_report(tmp_path) -> None:
