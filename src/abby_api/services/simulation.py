@@ -59,6 +59,17 @@ def _gromacs_executable() -> str:
     )
 
 
+def _gromacs_input_filename(structure_file: Path) -> str:
+    """Return a GROMACS-friendly filename for the copied structure input.
+
+    GROMACS recognizes ``.cif`` but not ``.mmcif``. Keep other extensions as-is.
+    """
+
+    if structure_file.suffix.lower() == ".mmcif":
+        return structure_file.with_suffix(".cif").name
+    return structure_file.name
+
+
 def is_antechamber_available() -> bool:
     """Return True if the AmberTools antechamber executable is found on PATH."""
     return shutil.which(ANTECHAMBER_EXECUTABLE) is not None
@@ -471,13 +482,13 @@ def _execute_gromacs_workflow(
     import shutil as _shutil
 
     # Copy the structure to the working directory.
-    local_struct = work_dir / structure_file.name
+    local_struct = work_dir / _gromacs_input_filename(structure_file)
     _shutil.copy2(structure_file, local_struct)
 
     # Generate minimal MDP file for energy minimization.
     mdp_path = work_dir / "em.mdp"
     mdp_content = (
-        f"integrator = {config.minimization_protocol}\n"
+        "integrator = steep\n"
         f"nsteps = {config.max_steps}\n"
         "emtol = 1000.0\n"
         "emstep = 0.01\n"

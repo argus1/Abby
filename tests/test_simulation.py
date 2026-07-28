@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from subprocess import CompletedProcess, CalledProcessError
 from uuid import uuid4
 
 import pytest
@@ -286,6 +287,39 @@ class TestGromacsStubPath:
         assert result.provenance.minimization_protocol == "l-bfgs"
         assert result.provenance.source == "gromacs_stub"
         assert result.provenance.imported is False
+
+    def test_mmcif_input_is_copied_with_cif_extension(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.setattr("abby_api.services.simulation.is_gromacs_available", lambda: True)
+        monkeypatch.setattr("abby_api.services.simulation._gromacs_executable", lambda: "gmx")
+
+        pdb = tmp_path / "test.mmcif"
+        pdb.write_text(PDB_FIXTURE)
+        prediction_id = uuid4()
+        project_id = uuid4()
+        object_store = ObjectStore(base_dir=tmp_path / "store")
+
+        seen: list[list[str]] = []
+
+        def _fake_run(cmd, cwd=None, capture_output=None, timeout=None, check=None):
+            seen.append([str(part) for part in cmd])
+            if cmd[1] == "pdb2gmx":
+                return CompletedProcess(cmd, 0, stdout=b"", stderr=b"")
+            raise CalledProcessError(returncode=1, cmd=cmd, output=b"", stderr=b"stop after pdb2gmx")
+
+        monkeypatch.setattr("abby_api.services.simulation.subprocess.run", _fake_run)
+
+        result = run_gromacs_cif_simulation(
+            pdb,
+            SimulationRunConfig(),
+            prediction_id=prediction_id,
+            project_id=project_id,
+            object_store=object_store,
+        )
+
+        pdb2gmx_cmd = next(cmd for cmd in seen if len(cmd) > 1 and cmd[1] == "pdb2gmx")
+        assert any(part.endswith("test.cif") for part in pdb2gmx_cmd)
+        assert result.gromacs_available is False
+        assert any("GROMACS_WORKFLOW_FAILED" in note for note in result.notes)
 
 
 # ---------------------------------------------------------------------------
