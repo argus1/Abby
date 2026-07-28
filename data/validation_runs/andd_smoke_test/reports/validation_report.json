@@ -1,46 +1,52 @@
 {
   "cases": [
     {
+      "cdr_quality_baseline_class": null,
+      "cdr_quality_baseline_drift_flag": false,
+      "cdr_quality_baseline_observed_pass": true,
+      "cdr_quality_baseline_score": 0.9476,
       "conversion_status": "completed",
       "converted_mmcif_path": "/home/argus/Documents/Abby/data/validation_runs/andd_smoke_test/converted_mmcif/15C8.mmcif",
-      "error": "Validation failed for 15C8: CHAIN_GROUP_OVERLAP",
+      "error": null,
       "experimental_delta_g_kcal_mol": null,
       "experimental_delta_g_kj_mol": null,
       "experimental_kd_m": null,
       "experimental_log_k": null,
-      "gromacs_cif_available": false,
+      "gromacs_cif_available": true,
       "ground_truth_row_count": 4,
       "md_handoff_ready": true,
       "pdb_id": "15C8",
-      "predicted_delta_g_kcal_mol": null,
-      "predicted_log_k": null,
-      "prediction_id": null,
-      "prediction_status": "pending",
+      "predicted_delta_g_kcal_mol": -32.94,
+      "predicted_log_k": -24.14,
+      "prediction_id": "664bf7bf-e7db-4c3f-9a16-2175fc739778",
+      "prediction_status": "completed",
       "prediction_warnings": [],
       "reference_kind": null,
       "reference_row_index": 4,
       "reference_source": "abYbank_ab",
-      "simulation_notes": [],
-      "simulation_status": "skipped",
-      "source_pdb_path": "validation_dataset/ANDD_pdb/All_structures/15C8.pdb",
-      "status": "failed",
-      "structure_id": "2c857283-ab32-4fd9-a3b8-7a75c44f8b35",
-      "validation_errors": [
-        "CHAIN_GROUP_OVERLAP"
+      "simulation_notes": [
+        "GROMACS_WORKFLOW_FAILED:Command '['gmx', 'pdb2gmx', '-f', '/tmp/abby_gromacs_ysp_y4x0/15C8.mmcif', '-o', '/tmp/abby_gromacs_ysp_y4x0/conf.gro', '-p', '/tmp/abby_gromacs_ysp_y4x0/topol.top', '-ff', 'amber99sb-ildn', '-water', 'tip3p', '-nointer']' returned non-zero exit status 1."
       ],
-      "validation_status": "failed",
+      "simulation_status": "stubbed",
+      "source_pdb_path": "validation_dataset/ANDD_pdb/All_structures/15C8.pdb",
+      "status": "completed",
+      "structure_id": "a1048e97-15a7-4f56-9809-8b7a05e5e980",
+      "validation_errors": [],
+      "validation_status": "completed",
       "validation_warnings": [
         "CHAIN_SEQUENCE_GAPS",
-        "PDB2GMX_PRECHECK_ISSUES",
-        "MD_CHAIN_CANONICALIZATION_SUGGESTED"
+        "MD_CHAIN_CANONICALIZATION_SUGGESTED",
+        "PDB2GMX_PRECHECK_ISSUES"
       ]
     }
   ],
   "converted_structures": 1,
   "dataset_root": "/home/argus/Documents/Abby/validation_dataset/ANDD_pdb",
-  "failed_structures": 1,
-  "generated_at": "2026-07-15T05:31:54.331794+00:00",
-  "matched_structures": 0,
+  "dataset_schema_artifact_path": null,
+  "dataset_sources": [],
+  "failed_structures": 0,
+  "generated_at": "2026-07-26T09:34:28.692372+00:00",
+  "matched_structures": 1,
   "metrics": {
     "mae_delta_g_kcal_mol": null,
     "mae_log_k": null,
@@ -53,12 +59,12 @@
     "spearman_log_k": null
   },
   "output_dir": "/home/argus/Documents/Abby/data/validation_runs/andd_smoke_test",
-  "predicted_structures": 0,
-  "project_id": "4b41450f-e7c9-41d7-9835-efacebaa6995",
-  "simulation_attempted_structures": 0,
-  "simulation_available_structures": 0,
+  "predicted_structures": 1,
+  "project_id": "72082c61-4e18-4a3d-9270-b1c89967bfc2",
+  "simulation_attempted_structures": 1,
+  "simulation_available_structures": 1,
   "simulation_completed_structures": 0,
   "total_structures": 1,
-  "validated_structures": 0,
+  "validated_structures": 1,
   "workbook_path": "/home/argus/Documents/Abby/validation_dataset/ANDD_pdb/Antibody and Nanobody Design Dataset (ANDD)_v2.xlsx"
 }

@@ -179,7 +179,7 @@ Audit baseline: **2026-07-07**
 | `[x]` | `P1 / M` | Add nucleic-acid-aware parsing/normalization diagnostics | DNA/RNA/protein/mixed chain typing, canonical/modified nucleotide provenance, role errors, mixed/modified warnings, typed legacy residue/atom naming compatibility diagnostics, bounded Na⁺/Mg²⁺ inventory, and non-blocking ionization preflight are implemented |
 | `[-]` | `P1 / M` | Add aptamer descriptor tranche with deterministic provenance | `aptamer_sasa_fraction` and cutoff-aware `aptamer_counterion_contact_count` are emitted under `aptamer_features_v2` and covered by end-to-end deterministic descriptor-hash regressions; flexibility and broader ion-contact summaries remain open |
 | `[x]` | `P1 / S` | Add aptamer regression fixtures and conversion checks | Synthetic canonical PDB/mmCIF pair under `validation_dataset/aptamer/`; production conversion preserves chain/residue/profile parity, explicit phosphodiester `_struct_conn` survives upload → validation → prediction provenance, and no connectivity is fabricated from PDB |
-| `[ ]` | `P2 / M` | Add optional aptamer simulation-provenance parity | Persist protocol fields for simulation-backed descriptor runs/imports |
+| `[x]` | `P2 / M` | Add optional aptamer simulation-provenance parity | Aptamer-mode simulation import/run protocol fields now persist in prediction provenance and artifacts for both external summary imports and simulation-run paths; verified in `tests/test_structure_flow.py::test_aptamer_prediction_supports_external_simulation_summary_import` and `tests/test_simulation.py::TestSimulationRunRoute::test_aptamer_simulation_run_persists_protocol_fields` |
 
 ### Phase 3 exit criteria
 
@@ -347,7 +347,7 @@ If you want the highest leverage next steps, this is the shortest sensible path:
 | `[x]` | `P0 / M` | `mmCIF` chemistry preservation |
 | `[x]` | `P0 / M` | Batch execution and export realism |
 | `[x]` | `P0 / L` | Worker-backed async orchestration |
-| `[-]` | `P1 / S` | Frontend/backend capability alignment |
+| `[x]` | `P1 / S` | Frontend/backend capability alignment |
 
 ### Strategic later work
 

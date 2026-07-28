@@ -1,0 +1,105 @@
+{
+  "auc_roc": 0.999984,
+  "bins": [
+    {
+      "abs_calibration_gap": 0.018502,
+      "count": 56,
+      "index": 0,
+      "lower_bound": 0.0,
+      "mean_score": 0.018502,
+      "observed_rate": 0.0,
+      "upper_bound": 0.1
+    },
+    {
+      "abs_calibration_gap": 0.1057,
+      "count": 2,
+      "index": 1,
+      "lower_bound": 0.1,
+      "mean_score": 0.1057,
+      "observed_rate": 0.0,
+      "upper_bound": 0.2
+    },
+    {
+      "abs_calibration_gap": 0.0,
+      "count": 0,
+      "index": 2,
+      "lower_bound": 0.2,
+      "mean_score": 0.0,
+      "observed_rate": 0.0,
+      "upper_bound": 0.3
+    },
+    {
+      "abs_calibration_gap": 0.0,
+      "count": 0,
+      "index": 3,
+      "lower_bound": 0.3,
+      "mean_score": 0.0,
+      "observed_rate": 0.0,
+      "upper_bound": 0.4
+    },
+    {
+      "abs_calibration_gap": 0.4239,
+      "count": 1,
+      "index": 4,
+      "lower_bound": 0.4,
+      "mean_score": 0.4239,
+      "observed_rate": 0.0,
+      "upper_bound": 0.5
+    },
+    {
+      "abs_calibration_gap": 0.0,
+      "count": 0,
+      "index": 5,
+      "lower_bound": 0.5,
+      "mean_score": 0.0,
+      "observed_rate": 0.0,
+      "upper_bound": 0.6
+    },
+    {
+      "abs_calibration_gap": 0.670892,
+      "count": 24,
+      "index": 6,
+      "lower_bound": 0.6,
+      "mean_score": 0.670892,
+      "observed_rate": 0.0,
+      "upper_bound": 0.7
+    },
+    {
+      "abs_calibration_gap": 0.780806,
+      "count": 35,
+      "index": 7,
+      "lower_bound": 0.7,
+      "mean_score": 0.780806,
+      "observed_rate": 0.0,
+      "upper_bound": 0.8
+    },
+    {
+      "abs_calibration_gap": 0.811381,
+      "count": 227,
+      "index": 8,
+      "lower_bound": 0.8,
+      "mean_score": 0.829002,
+      "observed_rate": 0.017621,
+      "upper_bound": 0.9
+    },
+    {
+      "abs_calibration_gap": 0.067086,
+      "count": 535,
+      "index": 9,
+      "lower_bound": 0.9,
+      "mean_score": 0.932914,
+      "observed_rate": 1.0,
+      "upper_bound": 1.0
+    }
+  ],
+  "brier_score": 0.213413,
+  "ece": 0.301336,
+  "extracted_sample_count": 880,
+  "mce": 0.811381,
+  "method": "equal_width_binning",
+  "n_bins": 10,
+  "n_samples": 880,
+  "notes": [],
+  "ready": true,
+  "source_validation_report": "/home/argus/Documents/Abby/data/validation_runs/andd_full_20260726/reports/validation_report.json"
+}
