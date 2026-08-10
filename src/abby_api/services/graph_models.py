@@ -37,6 +37,7 @@ _CLASS_INDEX: dict[str, int] = {c: i for i, c in enumerate(_RESIDUE_CLASSES)}
 # 20 AA one-hot + 5 class one-hot + partner flag (1) + SASA (1) + depth (1) = 28
 NODE_FEATURE_DIM = 28
 GRAPH_VERSION = "structure_graph_v1"
+EDGE_TYPE_ENCODING = {"contact": 0, "backbone": 1, "covalent": 2}
 
 
 # ---------------------------------------------------------------------------
@@ -245,6 +246,33 @@ class StructureGraph:
         dst = [edge.dst for edge in self.edges]
         return src, dst
 
+    def to_tensor_contract(self) -> dict[str, Any]:
+        """Serialize this graph into the framework-neutral tensor contract.
+
+        Node and edge rows retain their existing order.  A future tensor adapter
+        may convert these values to framework-specific tensors without altering
+        graph semantics or provenance.
+        """
+        src, dst = self.edge_index()
+        partner_1_indices = set(self.partner_1_node_indices)
+        partner_2_indices = set(self.partner_2_node_indices)
+        interface_indices = set(self.interface_node_indices)
+
+        return {
+            "node_features": self.node_feature_matrix(),
+            "edge_index": [src, dst],
+            "edge_type": [EDGE_TYPE_ENCODING[edge.edge_type] for edge in self.edges],
+            "partner_1_mask": [index in partner_1_indices for index in range(len(self.nodes))],
+            "partner_2_mask": [index in partner_2_indices for index in range(len(self.nodes))],
+            "interface_mask": [index in interface_indices for index in range(len(self.nodes))],
+            "metadata": {
+                "graph_id": self.graph_id,
+                "graph_version": self.graph_version,
+                "node_feature_dim": self.node_feature_dim,
+                "edge_type_encoding": dict(EDGE_TYPE_ENCODING),
+            },
+        }
+
 
 # ---------------------------------------------------------------------------
 # Graph construction
@@ -439,8 +467,43 @@ def build_structure_graph(
         struct_conn = (
             getattr(validation, "metadata", {}) or {}
         ).get("connectivity", {})
-        if isinstance(struct_conn, dict) and struct_conn:
+        connections = struct_conn.get("connections", []) if isinstance(struct_conn, dict) else []
+        if connections:
             notes.append("GRAPH_COVALENT_EDGES_FROM_STRUCT_CONN")
+            nodes_by_chain_and_sequence = {
+                (node.chain_id, str(node.residue_seq_id)): node for node in nodes
+            }
+            covalent_pairs: set[tuple[int, int]] = set()
+            for connection in connections:
+                if not isinstance(connection, dict):
+                    continue
+                partner_1 = connection.get("partner_1", {})
+                partner_2 = connection.get("partner_2", {})
+                if not isinstance(partner_1, dict) or not isinstance(partner_2, dict):
+                    continue
+                node_1 = nodes_by_chain_and_sequence.get(
+                    (str(partner_1.get("chain_id", "")), str(partner_1.get("sequence_id", "")))
+                )
+                node_2 = nodes_by_chain_and_sequence.get(
+                    (str(partner_2.get("chain_id", "")), str(partner_2.get("sequence_id", "")))
+                )
+                if node_1 is None or node_2 is None:
+                    continue
+                edge_pair = (node_1.node_index, node_2.node_index)
+                if edge_pair in covalent_pairs:
+                    continue
+                covalent_pairs.add(edge_pair)
+                distance = 0.0
+                if node_1.position is not None and node_2.position is not None:
+                    distance = round(_dist2(node_1.position, node_2.position) ** 0.5, 4)
+                edges.append(
+                    ResidueEdge(
+                        src=node_1.node_index,
+                        dst=node_2.node_index,
+                        edge_type="covalent",
+                        distance_angstrom=distance,
+                    )
+                )
 
     if not nodes:
         notes.append("GRAPH_NO_RESIDUE_NODES")

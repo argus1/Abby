@@ -20,9 +20,11 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+from Bio.PDB import PDBParser
 from fastapi.testclient import TestClient
 
 from abby_api.main import app
@@ -32,10 +34,13 @@ from abby_api.services.graph_models import (
     GNNInferenceConfig,
     GNNInferenceResult,
     GraphBuildConfig,
+    ResidueEdge,
+    ResidueNode,
     SPRTrainingRecord,
     StructureGraph,
     TrainingPipelineConfig,
     TrainingRunResult,
+    build_structure_graph,
     evaluate_model,
     is_deepfri_available,
     is_proteinmpnn_available,
@@ -201,6 +206,99 @@ class TestGraphConstruction:
         assert cfg.contact_distance_cutoff_angstrom == 8.0
         assert cfg.include_backbone_edges is True
         assert cfg.include_covalent_edges is True
+
+    def test_graph_tensor_contract_has_stable_features_edges_masks_and_metadata(self) -> None:
+        graph = StructureGraph(
+            graph_id="fixed-graph",
+            nodes=[
+                ResidueNode(
+                    node_index=0,
+                    chain_id="A",
+                    residue_name="ALA",
+                    residue_seq_id=1,
+                    partner="partner_1",
+                    residue_class="apolar",
+                    position=(0.0, 0.0, 0.0),
+                    sasa=1.5,
+                    depth=2.5,
+                ),
+                ResidueNode(
+                    node_index=1,
+                    chain_id="B",
+                    residue_name="GLY",
+                    residue_seq_id=2,
+                    partner="partner_2",
+                    residue_class="other",
+                    position=(1.0, 0.0, 0.0),
+                    sasa=0.0,
+                    depth=0.0,
+                ),
+            ],
+            edges=[
+                ResidueEdge(0, 1, "contact", 1.0),
+                ResidueEdge(0, 1, "covalent", 1.0),
+            ],
+            node_feature_dim=28,
+            partner_1_node_indices=[0],
+            partner_2_node_indices=[1],
+            interface_node_indices=[0, 1],
+            build_config=GraphBuildConfig(),
+            graph_version="structure_graph_v1",
+            notes=[],
+        )
+
+        contract = graph.to_tensor_contract()
+
+        assert contract["node_features"] == [
+            [1.0] + [0.0] * 19 + [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.5, 2.5],
+            [0.0] * 7 + [1.0] + [0.0] * 16 + [1.0, 1.0, 0.0, 0.0],
+        ]
+        assert contract["edge_index"] == [[0, 0], [1, 1]]
+        assert contract["edge_type"] == [0, 2]
+        assert contract["partner_1_mask"] == [True, False]
+        assert contract["partner_2_mask"] == [False, True]
+        assert contract["interface_mask"] == [True, True]
+        assert contract["metadata"] == {
+            "graph_id": "fixed-graph",
+            "graph_version": "structure_graph_v1",
+            "node_feature_dim": 28,
+            "edge_type_encoding": {"contact": 0, "backbone": 1, "covalent": 2},
+        }
+
+    def test_graph_includes_preserved_mmcif_connectivity_as_covalent_edge(
+        self, tmp_path: Path
+    ) -> None:
+        pdb_file = tmp_path / "two_chain_structure.pdb"
+        pdb_file.write_text(PDB_FIXTURE)
+        structure = PDBParser(QUIET=True).get_structure("fixture", pdb_file)
+        validation = SimpleNamespace(
+            chain_groups=SimpleNamespace(partner_1=["A"], partner_2=["B"]),
+            metadata={
+                "connectivity": {
+                    "connections": [
+                        {
+                            "partner_1": {"chain_id": "A", "sequence_id": "1"},
+                            "partner_2": {"chain_id": "B", "sequence_id": "1"},
+                        }
+                    ]
+                }
+            },
+        )
+
+        graph = build_structure_graph(
+            structure,
+            validation,
+            GraphBuildConfig(
+                contact_distance_cutoff_angstrom=0.0,
+                include_backbone_edges=False,
+                include_covalent_edges=True,
+            ),
+        )
+
+        assert [(edge.src, edge.dst, edge.edge_type) for edge in graph.edges] == [
+            (0, 1, "covalent")
+        ]
+        assert "GRAPH_COVALENT_EDGES_FROM_STRUCT_CONN" in graph.notes
 
 
 # ===========================================================================
