@@ -16,7 +16,4 @@ ISO42001.pdf
 validation_dataset/ANDD_pdb/*
 !validation_dataset/ANDD_pdb/CompDetRAE_edge_cases/
 !validation_dataset/ANDD_pdb/CompDetRAE_edge_cases/*.mmcif
-Dev_Plan_Biopython.md
-Dev_Plan_CompDetRAE.md
-Dev_Plan_Implementation_Checklist.md
-Dev_Plan.md
+Dev_Plan*.md
